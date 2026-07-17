@@ -21,14 +21,14 @@ export function AboutPage() {
               <Users className="h-6 w-6" />
             </div>
             <h3 className="font-bold text-slate-800 mb-1">10,000+ Partners</h3>
-            <p className="text-xs text-slate-500">Rigorous 7-step background verification and training academy certification.</p>
+            <p className="text-xs text-slate-500">Rigorous background verification and identity screening processes.</p>
           </div>
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl border border-white/40 shadow-sm text-center">
             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
               <Shield className="h-6 w-6" />
             </div>
-            <h3 className="font-bold text-slate-800 mb-1">₹10,000 Damage Cover</h3>
-            <p className="text-xs text-slate-500">Every single booking is fully insured against accidents and accidental damage.</p>
+            <h3 className="font-bold text-slate-800 mb-1">Direct Meetings</h3>
+            <p className="text-xs text-slate-500">Easily compare multiple independent experts by inviting them to your home.</p>
           </div>
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-2xl border border-white/40 shadow-sm text-center">
             <div className="w-12 h-12 bg-amber-50 text-amber-500 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -42,7 +42,7 @@ export function AboutPage() {
         <div className="bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 space-y-6">
           <h2 className="text-2xl font-bold text-slate-900">Inspired by Standardized Quality</h2>
           <p className="text-slate-600 text-sm leading-relaxed">
-            Unlike traditional discovery portals, GoServik operates with a fully standardized model. We define the service parameters, perform comprehensive background checks, equip partners with specialized tools and premium consumables (just like Urban Company), and stand behind every single job with dedicated dispute resolution and insurance.
+            Unlike traditional portals, GoServik makes it incredibly easy to invite verified independent professionals to your home. We perform identity checks, define transparent visit charge limits, and let you meet and compare expert partners in person to decide what fits best.
           </p>
           <div className="space-y-3">
             <div className="flex gap-3 items-start text-sm text-slate-700">
@@ -199,9 +199,9 @@ export function TrustSafetyPage() {
               <Award className="h-6 w-6" />
             </div>
             <div className="space-y-2">
-              <h3 className="font-bold text-lg text-slate-900">Standardized ₹10,000 Insurance Cover</h3>
+              <h3 className="font-bold text-lg text-slate-900">Verified Profiles & Reviews</h3>
               <p className="text-sm text-slate-600 leading-relaxed">
-                Accidents are extremely rare, but in the case of any damages during delivery (such as accidental spillages, minor appliance issues, or installation glitches), GoServik protects customers with up to ₹10,000 compensation cover.
+                We confirm address records and ID details of every expert. Customers are free to read past user ratings and make informed decisions easily.
               </p>
             </div>
           </div>
@@ -342,7 +342,7 @@ export function CommunityGuidelinesPage() {
               <CheckCircle2 className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
               <div>
                 <p className="font-bold text-slate-800">Zero Direct Solicitation</p>
-                <p className="text-xs">Exchanging contact info to take bookings off-platform is strictly prohibited to maintain consumer insurance rights.</p>
+                <p className="text-xs">Exchanging contact info to take bookings off-platform is strictly prohibited to maintain standardized visit rate parameters.</p>
               </div>
             </div>
             <div className="flex gap-3 items-start">

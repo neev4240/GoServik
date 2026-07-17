@@ -21,7 +21,7 @@ export function Dashboard() {
   // State for adding a new service (professional)
   const [newServiceName, setNewServiceName] = useState('');
   const [newServiceCategory, setNewServiceCategory] = useState('cat-1');
-  const [newServicePrice, setNewServicePrice] = useState('2500');
+  const [newServicePrice, setNewServicePrice] = useState('99');
   const [newServiceUnit, setNewServiceUnit] = useState<'hourly' | 'fixed'>('fixed');
   const [newServiceExperience, setNewServiceExperience] = useState('3');
   const [newServiceDesc, setNewServiceDesc] = useState('');
@@ -44,6 +44,16 @@ export function Dashboard() {
 
   // State for Profile settings form
   const [settingsName, setSettingsName] = useState(currentUser?.name || '');
+  const [settingsMobile, setSettingsMobile] = useState('');
+  const [settingsEmail, setSettingsEmail] = useState(currentUser?.email || '');
+  const [settingsDob, setSettingsDob] = useState('');
+  const [settingsCountry, setSettingsCountry] = useState('India');
+  const [settingsState, setSettingsState] = useState('');
+  const [settingsCity, setSettingsCity] = useState('');
+  const [settingsPincode, setSettingsPincode] = useState('');
+  const [settingsAddressLine, setSettingsAddressLine] = useState('');
+  const [settingsLandmark, setSettingsLandmark] = useState('');
+
   const [settingsLocation, setSettingsLocation] = useState('Mumbai, India');
   const [settingsBio, setSettingsBio] = useState('Certified premium partner of GoServik.');
   const [settingsLanguages, setSettingsLanguages] = useState('English, Hindi');
@@ -56,11 +66,23 @@ export function Dashboard() {
     if (!currentUser) {
       navigate('/login');
     } else {
-      setSettingsName(currentUser.name);
-      if ('location' in currentUser) setSettingsLocation(currentUser.location);
-      if ('bio' in currentUser) setSettingsBio(currentUser.bio);
-      if ('languages' in currentUser) setSettingsLanguages(currentUser.languages.join(', '));
-      if ('availabilityStatus' in currentUser) setSettingsStatus(currentUser.availabilityStatus);
+      setSettingsName(currentUser.name || '');
+      setSettingsEmail(currentUser.email || '');
+      setSettingsMobile(currentUser.mobile || '');
+      setSettingsDob(currentUser.dob || '');
+      setSettingsCountry(currentUser.country || 'India');
+      setSettingsState(currentUser.state || '');
+      setSettingsCity(currentUser.city || '');
+      setSettingsPincode(currentUser.pincode || '');
+      setSettingsAddressLine(currentUser.addressLine || '');
+      setSettingsLandmark(currentUser.landmark || '');
+
+      if ('location' in currentUser) setSettingsLocation(currentUser.location || '');
+      if ('bio' in currentUser) setSettingsBio(currentUser.bio || '');
+      if ('languages' in currentUser && currentUser.languages) {
+        setSettingsLanguages(currentUser.languages.join(', '));
+      }
+      if ('availabilityStatus' in currentUser) setSettingsStatus(currentUser.availabilityStatus || 'available');
     }
   }, [currentUser, navigate]);
 
@@ -144,11 +166,23 @@ export function Dashboard() {
     e.preventDefault();
     if (!newServiceName.trim()) return;
 
+    // Check if AC Installation or Tiling to set default prices
+    let calculatedPrice = Number(newServicePrice) || 99;
+    const isACInstallation = newServiceName.toLowerCase().includes('ac installation');
+    const isTiling = newServiceName.toLowerCase().includes('tiling');
+    
+    if (isACInstallation) {
+      calculatedPrice = 99;
+    } else if (isTiling) {
+      // Tiling price default base is 99 (assuming typical <= 500 sq ft)
+      calculatedPrice = 99;
+    }
+
     const serviceObj = {
       categoryId: newServiceCategory,
       name: newServiceName,
       description: newServiceDesc || 'No custom details provided.',
-      basePrice: Number(newServicePrice) || 1500,
+      basePrice: calculatedPrice,
       priceUnit: newServiceUnit,
       experienceYears: Number(newServiceExperience) || 2
     };
@@ -165,7 +199,16 @@ export function Dashboard() {
     e.preventDefault();
     const updatedFields: any = {
       name: settingsName,
-      location: settingsLocation,
+      email: settingsEmail,
+      mobile: settingsMobile,
+      dob: settingsDob,
+      country: settingsCountry,
+      state: settingsState,
+      city: settingsCity,
+      pincode: settingsPincode,
+      addressLine: settingsAddressLine,
+      landmark: settingsLandmark,
+      location: settingsCity ? `${settingsCity}, ${settingsState || settingsCountry}` : settingsLocation,
       languages: settingsLanguages.split(',').map(s => s.trim())
     };
 
@@ -506,15 +549,19 @@ export function Dashboard() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Price (₹ INR)</label>
-                    <input 
-                      type="number" 
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Charges Per Visit</label>
+                    <select 
                       required
-                      placeholder="e.g. 1500"
                       value={newServicePrice}
                       onChange={(e) => setNewServicePrice(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
+                      className="w-full rounded-xl border border-slate-200 bg-white/50 px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none bg-white"
+                    >
+                      <option value="49">₹49 (Standard Visit)</option>
+                      <option value="99">₹99 (Premium Visit)</option>
+                      <option value="149">₹149 (Specialist Visit)</option>
+                      <option value="199">₹199 (Elite Visit)</option>
+                      <option value="249">₹249 (Express Visit)</option>
+                    </select>
                   </div>
                   <div>
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Billing Interval</label>
@@ -674,56 +721,167 @@ export function Dashboard() {
 
           {/* TAB: BUSINESS/PROFILE SETTINGS */}
           {currentTab === 'settings' && (
-            <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm p-6">
-              <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-1.5">
-                <Settings className="h-4 w-4 text-indigo-600" /> Account Parameters
-              </h3>
+            <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm p-6 space-y-6">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-1.5">
+                  <Settings className="h-4 w-4 text-indigo-600" /> Account Parameters & Personal Profile
+                </h3>
+                <p className="text-xs text-slate-500">Provide your personal credentials, contact info, and home address parameters below.</p>
+              </div>
+
               {settingsSuccess && (
-                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs p-3 rounded-xl font-bold text-center mb-4">
+                <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs p-3 rounded-xl font-bold text-center">
                   {settingsSuccess}
                 </div>
               )}
-              <form onSubmit={handleSaveSettings} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Display Name</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={settingsName}
-                      onChange={(e) => setSettingsName(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white/50 px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Location / City</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={settingsLocation}
-                      onChange={(e) => setSettingsLocation(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white/50 px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Languages (Comma separated)</label>
-                    <input 
-                      type="text" 
-                      value={settingsLanguages}
-                      onChange={(e) => setSettingsLanguages(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white/50 px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
 
-                  {currentUser.role === 'professional' && (
-                    <>
+              <form onSubmit={handleSaveSettings} className="space-y-6">
+                {/* SECTION 1: PERSONAL INFORMATION */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">1. Personal Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Full / Display Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsName}
+                        onChange={(e) => setSettingsName(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="Neev Aggarwal"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Number</label>
+                      <input 
+                        type="tel" 
+                        required
+                        value={settingsMobile}
+                        onChange={(e) => setSettingsMobile(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="e.g. 9876543210"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Email Address</label>
+                      <input 
+                        type="email" 
+                        required
+                        value={settingsEmail}
+                        onChange={(e) => setSettingsEmail(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="name@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date of Birth (DoB)</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={settingsDob}
+                        onChange={(e) => setSettingsDob(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 2: DETAILED ADDRESS */}
+                <div className="space-y-3">
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">2. Detailed Home Address</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Country</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsCountry}
+                        onChange={(e) => setSettingsCountry(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="India"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">State</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsState}
+                        onChange={(e) => setSettingsState(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="Maharashtra"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">City</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsCity}
+                        onChange={(e) => setSettingsCity(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="Mumbai"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pincode</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsPincode}
+                        onChange={(e) => setSettingsPincode(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="400001"
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Address Line (House/Plot, Street)</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsAddressLine}
+                        onChange={(e) => setSettingsAddressLine(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="Flat 402, Greenfield Apartments"
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Landmark</label>
+                      <input 
+                        type="text" 
+                        required
+                        value={settingsLandmark}
+                        onChange={(e) => setSettingsLandmark(e.target.value)}
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                        placeholder="Near City Central Mall"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 3: PROFESSIONAL SERVICE PREFERENCES */}
+                {currentUser.role === 'professional' && (
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">3. Business Parameters</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="sm:col-span-2">
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Languages (Comma separated)</label>
+                        <input 
+                          type="text" 
+                          value={settingsLanguages}
+                          onChange={(e) => setSettingsLanguages(e.target.value)}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                          placeholder="English, Hindi, Marathi"
+                        />
+                      </div>
                       <div className="sm:col-span-2">
                         <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Tagline / Bio</label>
                         <textarea 
                           rows={2}
                           value={settingsBio}
                           onChange={(e) => setSettingsBio(e.target.value)}
-                          className="w-full rounded-xl border border-slate-200 bg-white/50 px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                          placeholder="Experienced independent home services expert"
                         />
                       </div>
                       <div className="sm:col-span-2">
@@ -737,7 +895,7 @@ export function Dashboard() {
                               className={`py-2 text-xs font-bold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${
                                 settingsStatus === status 
                                   ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                                  : 'bg-white/50 text-slate-650 border-slate-200/80 hover:bg-white'
+                                  : 'bg-white text-slate-650 border-slate-200/80 hover:bg-slate-50'
                               }`}
                             >
                               <span className={`w-2 h-2 rounded-full ${
@@ -749,9 +907,9 @@ export function Dashboard() {
                           ))}
                         </div>
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                )}
 
                 <Button type="submit" className="w-full h-11 bg-slate-900 hover:bg-slate-850 text-white text-xs font-bold rounded-xl">
                   Save Changes

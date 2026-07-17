@@ -7,6 +7,15 @@ export interface User {
   role: Role;
   avatar?: string;
   joinedAt: string;
+  // Detailed Profile and Address Fields
+  mobile?: string;
+  dob?: string;
+  country?: string;
+  state?: string;
+  city?: string;
+  pincode?: string;
+  addressLine?: string;
+  landmark?: string;
 }
 
 export interface ServiceCategory {
