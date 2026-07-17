@@ -5,7 +5,8 @@ import { Button } from '../components/ui/Button';
 import { 
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
   FileText, Bell, MapPin, Activity, CheckCircle, 
-  XCircle, Send, Star, UserCheck, Plus, Trash2, ShieldAlert, Sparkles, Languages
+  XCircle, Send, Star, UserCheck, Plus, Trash2, ShieldAlert, Sparkles, Languages,
+  X, Phone, Mail, Clock
 } from 'lucide-react';
 
 export function Dashboard() {
@@ -59,6 +60,7 @@ export function Dashboard() {
   const [settingsLanguages, setSettingsLanguages] = useState('English, Hindi');
   const [settingsStatus, setSettingsStatus] = useState<'available' | 'busy' | 'offline'>('available');
   const [settingsSuccess, setSettingsSuccess] = useState('');
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -368,19 +370,32 @@ export function Dashboard() {
                     {userBookings.slice(0, 3).map(booking => {
                       const pro = professionals.find(p => p.id === booking.professionalId);
                       return (
-                        <div key={booking.id} className="p-4 bg-white/70 rounded-2xl border border-slate-100 flex justify-between items-center text-xs">
+                        <button 
+                          key={booking.id} 
+                          onClick={() => setSelectedBooking(booking)}
+                          className="w-full text-left p-4 bg-white/70 hover:bg-indigo-50/30 active:bg-indigo-100/30 rounded-2xl border border-slate-100 flex justify-between items-center text-xs transition-all hover:scale-[1.01] hover:shadow-sm"
+                        >
                           <div>
-                            <p className="font-bold text-slate-800">{pro?.name || 'Service Specialist'}</p>
+                            <p className="font-bold text-slate-800">
+                              {currentUser.role === 'customer' 
+                                ? `Service with ${pro?.name || 'Service Specialist'}` 
+                                : `Booking from ${booking.customerName || 'GoServik Client'}`
+                              }
+                            </p>
                             <p className="text-slate-500">{new Date(booking.date).toLocaleDateString()} at {booking.time}</p>
                           </div>
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
-                            booking.status === 'confirmed' ? 'bg-green-50 text-green-700 border border-green-100' :
-                            booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {booking.status}
-                          </span>
-                        </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-indigo-600 font-bold hover:underline hidden sm:inline">View Order Details</span>
+                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                              booking.status === 'confirmed' ? 'bg-green-50 text-green-700 border border-green-100' :
+                              booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
+                              booking.status === 'completed' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                              'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                              {booking.status}
+                            </span>
+                          </div>
+                        </button>
                       )
                     })}
                   </div>
@@ -403,7 +418,11 @@ export function Dashboard() {
                   {userBookings.map(booking => {
                     const relatedPro = professionals.find(p => p.id === booking.professionalId);
                     return (
-                      <div key={booking.id} className="p-5 bg-white/80 rounded-2xl border border-slate-150 shadow-sm flex flex-col sm:flex-row gap-5 justify-between items-start sm:items-center">
+                      <div 
+                        key={booking.id} 
+                        onClick={() => setSelectedBooking(booking)}
+                        className="cursor-pointer hover:border-indigo-300 hover:shadow-md active:scale-[0.99] p-5 bg-white/80 hover:bg-white rounded-2xl border border-slate-150 shadow-sm flex flex-col sm:flex-row gap-5 justify-between items-start sm:items-center transition-all group"
+                      >
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wide">
@@ -418,16 +437,22 @@ export function Dashboard() {
                               {booking.status}
                             </span>
                           </div>
-                          <h3 className="text-slate-900 font-extrabold text-base">
-                            {currentUser.role === 'customer' ? `Service with ${relatedPro?.name || 'Certified Partner'}` : `Task Request`}
+                          <h3 className="text-slate-900 font-extrabold text-base group-hover:text-indigo-600 transition-colors">
+                            {currentUser.role === 'customer' 
+                              ? `Service with ${relatedPro?.name || 'Certified Partner'}` 
+                              : `Booking from ${booking.customerName || 'GoServik Client'}`
+                            }
                           </h3>
                           <p className="text-xs text-slate-500 leading-relaxed max-w-md">
                             {booking.notes || "No special requests mentioned. All standard tools will be supplied by GoServik."}
                           </p>
-                          <p className="text-sm font-bold text-indigo-600 mt-2">Price: ₹{booking.totalPrice} INR</p>
+                          <div className="flex items-center gap-4 mt-2">
+                            <p className="text-sm font-bold text-indigo-600">Price: ₹{booking.totalPrice} INR</p>
+                            <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline">Click to view customer details &rarr;</span>
+                          </div>
                         </div>
                         
-                        <div className="flex gap-2 w-full sm:w-auto shrink-0">
+                        <div className="flex gap-2 w-full sm:w-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                           {booking.status === 'pending' && currentUser.role === 'customer' && (
                             <Button 
                               variant="outline" 
@@ -958,6 +983,186 @@ export function Dashboard() {
 
         </main>
       </div>
+
+      {/* Sleek Order Details Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            {/* Modal Header */}
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">Order # {selectedBooking.id}</span>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                  Booking Order Details
+                  <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-extrabold capitalize border ${
+                    selectedBooking.status === 'confirmed' ? 'bg-green-50 text-green-700 border-green-200' :
+                    selectedBooking.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                    selectedBooking.status === 'completed' ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                    'bg-slate-50 text-slate-600 border-slate-200'
+                  }`}>
+                    {selectedBooking.status}
+                  </span>
+                </h3>
+              </div>
+              <button 
+                onClick={() => setSelectedBooking(null)}
+                className="h-8 w-8 rounded-full hover:bg-slate-200/60 active:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6 text-slate-700">
+              
+              {/* Service Opted info */}
+              <div className="flex items-start gap-3 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50">
+                <Sparkles className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Service Opted</h4>
+                  <p className="font-extrabold text-slate-900 text-sm mt-0.5">{selectedBooking.customerServiceOpted || 'Home Visit Service'}</p>
+                </div>
+              </div>
+
+              {/* Time & Price Row */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-0.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Arrival Schedule</span>
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 mt-1">
+                    <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                    <span>{new Date(selectedBooking.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mt-0.5 pl-5">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{selectedBooking.time}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-0.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estimated visit Fee</span>
+                  <div className="text-xl font-extrabold text-slate-900 mt-1">₹{selectedBooking.totalPrice}</div>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Payable upon work completion</span>
+                </div>
+              </div>
+
+              {/* Customer Details */}
+              <div className="space-y-3.5">
+                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 border-b pb-1">
+                  <UserIcon className="h-4 w-4 text-indigo-600" /> Customer Information
+                </h4>
+                
+                <div className="space-y-3 pl-1">
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 mt-0.5">
+                      <UserIcon className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Full Name</span>
+                      <span className="text-xs font-bold text-slate-850">{selectedBooking.customerName || currentUser.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 mt-0.5">
+                      <Phone className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Mobile Number</span>
+                      <span className="text-xs font-bold text-slate-850 select-all">{selectedBooking.customerMobile || currentUser.mobile || 'Not provided'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0 mt-0.5">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Service Address</span>
+                      <p className="text-xs font-bold text-slate-850 leading-relaxed select-all">{selectedBooking.customerAddress || 'No detailed address registered'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes / Landmark */}
+              <div className="space-y-1 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Special Instructions & Landmark</span>
+                <p className="text-xs text-slate-600 italic leading-relaxed mt-1">
+                  "{selectedBooking.notes || 'No special instructions listed by client.'}"
+                </p>
+              </div>
+
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-2.5">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedBooking(null)}
+                className="text-xs font-bold rounded-xl h-10 border-slate-200"
+              >
+                Close Window
+              </Button>
+
+              {selectedBooking.status === 'pending' && currentUser.role === 'professional' && (
+                <>
+                  <Button 
+                    size="sm" 
+                    onClick={() => {
+                      updateBookingStatus(selectedBooking.id, 'confirmed');
+                      setSelectedBooking(prev => prev ? { ...prev, status: 'confirmed' } : null);
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-10 px-4"
+                  >
+                    Accept Job
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    size="sm" 
+                    onClick={() => {
+                      updateBookingStatus(selectedBooking.id, 'cancelled');
+                      setSelectedBooking(prev => prev ? { ...prev, status: 'cancelled' } : null);
+                    }}
+                    className="text-red-600 hover:bg-red-50 border-red-200 text-xs font-bold rounded-xl h-10 px-4"
+                  >
+                    Decline
+                  </Button>
+                </>
+              )}
+
+              {selectedBooking.status === 'confirmed' && currentUser.role === 'professional' && (
+                <Button 
+                  size="sm" 
+                  onClick={() => {
+                    updateBookingStatus(selectedBooking.id, 'completed');
+                    setSelectedBooking(prev => prev ? { ...prev, status: 'completed' } : null);
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-10 px-4"
+                >
+                  Mark as Completed
+                </Button>
+              )}
+
+              {selectedBooking.status === 'pending' && currentUser.role === 'customer' && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    updateBookingStatus(selectedBooking.id, 'cancelled');
+                    setSelectedBooking(prev => prev ? { ...prev, status: 'cancelled' } : null);
+                  }}
+                  className="text-red-600 hover:bg-red-50 border-red-200 text-xs font-bold rounded-xl h-10 px-4"
+                >
+                  Cancel Booking
+                </Button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }

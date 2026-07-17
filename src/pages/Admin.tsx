@@ -1,18 +1,33 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/ui/Button';
 import { 
   Database, RefreshCw, CheckCircle, XCircle, Lock, 
   ShieldAlert, Sparkles, UserCheck, Calendar, LogOut, 
-  AlertCircle, ArrowLeft, Shield, Wrench, Eye
+  AlertCircle, ArrowLeft, Shield, Wrench, Eye, Users,
+  Edit2, Trash2, Search, X, Phone, Mail, MapPin, 
+  User, Globe, Building2, Activity, Clock, LayoutDashboard
 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { setDoc, doc } from 'firebase/firestore';
+import { Role, ProfessionalProfile, Booking } from '../types';
 
 export function AdminPage() {
   const navigate = useNavigate();
-  const { professionals, bookings, categories, reviews, updateBookingStatus, updateUserProfile } = useStore();
+  const { 
+    professionals, 
+    bookings, 
+    categories, 
+    reviews, 
+    customers, 
+    updateBookingStatus, 
+    deleteBooking, 
+    updateCustomer, 
+    deleteCustomer, 
+    updateProfessional, 
+    deleteProfessional 
+  } = useStore();
   
   // Login credentials state
   const [username, setUsername] = useState('');
@@ -21,6 +36,27 @@ export function AdminPage() {
     return sessionStorage.getItem('admin_authenticated') === 'true';
   });
   const [loginError, setLoginError] = useState('');
+
+  // Navigation page/tab state
+  const [activeTab, setActiveTab] = useState<'overview' | 'professionals' | 'customers' | 'bookings'>('overview');
+
+  // Search/Filter states
+  const [searchPro, setSearchPro] = useState('');
+  const [searchCust, setSearchCust] = useState('');
+  const [searchBk, setSearchBk] = useState('');
+  const [filterBkStatus, setFilterBkStatus] = useState<string>('all');
+
+  // Editing state
+  const [editingCustomer, setEditingCustomer] = useState<any>(null);
+  const [customerForm, setCustomerForm] = useState<any>({});
+
+  const [editingPro, setEditingPro] = useState<any>(null);
+  const [proForm, setProForm] = useState<any>({});
+
+  // Deletion confirmation state
+  const [deletingCustomer, setDeletingCustomer] = useState<any>(null);
+  const [deletingPro, setDeletingPro] = useState<any>(null);
+  const [deletingBooking, setDeletingBooking] = useState<any>(null);
 
   // Firebase manual sync state
   const [syncing, setSyncing] = useState(false);
@@ -63,6 +99,10 @@ export function AdminPage() {
       for (const rev of reviews) {
         await setDoc(doc(db, "reviews", rev.id), rev);
       }
+      // Sync customers
+      for (const cust of customers) {
+        await setDoc(doc(db, "customers", cust.id), cust);
+      }
 
       setSyncMessage('Successfully synced all live data and mocks into Firebase Firestore!');
       setTimeout(() => setSyncMessage(''), 4000);
@@ -71,6 +111,56 @@ export function AdminPage() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  // Edit Handlers
+  const openEditCustomer = (cust: any) => {
+    setEditingCustomer(cust);
+    setCustomerForm({ ...cust });
+  };
+
+  const handleSaveCustomer = () => {
+    if (!customerForm.name || !customerForm.email) {
+      alert("Please provide a name and email address.");
+      return;
+    }
+    updateCustomer(editingCustomer.id, customerForm);
+    setEditingCustomer(null);
+    alert("Customer details saved successfully!");
+  };
+
+  const openEditPro = (pro: any) => {
+    setEditingPro(pro);
+    setProForm({ ...pro });
+  };
+
+  const handleSavePro = () => {
+    if (!proForm.name || !proForm.email) {
+      alert("Please provide a name and email address.");
+      return;
+    }
+    updateProfessional(editingPro.id, proForm);
+    setEditingPro(null);
+    alert("Professional details saved successfully!");
+  };
+
+  // Delete Handlers
+  const confirmDeleteCustomer = () => {
+    deleteCustomer(deletingCustomer.id);
+    setDeletingCustomer(null);
+    alert("Customer account deleted successfully!");
+  };
+
+  const confirmDeletePro = () => {
+    deleteProfessional(deletingPro.id);
+    setDeletingPro(null);
+    alert("Professional profile deleted successfully!");
+  };
+
+  const confirmDeleteBooking = () => {
+    deleteBooking(deletingBooking.id);
+    setDeletingBooking(null);
+    alert("Booking order deleted successfully!");
   };
 
   if (!isLoggedIn) {
@@ -141,8 +231,33 @@ export function AdminPage() {
     );
   }
 
+  // Filter lists based on searches
+  const filteredProfessionals = professionals.filter(pro => 
+    pro.name.toLowerCase().includes(searchPro.toLowerCase()) ||
+    pro.email.toLowerCase().includes(searchPro.toLowerCase()) ||
+    pro.location.toLowerCase().includes(searchPro.toLowerCase()) ||
+    pro.tagline.toLowerCase().includes(searchPro.toLowerCase())
+  );
+
+  const filteredCustomers = customers.filter(cust => 
+    cust.name.toLowerCase().includes(searchCust.toLowerCase()) ||
+    cust.email.toLowerCase().includes(searchCust.toLowerCase()) ||
+    (cust.mobile && cust.mobile.includes(searchCust))
+  );
+
+  const filteredBookings = bookings.filter(bk => {
+    const matchesSearch = 
+      bk.id.toLowerCase().includes(searchBk.toLowerCase()) ||
+      bk.customerName.toLowerCase().includes(searchBk.toLowerCase()) ||
+      (bk.customerServiceOpted && bk.customerServiceOpted.toLowerCase().includes(searchBk.toLowerCase()));
+    
+    const matchesStatus = filterBkStatus === 'all' || bk.status === filterBkStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="bg-slate-50/50 min-h-screen">
+    <div className="bg-slate-50/50 min-h-screen pb-16">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8 space-y-8">
         
         {/* Admin Header */}
@@ -153,7 +268,7 @@ export function AdminPage() {
               <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></span>
             </div>
             <h1 className="text-2xl font-black text-slate-900 mt-1">Platform Admin Console</h1>
-            <p className="text-xs text-slate-500 font-medium">Manage technicians, confirm bookings, and synchronize with cloud database.</p>
+            <p className="text-xs text-slate-500 font-medium">Manage technicians, confirm/cancel bookings, edit accounts and synchronize cloud data.</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button 
@@ -166,170 +281,966 @@ export function AdminPage() {
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total Bookings</p>
-            <p className="text-3xl font-extrabold text-slate-900">{bookings.length}</p>
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">From all registers</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Partners</p>
-            <p className="text-3xl font-extrabold text-slate-900">{professionals.length}</p>
-            <p className="text-[10px] text-indigo-600 mt-1.5 font-semibold">Listed Experts</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm">
-            <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Services Offered</p>
-            <p className="text-3xl font-extrabold text-slate-900">
-              {professionals.reduce((acc, p) => acc + p.services.length, 0)}
-            </p>
-            <p className="text-[10px] text-slate-400 mt-1.5 font-medium">Across {categories.length} categories</p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between">
-            <div>
-              <p className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Database Gateway</p>
-              <p className="text-sm font-extrabold text-emerald-600 flex items-center gap-1.5 mt-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                Active Auto-Sync
-              </p>
-            </div>
-            {syncMessage && (
-              <p className="text-[9px] text-indigo-600 font-bold mt-1 bg-indigo-50 p-1.5 rounded-lg border border-indigo-100">{syncMessage}</p>
-            )}
-            <Button 
-              className="w-full mt-2.5 bg-indigo-600 hover:bg-indigo-700 text-[10px] h-8 font-bold rounded-xl"
-              disabled={syncing}
-              onClick={handleSyncToFirebase}
-            >
-              <RefreshCw className={`h-3 w-3 mr-1.5 ${syncing ? 'animate-spin' : ''}`} />
-              {syncing ? 'Syncing...' : 'Sync All to Firestore'}
-            </Button>
-          </div>
+        {/* 3 Different Pages / Navigation Tab Bar */}
+        <div className="flex flex-wrap bg-white p-1.5 rounded-2xl border border-slate-200/60 gap-1 shadow-sm">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'overview' 
+                ? 'bg-slate-900 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            Overview Dashboard
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('professionals')}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'professionals' 
+                ? 'bg-slate-900 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Wrench className="h-4 w-4" />
+            Professional Partners ({professionals.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('customers')}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'customers' 
+                ? 'bg-slate-900 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Registered Customers ({customers.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('bookings')}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'bookings' 
+                ? 'bg-slate-900 text-white shadow-md' 
+                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+            }`}
+          >
+            <Calendar className="h-4 w-4" />
+            Bookings & Cancellations ({bookings.length})
+          </button>
         </div>
 
-        {/* Administration Modules */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Active Workspace Container */}
+        <div className="transition-all duration-300">
           
-          {/* Verify Professionals Panel */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-              <UserCheck className="h-5 w-5 text-indigo-600" />
-              <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wide">Verify Professionals & Partners</h3>
-            </div>
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-              {professionals.map((pro) => (
-                <div key={pro.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div className="flex items-center gap-3">
-                    <img src={pro.avatar} alt={pro.name} className="h-10 w-10 rounded-full object-cover border border-slate-200" referrerPolicy="no-referrer" />
-                    <div>
-                      <h4 className="font-bold text-slate-800 text-xs flex items-center gap-1.5">
-                        {pro.name}
-                        {pro.verified && <CheckCircle className="h-3.5 w-3.5 text-indigo-600 fill-indigo-100" />}
-                      </h4>
-                      <p className="text-[10px] text-slate-500 font-medium">{pro.tagline}</p>
-                      <p className="text-[9px] text-indigo-600 font-bold">{pro.location}</p>
-                    </div>
+          {/* ======================================= */}
+          {/* OVERVIEW DASHBOARD PAGE                 */}
+          {/* ======================================= */}
+          {activeTab === 'overview' && (
+            <div className="space-y-8 animate-fade-in">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-36">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Active Bookings</p>
+                    <p className="text-3xl font-extrabold text-slate-900 mt-1">{bookings.length}</p>
                   </div>
-                  <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                    <button 
-                      onClick={() => {
-                        const isVerified = pro.verified;
-                        updateUserProfile({ id: pro.id, verified: !isVerified } as any);
-                        alert(`Verification state successfully toggled for ${pro.name}!`);
-                      }}
-                      className={`text-[10px] h-8 px-3 font-extrabold rounded-xl border transition-all w-full sm:w-auto ${
-                        pro.verified 
-                          ? 'bg-amber-50 text-amber-700 border-amber-100 hover:bg-amber-100' 
-                          : 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700'
-                      }`}
-                    >
-                      {pro.verified ? 'Revoke Verification' : 'Verify Expert'}
-                    </button>
-                  </div>
+                  <p className="text-[10px] text-slate-400 font-semibold">Logged service requests</p>
                 </div>
-              ))}
-            </div>
-          </div>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-36">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Expert Technicians</p>
+                    <p className="text-3xl font-extrabold text-slate-900 mt-1">{professionals.length}</p>
+                  </div>
+                  <p className="text-[10px] text-indigo-600 font-semibold">Professionals with active profiles</p>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-36">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Normal User Accounts</p>
+                    <p className="text-3xl font-extrabold text-slate-900 mt-1">{customers.length}</p>
+                  </div>
+                  <p className="text-[10px] text-emerald-600 font-semibold">Registered clients on GoServik</p>
+                </div>
+                <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-36">
+                  <div>
+                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Total reviews</p>
+                    <p className="text-3xl font-extrabold text-slate-900 mt-1">{reviews.length}</p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 font-semibold">Client experience ratings</p>
+                </div>
+              </div>
 
-          {/* Manage Booking requests Panel */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-3 flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-indigo-600" />
-              <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wide">Booking Orders & Lifecycles</h3>
+              <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm space-y-6">
+                <div className="space-y-2">
+                  <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
+                    <Database className="h-5 w-5 text-indigo-600" />
+                    Cloud Database Backup Gateway
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+                    By default, the platform writes active records on-the-fly to Google Cloud Firestore collections. You can trigger a full sync to force-refresh all local mock entities, reviews, and customers directly into the cloud database schema.
+                  </p>
+                </div>
+
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Active Auto-Sync Mode
+                    </p>
+                    <p className="text-[10px] text-slate-400">All edit & delete operations below are directly synced to Cloud Firestore.</p>
+                  </div>
+
+                  {syncMessage && (
+                    <div className="bg-indigo-50 text-indigo-700 text-xs px-4 py-2 rounded-xl font-bold border border-indigo-100 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      {syncMessage}
+                    </div>
+                  )}
+
+                  <Button 
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-10 px-5 shrink-0"
+                    disabled={syncing}
+                    onClick={handleSyncToFirebase}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Syncing...' : 'Force Sync All to Firestore'}
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-              {bookings.length === 0 ? (
-                <div className="text-center py-10 text-slate-400 text-xs font-semibold">
-                  No bookings requests currently logged on the platform.
+          )}
+
+          {/* ======================================= */}
+          {/* PROFESSIONAL USERS PAGE (PAGE 1)        */}
+          {/* ======================================= */}
+          {activeTab === 'professionals' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Toolbar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+                <div className="relative w-full sm:max-w-md">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search professionals by name, email, tagline or location..."
+                    value={searchPro}
+                    onChange={(e) => setSearchPro(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-indigo-500 transition-all text-slate-850 font-medium"
+                  />
+                </div>
+                <div className="text-[11px] text-slate-400 font-bold shrink-0 bg-slate-50 px-3 py-1.5 rounded-lg border">
+                  Showing {filteredProfessionals.length} of {professionals.length} professionals
+                </div>
+              </div>
+
+              {/* Grid of Professionals */}
+              {filteredProfessionals.length === 0 ? (
+                <div className="bg-white rounded-3xl border border-slate-200/60 p-12 text-center text-slate-400 text-xs font-semibold">
+                  No professionals found matching "{searchPro}".
                 </div>
               ) : (
-                bookings.map((bk) => {
-                  const pro = professionals.find(p => p.id === bk.professionalId);
-                  const proName = pro ? pro.name : "Unknown Technician";
-                  const srv = pro?.services.find(s => s.id === bk.serviceId);
-                  const srvName = srv ? srv.name : "General Expert Service";
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredProfessionals.map((pro) => (
+                    <div key={pro.id} className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all">
+                      {/* Card Content */}
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <img src={pro.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200'} alt={pro.name} className="h-12 w-12 rounded-full object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                            <div>
+                              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-1.5">
+                                {pro.name}
+                                {pro.verified && <CheckCircle className="h-4 w-4 text-indigo-600 fill-indigo-100" />}
+                              </h4>
+                              <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 uppercase tracking-wider font-extrabold">{pro.id}</span>
+                            </div>
+                          </div>
 
-                  return (
-                    <div key={bk.id} className="p-4 bg-slate-50 rounded-2xl border border-slate-200/50 space-y-3">
-                      <div className="flex justify-between items-start gap-2">
-                        <div>
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
-                            bk.status === 'confirmed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
-                            bk.status === 'completed' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                            bk.status === 'cancelled' ? 'bg-rose-50 text-rose-700 border border-rose-100' :
-                            'bg-amber-50 text-amber-700 border border-amber-100'
-                          }`}>
-                            {bk.status}
-                          </span>
-                          <h4 className="font-bold text-slate-800 text-xs mt-1.5">{srvName}</h4>
-                          <p className="text-[10px] text-slate-500 font-medium mt-0.5">Customer ID: {bk.customerId}</p>
-                          <p className="text-[10px] text-indigo-600 font-bold mt-0.5">Technician: {proName}</p>
-                        </div>
-                        <span className="text-xs font-black text-slate-900">₹{bk.totalPrice}</span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2 text-[10px] text-slate-400 font-semibold bg-white p-2 rounded-xl border border-slate-150">
-                        <span>📅 {bk.date}</span>
-                        <span>⏰ {bk.time}</span>
-                        {bk.notes && <span className="truncate max-w-full">📝 {bk.notes}</span>}
-                      </div>
-
-                      <div className="flex gap-1.5 pt-1">
-                        {bk.status === 'pending' && (
-                          <>
-                            <button 
-                              onClick={() => updateBookingStatus(bk.id, 'confirmed')}
-                              className="flex-1 text-[9px] h-7 font-bold rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-all"
-                            >
-                              Confirm Booking
-                            </button>
-                            <button 
-                              onClick={() => updateBookingStatus(bk.id, 'cancelled')}
-                              className="flex-1 text-[9px] h-7 font-bold rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all"
-                            >
-                              Cancel
-                            </button>
-                          </>
-                        )}
-                        {bk.status === 'confirmed' && (
                           <button 
-                            onClick={() => updateBookingStatus(bk.id, 'completed')}
-                            className="w-full text-[9px] h-7 font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-all"
+                            onClick={() => {
+                              const isVerified = pro.verified;
+                              updateProfessional(pro.id, { verified: !isVerified });
+                              alert(`Verification state successfully toggled for ${pro.name}!`);
+                            }}
+                            className={`text-[9px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border transition-all ${
+                              pro.verified 
+                                ? 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100' 
+                                : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
+                            }`}
                           >
-                            Complete Order
+                            {pro.verified ? 'Verified' : 'Unverified'}
                           </button>
-                        )}
+                        </div>
+
+                        <div className="space-y-1.5 border-t border-slate-100 pt-3.5 text-slate-700">
+                          <p className="text-xs font-bold text-slate-850 line-clamp-1">"{pro.tagline || 'No tagline set'}"</p>
+                          <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{pro.bio || 'No bio entered.'}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-2xl border text-[10px] font-semibold text-slate-600">
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span className="truncate">{pro.location || 'Not set'}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Phone className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span className="truncate">{pro.mobile || 'No mobile'}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Mail className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span className="truncate">{pro.email || 'No email'}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span className="truncate capitalize">{pro.availabilityStatus || 'available'}</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold bg-indigo-50/40 border border-indigo-100/50 p-2 rounded-xl">
+                          <span>Services: {pro.services?.length || 0}</span>
+                          <span>Rating: ⭐{pro.rating || '5.0'}</span>
+                          <span>Jobs: {pro.jobsCompleted || 0}</span>
+                        </div>
+                      </div>
+
+                      {/* Card Actions */}
+                      <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                        <button
+                          onClick={() => openEditPro(pro)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 text-indigo-600" />
+                          Edit details
+                        </button>
+                        <button
+                          onClick={() => setDeletingPro(pro)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 hover:bg-rose-100 text-xs font-bold transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete profile
+                        </button>
                       </div>
                     </div>
-                  );
-                })
+                  ))}
+                </div>
               )}
             </div>
-          </div>
+          )}
+
+          {/* ======================================= */}
+          {/* REGISTERED CUSTOMERS PAGE (PAGE 2)      */}
+          {/* ======================================= */}
+          {activeTab === 'customers' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Toolbar */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+                <div className="relative w-full sm:max-w-md">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search customers by name, email, or mobile..."
+                    value={searchCust}
+                    onChange={(e) => setSearchCust(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-indigo-500 transition-all text-slate-850 font-medium"
+                  />
+                </div>
+                <div className="text-[11px] text-slate-400 font-bold shrink-0 bg-slate-50 px-3 py-1.5 rounded-lg border">
+                  Showing {filteredCustomers.length} of {customers.length} users
+                </div>
+              </div>
+
+              {/* Grid of Users */}
+              {filteredCustomers.length === 0 ? (
+                <div className="bg-white rounded-3xl border border-slate-200/60 p-12 text-center text-slate-400 text-xs font-semibold">
+                  No registered customers found matching "{searchCust}".
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredCustomers.map((cust) => (
+                    <div key={cust.id} className="bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden flex flex-col justify-between hover:shadow-md transition-all">
+                      
+                      {/* Customer Details Content */}
+                      <div className="p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-11 w-11 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-100">
+                            <User className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <h4 className="font-extrabold text-slate-900 text-sm">{cust.name}</h4>
+                            <span className="text-[9px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full uppercase tracking-wider font-extrabold">Customer / Client</span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 border-t border-slate-100 pt-3 text-xs text-slate-600 pl-0.5">
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="font-medium select-all truncate">{cust.email}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                            <span className="font-semibold select-all">{cust.mobile || 'No phone registered'}</span>
+                          </div>
+                          {cust.dob && (
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className="font-medium">DOB: {cust.dob}</span>
+                            </div>
+                          )}
+                          {cust.companyName && (
+                            <div className="flex items-center gap-2">
+                              <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                              <span className="font-medium truncate">Company: {cust.companyName}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Customer Registered Address */}
+                        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] space-y-1">
+                          <span className="text-slate-400 font-bold uppercase tracking-wider block">Service Address</span>
+                          <p className="text-slate-700 leading-relaxed font-semibold">
+                            {cust.addressLine ? (
+                              <>
+                                {cust.addressLine}, {cust.landmark && `${cust.landmark}, `} {cust.city}, {cust.state} {cust.pincode && `- ${cust.pincode}`}, {cust.country || 'India'}
+                              </>
+                            ) : (
+                              'No registered address details listed on file.'
+                            )}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Customer Actions */}
+                      <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+                        <button
+                          onClick={() => openEditCustomer(cust)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
+                        >
+                          <Edit2 className="h-3.5 w-3.5 text-indigo-600" />
+                          Edit details
+                        </button>
+                        <button
+                          onClick={() => setDeletingCustomer(cust)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-50 border border-rose-100 text-rose-700 hover:bg-rose-100 text-xs font-bold transition-all"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete user
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ======================================= */}
+          {/* BOOKINGS & CANCELLATIONS PAGE (PAGE 3)  */}
+          {/* ======================================= */}
+          {activeTab === 'bookings' && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Toolbar */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-2xl border border-slate-200/60 shadow-sm">
+                <div className="relative w-full md:max-w-md">
+                  <Search className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search bookings by ID, client, or service name..."
+                    value={searchBk}
+                    onChange={(e) => setSearchBk(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 pl-10 pr-4 py-2.5 rounded-xl text-xs focus:outline-none focus:border-indigo-500 transition-all text-slate-850 font-medium"
+                  />
+                </div>
+                
+                {/* Status Tabs inside Bookings page */}
+                <div className="flex flex-wrap bg-slate-100 p-1 rounded-xl border gap-0.5 w-full md:w-auto">
+                  {['all', 'pending', 'confirmed', 'completed', 'cancelled'].map((status) => (
+                    <button
+                      key={status}
+                      onClick={() => setFilterBkStatus(status)}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-extrabold capitalize transition-all flex-1 md:flex-initial ${
+                        filterBkStatus === status
+                          ? 'bg-white text-slate-900 shadow-sm'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bookings Lists */}
+              {filteredBookings.length === 0 ? (
+                <div className="bg-white rounded-3xl border border-slate-200/60 p-12 text-center text-slate-400 text-xs font-semibold">
+                  No booking requests found matching the current search parameters.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredBookings.map((bk) => {
+                    const relatedPro = professionals.find(p => p.id === bk.professionalId);
+                    
+                    return (
+                      <div key={bk.id} className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 hover:shadow-md transition-all">
+                        
+                        {/* Booking Context */}
+                        <div className="space-y-3 flex-1">
+                          <div className="flex items-center gap-2.5 flex-wrap">
+                            <span className="text-[10px] bg-slate-100 px-2.5 py-0.5 rounded-full text-slate-500 font-extrabold uppercase tracking-wider">Order ID: {bk.id}</span>
+                            <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black uppercase tracking-wide capitalize ${
+                              bk.status === 'confirmed' ? 'bg-green-50 text-green-700 border border-green-200' :
+                              bk.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                              bk.status === 'completed' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' :
+                              'bg-slate-100 text-slate-600 border border-slate-200'
+                            }`}>
+                              {bk.status}
+                            </span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <h3 className="font-extrabold text-slate-900 text-base">
+                              {bk.customerServiceOpted || 'Professional Handyman Service'}
+                            </h3>
+                            <p className="text-[11px] text-slate-400 font-medium">
+                              Contracted Technician: <span className="text-indigo-600 font-extrabold">{relatedPro?.name || 'Assigned Partner'}</span> ({bk.professionalId})
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                            {/* Client Block */}
+                            <div className="bg-slate-50/70 p-3 rounded-2xl border border-slate-100 text-[11px] space-y-1.5">
+                              <span className="text-slate-400 font-extrabold uppercase tracking-wider text-[9px] block">Client Contact</span>
+                              <div className="flex items-center gap-1.5 font-bold text-slate-850">
+                                <User className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                <span>{bk.customerName || 'GoServik Client'}</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 text-slate-500">
+                                <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                <span>{bk.customerMobile || 'No telephone'}</span>
+                              </div>
+                              <div className="flex items-start gap-1.5 text-slate-500">
+                                <MapPin className="h-3.5 w-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2 leading-relaxed">{bk.customerAddress || 'No address provided'}</span>
+                              </div>
+                            </div>
+
+                            {/* Booking Schedule Block */}
+                            <div className="bg-slate-50/70 p-3 rounded-2xl border border-slate-100 text-[11px] space-y-1.5 flex flex-col justify-between">
+                              <div>
+                                <span className="text-slate-400 font-extrabold uppercase tracking-wider text-[9px] block">Arrival Schedule</span>
+                                <div className="flex items-center gap-1.5 font-bold text-slate-850 mt-1">
+                                  <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                                  <span>{new Date(bk.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                                </div>
+                                <div className="flex items-center gap-1.5 text-slate-500 mt-1">
+                                  <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                  <span>{bk.time}</span>
+                                </div>
+                              </div>
+                              <div className="text-xs font-bold text-indigo-600 mt-1 pl-0.5">
+                                Visit Fee: ₹{bk.totalPrice} INR
+                              </div>
+                            </div>
+                          </div>
+
+                          {bk.notes && (
+                            <p className="text-[11px] text-slate-500 bg-amber-50/30 border border-amber-100/50 p-2.5 rounded-xl italic leading-relaxed">
+                              "<b>Client Notes:</b> {bk.notes}"
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Booking Administrative Action Controls */}
+                        <div className="flex flex-row lg:flex-col gap-2 w-full lg:w-48 shrink-0 border-t lg:border-t-0 lg:border-l border-slate-100 pt-4 lg:pt-0 lg:pl-6 justify-end lg:justify-center">
+                          {bk.status === 'pending' && (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  updateBookingStatus(bk.id, 'confirmed');
+                                  alert(`Booking request # ${bk.id} has been confirmed successfully!`);
+                                }}
+                                className="flex-1 lg:w-full text-center text-xs py-2.5 font-extrabold rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 transition-all shadow-sm"
+                              >
+                                Confirm Order
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  updateBookingStatus(bk.id, 'cancelled');
+                                  alert(`Booking request # ${bk.id} has been cancelled.`);
+                                }}
+                                className="flex-1 lg:w-full text-center text-xs py-2.5 font-extrabold rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
+                              >
+                                Cancel Order
+                              </button>
+                            </>
+                          )}
+
+                          {bk.status === 'confirmed' && (
+                            <>
+                              <button 
+                                onClick={() => {
+                                  updateBookingStatus(bk.id, 'completed');
+                                  alert(`Booking order # ${bk.id} marked as completed!`);
+                                }}
+                                className="flex-1 lg:w-full text-center text-xs py-2.5 font-extrabold rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-sm"
+                              >
+                                Complete Order
+                              </button>
+                              <button 
+                                onClick={() => {
+                                  updateBookingStatus(bk.id, 'cancelled');
+                                  alert(`Booking order # ${bk.id} has been cancelled.`);
+                                }}
+                                className="flex-1 lg:w-full text-center text-xs py-2.5 font-extrabold rounded-xl bg-amber-50 border border-amber-200 text-amber-700 hover:bg-amber-100 transition-all"
+                              >
+                                Cancel Order
+                              </button>
+                            </>
+                          )}
+
+                          {(bk.status === 'cancelled' || bk.status === 'completed') && (
+                            <div className="text-[10px] text-slate-400 font-bold text-center w-full py-2 italic bg-slate-50 border rounded-xl">
+                              No active lifecycle actions
+                            </div>
+                          )}
+
+                          <button 
+                            onClick={() => setDeletingBooking(bk)}
+                            className="px-3.5 py-2.5 rounded-xl border border-rose-100 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-all flex items-center justify-center gap-1.5 shrink-0"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Delete Log
+                          </button>
+                        </div>
+
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
 
       </div>
+
+      {/* ======================================= */}
+      {/* EDIT MODAL: REGISTERED CUSTOMERS        */}
+      {/* ======================================= */}
+      {editingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div className="p-6 border-b border-slate-150 flex items-center justify-between bg-slate-50">
+              <div>
+                <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest block mb-1">Administrative Action</span>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5">
+                  <Edit2 className="h-4 w-4 text-indigo-600" />
+                  Edit Customer Profile
+                </h3>
+              </div>
+              <button 
+                onClick={() => setEditingCustomer(null)}
+                className="h-8 w-8 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700">
+              
+              <div className="md:col-span-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b pb-1">
+                Primary Account Information
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={customerForm.name || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={customerForm.email || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mobile Number</label>
+                <input
+                  type="text"
+                  value={customerForm.mobile || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, mobile: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Date of Birth</label>
+                <input
+                  type="date"
+                  value={customerForm.dob || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, dob: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Company / Organization</label>
+                <input
+                  type="text"
+                  value={customerForm.companyName || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, companyName: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div className="md:col-span-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b pb-1 pt-2">
+                Service Address Details
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Address Line</label>
+                <input
+                  type="text"
+                  value={customerForm.addressLine || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, addressLine: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Landmark</label>
+                <input
+                  type="text"
+                  value={customerForm.landmark || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, landmark: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">City</label>
+                <input
+                  type="text"
+                  value={customerForm.city || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, city: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">State</label>
+                <input
+                  type="text"
+                  value={customerForm.state || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, state: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Postal Pincode</label>
+                <input
+                  type="text"
+                  value={customerForm.pincode || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, pincode: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Country</label>
+                <input
+                  type="text"
+                  value={customerForm.country || ''}
+                  onChange={(e) => setCustomerForm({ ...customerForm, country: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+            </div>
+
+            <div className="p-6 border-t border-slate-150 bg-slate-50 flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditingCustomer(null)}
+                className="text-xs font-bold rounded-xl h-10 border-slate-200 px-4"
+              >
+                Discard Changes
+              </Button>
+              <Button 
+                onClick={handleSaveCustomer}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-10 px-5 shadow-md shadow-indigo-100"
+              >
+                Save Profile Details
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* EDIT MODAL: CERTIFIED PROFESSIONAL     */}
+      {/* ======================================= */}
+      {editingPro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div className="p-6 border-b border-slate-150 flex items-center justify-between bg-slate-50">
+              <div>
+                <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-widest block mb-1">Administrative Action</span>
+                <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5">
+                  <Wrench className="h-4 w-4 text-indigo-600" />
+                  Edit Professional Profile
+                </h3>
+              </div>
+              <button 
+                onClick={() => setEditingPro(null)}
+                className="h-8 w-8 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-all"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700">
+              
+              <div className="md:col-span-2 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b pb-1">
+                Primary Partner Identity
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Full Name</label>
+                <input
+                  type="text"
+                  value={proForm.name || ''}
+                  onChange={(e) => setProForm({ ...proForm, name: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                <input
+                  type="email"
+                  value={proForm.email || ''}
+                  onChange={(e) => setProForm({ ...proForm, email: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mobile Number</label>
+                <input
+                  type="text"
+                  value={proForm.mobile || ''}
+                  onChange={(e) => setProForm({ ...proForm, mobile: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Partner Location (City / Region)</label>
+                <input
+                  type="text"
+                  value={proForm.location || ''}
+                  onChange={(e) => setProForm({ ...proForm, location: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tagline Slogan</label>
+                <input
+                  type="text"
+                  value={proForm.tagline || ''}
+                  onChange={(e) => setProForm({ ...proForm, tagline: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Corporate / Company Name</label>
+                <input
+                  type="text"
+                  value={proForm.companyName || ''}
+                  onChange={(e) => setProForm({ ...proForm, companyName: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Availability Status</label>
+                <select
+                  value={proForm.availabilityStatus || 'available'}
+                  onChange={(e) => setProForm({ ...proForm, availabilityStatus: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-semibold"
+                >
+                  <option value="available">🟢 Available for Bookings</option>
+                  <option value="busy">🟡 Busy / Working on-site</option>
+                  <option value="offline">⚪ Offline / On Vacation</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Service Radius (Kilometers)</label>
+                <input
+                  type="number"
+                  value={proForm.serviceRadiusKm || 25}
+                  onChange={(e) => setProForm({ ...proForm, serviceRadiusKm: Number(e.target.value) })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium"
+                />
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Detailed Bio Statement</label>
+                <textarea
+                  value={proForm.bio || ''}
+                  rows={3}
+                  onChange={(e) => setProForm({ ...proForm, bio: e.target.value })}
+                  className="w-full bg-slate-50 border border-slate-200 px-3 py-2 rounded-xl text-xs focus:outline-none focus:border-indigo-500 font-medium leading-relaxed"
+                />
+              </div>
+
+            </div>
+
+            <div className="p-6 border-t border-slate-150 bg-slate-50 flex justify-end gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setEditingPro(null)}
+                className="text-xs font-bold rounded-xl h-10 border-slate-200 px-4"
+              >
+                Discard Changes
+              </Button>
+              <Button 
+                onClick={handleSavePro}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-10 px-5 shadow-md shadow-indigo-100"
+              >
+                Save Partner Profile
+              </Button>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* DELETE MODAL: REGISTERED CUSTOMERS      */}
+      {/* ======================================= */}
+      {deletingCustomer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden p-6 space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Delete Customer Profile?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to permanently delete customer <b>{deletingCustomer.name}</b> from the GoServik database? This will immediately wipe all session data. This action is irreversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5">
+              <button 
+                onClick={() => setDeletingCustomer(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 border text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeleteCustomer}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* DELETE MODAL: CERTIFIED PROFESSIONAL    */}
+      {/* ======================================= */}
+      {deletingPro && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden p-6 space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Delete Partner Profile?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to permanently remove technician <b>{deletingPro.name}</b>? They will be wiped from search results, maps listings, and all reviews. This is irreversible.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5">
+              <button 
+                onClick={() => setDeletingPro(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 border text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeletePro}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-all"
+              >
+                Confirm Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================= */}
+      {/* DELETE MODAL: BOOKING ORDER LOG         */}
+      {/* ======================================= */}
+      {deletingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-fade-in">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden p-6 space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="h-10 w-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-slate-900 text-base">Delete Booking Record?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to permanently purge booking request <b># {deletingBooking.id}</b> from the master logs? This will clean up the system record.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2.5">
+              <button 
+                onClick={() => setDeletingBooking(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-slate-50 border text-slate-700 hover:bg-slate-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={confirmDeleteBooking}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 text-white hover:bg-red-700 transition-all"
+              >
+                Purge Record
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

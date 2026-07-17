@@ -177,6 +177,15 @@ export function BookingFlow() {
     const finalPro = professionals.find(p => p.id === selectedProId);
     if (!finalPro || !selectedDate || !selectedTime) return;
     
+    const formattedAddress = [
+      currentUser.addressLine,
+      currentUser.landmark,
+      currentUser.city,
+      currentUser.state,
+      currentUser.pincode,
+      currentUser.country
+    ].filter(Boolean).join(', ');
+
     bookService({
       customerId: currentUser.id,
       professionalId: finalPro.id,
@@ -184,7 +193,11 @@ export function BookingFlow() {
       date: selectedDate.toISOString(),
       time: selectedTime,
       notes: `Size/Info: ${approximateSize}. ${notes}`.trim(),
-      totalPrice: calculatedPrice
+      totalPrice: calculatedPrice,
+      customerName: currentUser.name || 'Anonymous Customer',
+      customerMobile: currentUser.mobile || 'Not Provided',
+      customerAddress: formattedAddress || 'No detailed address registered',
+      customerServiceOpted: currentServiceName || 'General Standard Service'
     });
     setStep(4); // Success step
   };

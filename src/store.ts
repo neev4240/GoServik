@@ -1,9 +1,60 @@
 import { create } from 'zustand';
 import { User, ProfessionalProfile, ServiceCategory, Booking, Review, Message, Role } from './types';
 import { db } from './lib/firebase';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 // Mock Data
+export const MOCK_CUSTOMERS: User[] = [
+  {
+    id: 'cust-neev',
+    name: 'Neev Aggarwal',
+    email: 'neevaggarwalji@gmail.com',
+    role: 'customer',
+    joinedAt: '2023-05-12T08:30:00Z',
+    mobile: '9876543210',
+    dob: '1995-08-25',
+    country: 'India',
+    state: 'Maharashtra',
+    city: 'Mumbai',
+    pincode: '400001',
+    addressLine: 'Flat 402, Green Avenue',
+    landmark: 'Near Central Park',
+    companyName: ''
+  },
+  {
+    id: 'cust-sarah',
+    name: 'Sarah Jenkins',
+    email: 'sarah.jenkins@example.com',
+    role: 'customer',
+    joinedAt: '2023-07-20T11:45:00Z',
+    mobile: '9123456780',
+    dob: '1992-03-14',
+    country: 'India',
+    state: 'Karnataka',
+    city: 'Bengaluru',
+    pincode: '560066',
+    addressLine: 'Villa 12, Palm Meadows',
+    landmark: 'Gate No. 2',
+    companyName: ''
+  },
+  {
+    id: 'cust-michael',
+    name: 'Michael Chen',
+    email: 'michael.chen@example.com',
+    role: 'customer',
+    joinedAt: '2023-09-05T14:15:00Z',
+    mobile: '9876123456',
+    dob: '1988-11-30',
+    country: 'India',
+    state: 'Delhi',
+    city: 'New Delhi',
+    pincode: '110001',
+    addressLine: 'A-45, Connaught Place',
+    landmark: 'Opposite Metro Station',
+    companyName: ''
+  }
+];
+
 export const MOCK_CATEGORIES: ServiceCategory[] = [
   { id: 'cat-1', name: 'Home Cleaning', description: 'Deep cleaning, regular cleaning, move in/out', icon: 'Sparkles' },
   { id: 'cat-2', name: 'Plumbing', description: 'Repairs, installations, emergencies', icon: 'Wrench' },
@@ -116,6 +167,41 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   }
 ];
 
+export const MOCK_BOOKINGS: Booking[] = [
+  {
+    id: 'bk-mock-1',
+    customerId: 'cust-neev',
+    professionalId: 'pro-1',
+    serviceId: 'srv-1',
+    date: new Date().toISOString(),
+    time: '10:30 AM',
+    status: 'pending',
+    notes: 'Please bring extra high pressure pipes for the garden installation. Sump pump needs a health check too.',
+    totalPrice: 149,
+    createdAt: new Date().toISOString(),
+    customerName: 'Neev Aggarwal',
+    customerMobile: '9876543210',
+    customerAddress: 'Flat 402, Green Avenue, Landmark: Near Central Park, Mumbai, Maharashtra, 400001, India',
+    customerServiceOpted: 'Emergency Leak Repair'
+  },
+  {
+    id: 'bk-mock-2',
+    customerId: 'cust-sarah',
+    professionalId: 'pro-1',
+    serviceId: 'srv-2',
+    date: new Date(Date.now() + 86400000).toISOString(),
+    time: '02:00 PM',
+    status: 'confirmed',
+    notes: 'Need standard kitchen sink and faucet replacement. Already purchased the mixer tap.',
+    totalPrice: 99,
+    createdAt: new Date().toISOString(),
+    customerName: 'Sarah Jenkins',
+    customerMobile: '9123456780',
+    customerAddress: 'Villa 12, Palm Meadows, Landmark: Gate No. 2, Bengaluru, Karnataka, 560066, India',
+    customerServiceOpted: 'Faucet & Sink Installation'
+  }
+];
+
 export const MOCK_REVIEWS: Review[] = [
   {
     id: 'rev-1',
@@ -147,25 +233,32 @@ interface AppState {
   bookings: Booking[];
   reviews: Review[];
   savedProfessionals: string[];
+  customers: User[];
   initializeFromFirestore: () => Promise<void>;
-  login: (emailOrPhone: string, role?: Role, name?: string) => void;
+  login: (emailOrPhone: string, role?: Role, name?: string, additionalDetails?: any) => void;
   logout: () => void;
   bookService: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
   toggleSavedProfessional: (proId: string) => void;
   updateBookingStatus: (bookingId: string, status: Booking['status']) => void;
   addProfessionalService: (proId: string, service: any) => void;
   updateUserProfile: (profile: Partial<User & ProfessionalProfile>) => void;
+  updateCustomer: (id: string, updated: Partial<User>) => void;
+  deleteCustomer: (id: string) => void;
+  updateProfessional: (id: string, updated: Partial<ProfessionalProfile>) => void;
+  deleteProfessional: (id: string) => void;
+  deleteBooking: (id: string) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
   currentUser: null,
   categories: MOCK_CATEGORIES,
   professionals: MOCK_PROFESSIONALS,
-  bookings: [],
+  bookings: MOCK_BOOKINGS,
   reviews: MOCK_REVIEWS,
   savedProfessionals: [],
+  customers: MOCK_CUSTOMERS,
   
-  login: (emailOrPhone, role, name) => set((state) => {
+  login: (emailOrPhone, role, name, additionalDetails) => set((state) => {
     const isEmail = emailOrPhone.includes('@');
     const cleanedIdentifier = emailOrPhone.trim();
 
@@ -194,6 +287,9 @@ export const useStore = create<AppState>((set) => ({
     const finalRole = role || 'customer';
     
     if (finalRole === 'professional') {
+      const proCategory = additionalDetails?.category || 'cat-1';
+      const catObj = state.categories.find(c => c.id === proCategory);
+      
       const newPro: ProfessionalProfile = {
         id: `pro-${Date.now()}`,
         name: name || cleanedIdentifier.split('@')[0],
@@ -202,18 +298,18 @@ export const useStore = create<AppState>((set) => ({
         joinedAt: new Date().toISOString(),
         avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200',
         verified: true,
-        tagline: 'Verified Partner',
+        tagline: additionalDetails?.companyName ? `Partner with ${additionalDetails.companyName}` : 'Verified Partner',
         bio: 'Dedicated independent professional registered on GoServik.',
-        location: 'Mumbai, India',
+        location: additionalDetails?.city ? `${additionalDetails.city}, ${additionalDetails.state || 'India'}` : 'Mumbai, India',
         serviceRadiusKm: 25,
         languages: ['English', 'Hindi'],
         services: [
           {
             id: `srv-${Date.now()}`,
-            categoryId: 'cat-1',
-            name: 'General Service',
+            categoryId: proCategory,
+            name: catObj ? `${catObj.name} Expert Services` : 'General Service',
             description: 'Standard high-quality service package.',
-            basePrice: 5000,
+            basePrice: 99,
             priceUnit: 'fixed',
             experienceYears: 5
           }
@@ -233,7 +329,17 @@ export const useStore = create<AppState>((set) => ({
         availabilityStatus: 'available',
         rating: 5.0,
         reviewCount: 0,
-        jobsCompleted: 0
+        jobsCompleted: 0,
+        // Detailed parameters
+        companyName: additionalDetails?.companyName || '',
+        mobile: additionalDetails?.mobile || '',
+        dob: additionalDetails?.dob || '',
+        country: additionalDetails?.country || 'India',
+        state: additionalDetails?.state || '',
+        city: additionalDetails?.city || '',
+        pincode: additionalDetails?.pincode || '',
+        addressLine: additionalDetails?.addressLine || '',
+        landmark: additionalDetails?.landmark || ''
       };
       return {
         professionals: [...state.professionals, newPro],
@@ -242,14 +348,36 @@ export const useStore = create<AppState>((set) => ({
     }
 
     // Default to customer
+    const existingCustomer = state.customers.find(c => c.email.toLowerCase() === cleanedIdentifier.toLowerCase());
+    if (existingCustomer) {
+      return { currentUser: existingCustomer };
+    }
+
     const mockCustomer: User = {
       id: `cust-${Date.now()}`,
       name: name || cleanedIdentifier.split('@')[0],
       email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
       role: 'customer',
-      joinedAt: new Date().toISOString()
+      joinedAt: new Date().toISOString(),
+      companyName: '',
+      mobile: additionalDetails?.mobile || '',
+      dob: additionalDetails?.dob || '',
+      country: additionalDetails?.country || 'India',
+      state: additionalDetails?.state || '',
+      city: additionalDetails?.city || '',
+      pincode: additionalDetails?.pincode || '',
+      addressLine: additionalDetails?.addressLine || '',
+      landmark: additionalDetails?.landmark || ''
     };
-    return { currentUser: mockCustomer };
+
+    setDoc(doc(db, 'customers', mockCustomer.id), mockCustomer).catch(err => 
+      console.warn("Firestore customer login write failed", err)
+    );
+
+    return { 
+      customers: [...state.customers, mockCustomer],
+      currentUser: mockCustomer 
+    };
   }),
   
   logout: () => set({ currentUser: null }),
@@ -290,11 +418,22 @@ export const useStore = create<AppState>((set) => ({
         loadedReviews = MOCK_REVIEWS;
       }
 
+      // 5. Fetch Customers
+      const custSnap = await getDocs(collection(db, 'customers'));
+      let loadedCustomers = custSnap.docs.map(doc => doc.data() as User);
+      if (loadedCustomers.length === 0) {
+        for (const cust of MOCK_CUSTOMERS) {
+          await setDoc(doc(db, 'customers', cust.id), cust);
+        }
+        loadedCustomers = MOCK_CUSTOMERS;
+      }
+
       set({
         categories: loadedCategories,
         professionals: loadedProfessionals,
         bookings: loadedBookings,
-        reviews: loadedReviews
+        reviews: loadedReviews,
+        customers: loadedCustomers
       });
     } catch (err) {
       console.warn("Firestore initialization failed, using mock data fallback", err);
@@ -396,6 +535,90 @@ export const useStore = create<AppState>((set) => ({
       return {
         currentUser: updatedUser,
         professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p)
+      };
+    });
+  },
+
+  updateCustomer: async (id, updated) => {
+    set((state) => {
+      const updatedCustomers = state.customers.map(c => c.id === id ? { ...c, ...updated } : c);
+      const isCurrentUser = state.currentUser?.id === id;
+      
+      const target = updatedCustomers.find(c => c.id === id);
+      if (target) {
+        setDoc(doc(db, 'customers', id), target).catch(err =>
+          console.error("Firestore customer update failed", err)
+        );
+      }
+      
+      return {
+        customers: updatedCustomers,
+        currentUser: isCurrentUser ? { ...state.currentUser, ...updated } as any : state.currentUser
+      };
+    });
+  },
+
+  deleteCustomer: async (id) => {
+    set((state) => {
+      const updatedCustomers = state.customers.filter(c => c.id !== id);
+      const isCurrentUser = state.currentUser?.id === id;
+      
+      deleteDoc(doc(db, 'customers', id)).catch(err =>
+        console.error("Firestore customer delete failed", err)
+      );
+      
+      return {
+        customers: updatedCustomers,
+        currentUser: isCurrentUser ? null : state.currentUser
+      };
+    });
+  },
+
+  updateProfessional: async (id, updated) => {
+    set((state) => {
+      const updatedProfessionals = state.professionals.map(p => p.id === id ? { ...p, ...updated } as any : p);
+      const isCurrentUser = state.currentUser?.id === id;
+      
+      const target = updatedProfessionals.find(p => p.id === id);
+      if (target) {
+        setDoc(doc(db, 'professionals', id), target).catch(err =>
+          console.error("Firestore professional update failed", err)
+        );
+      }
+      
+      return {
+        professionals: updatedProfessionals,
+        currentUser: isCurrentUser ? { ...state.currentUser, ...updated } as any : state.currentUser
+      };
+    });
+  },
+
+  deleteProfessional: async (id) => {
+    set((state) => {
+      const updatedProfessionals = state.professionals.filter(p => p.id !== id);
+      const isCurrentUser = state.currentUser?.id === id;
+      
+      deleteDoc(doc(db, 'professionals', id)).catch(err =>
+        console.error("Firestore professional delete failed", err)
+      );
+      
+      return {
+        professionals: updatedProfessionals,
+        currentUser: isCurrentUser ? null : state.currentUser
+      };
+    });
+  },
+
+  deleteBooking: async (id) => {
+    set((state) => {
+      const updatedBookings = state.bookings.filter(b => b.id !== id);
+      
+      deleteDoc(doc(db, 'bookings', id)).catch(err =>
+        console.error("Firestore booking delete failed", err)
+      );
+      
+      return {
+        bookings: updatedBookings
       };
     });
   }

@@ -26,5 +26,10 @@ service cloud.firestore {
     match /active_sessions/{sessionId} {
       allow read, write: if true;
     }
+
+    // Customers Collection - Registered customer accounts
+    match /customers/{customerId} {
+      allow read, write: if true;
+    }
   }
 }

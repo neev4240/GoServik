@@ -16,6 +16,7 @@ export interface User {
   pincode?: string;
   addressLine?: string;
   landmark?: string;
+  companyName?: string;
 }
 
 export interface ServiceCategory {
@@ -65,6 +66,10 @@ export interface Booking {
   notes: string;
   totalPrice: number;
   createdAt: string;
+  customerName?: string;
+  customerMobile?: string;
+  customerAddress?: string;
+  customerServiceOpted?: string;
 }
 
 export interface Review {

@@ -35,7 +35,7 @@ export function Home() {
                   <div className="text-xs text-slate-500">Explore experts near you</div>
                 </Link>
                 
-                <Link to="/register" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
+                <Link to="/register-professional" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4 text-white">
                     <Briefcase className="w-6 h-6" />
                   </div>
@@ -48,31 +48,39 @@ export function Home() {
             <div className="w-full md:w-[420px] shrink-0 hidden lg:flex flex-col gap-6">
                <div className="bg-white/80 rounded-3xl p-6 shadow-2xl shadow-indigo-100/50 border border-white relative overflow-hidden backdrop-blur-xl">
                  <div className="absolute top-0 right-0 p-4">
-                    <div className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wide shadow-sm">
+                    <div className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wide shadow-sm">
                       <ShieldCheck className="w-3 h-3" />
-                      Verified
+                      Direct Model
                     </div>
                  </div>
                  <div className="flex gap-4 items-center mb-6">
-                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-xl text-indigo-400">
-                      <Briefcase className="h-8 w-8 text-indigo-300" />
+                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-xl text-indigo-600">
+                      <ShieldCheck className="h-8 w-8 text-indigo-600 animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-slate-800 leading-tight">Elite Professionals</h3>
-                      <div className="text-sm text-slate-500">Top Rated Services</div>
+                      <h3 className="font-bold text-lg text-slate-800 leading-tight">Direct Engagement</h3>
+                      <div className="text-sm text-slate-500">Transparent & Commission-Free</div>
                     </div>
                  </div>
-                 <div className="grid grid-cols-2 gap-4 mb-6">
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold mb-0.5">Avg Rating</div>
-                      <div className="font-bold text-slate-800 flex items-center gap-1">4.9 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /></div>
+                 <div className="space-y-3.5 mb-6">
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-indigo-600 font-bold text-sm bg-indigo-50 px-2.5 py-0.5 rounded-lg">0%</div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">No Platform Commission</div>
+                        <div className="text-[10px] text-slate-500">You pay professionals directly with no middleman.</div>
+                      </div>
                     </div>
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold mb-0.5">Response Time</div>
-                      <div className="font-bold text-slate-800">&lt; 1 Hour</div>
+                    <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-indigo-600 font-bold text-sm bg-indigo-50 px-2 py-0.5 rounded-lg">✓</div>
+                      <div>
+                        <div className="text-xs font-bold text-slate-800">Verified Contact & Addresses</div>
+                        <div className="text-[10px] text-slate-500">Every pro profile carries real verified credentials.</div>
+                      </div>
                     </div>
                  </div>
-                 <Button className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 mb-3 h-auto">Find Services Now</Button>
+                 <Link to="/explore">
+                   <Button className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 h-auto">Find Services Now</Button>
+                 </Link>
                </div>
             </div>
 

@@ -123,6 +123,74 @@
         }
       },
       "required": ["id", "professionalId", "customerId", "serviceId", "status", "totalPrice"]
+    },
+    "Customer": {
+      "title": "Customer Profile",
+      "description": "A registered customer or client profile on GoServik.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the customer."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Full name of the customer."
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Customer's email address."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["customer"],
+          "description": "Role classification."
+        },
+        "joinedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the profile was created."
+        },
+        "mobile": {
+          "type": "string",
+          "description": "Customer mobile phone number."
+        },
+        "dob": {
+          "type": "string",
+          "description": "Date of birth."
+        },
+        "country": {
+          "type": "string",
+          "description": "Country of residence."
+        },
+        "state": {
+          "type": "string",
+          "description": "State/Province."
+        },
+        "city": {
+          "type": "string",
+          "description": "City of residence."
+        },
+        "pincode": {
+          "type": "string",
+          "description": "Address postal code."
+        },
+        "addressLine": {
+          "type": "string",
+          "description": "Street address details."
+        },
+        "landmark": {
+          "type": "string",
+          "description": "Nearby landmark."
+        },
+        "companyName": {
+          "type": "string",
+          "description": "Optional business or organization name."
+        }
+      },
+      "required": ["id", "name", "email", "role"]
     }
   },
   "firestore": {
@@ -133,6 +201,10 @@
     "/bookings/{bookingId}": {
       "schema": "Booking",
       "description": "Appointments booked between clients and professionals."
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Registered customer accounts on the platform."
     }
   }
 }

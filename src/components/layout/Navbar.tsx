@@ -55,12 +55,15 @@ export function Navbar() {
                 <LogOut className="h-4 w-4" />
                 Sign Out
               </button>
-              <div className="flex items-center justify-center h-8 w-8 rounded-full bg-slate-100 border border-slate-200 overflow-hidden">
-                {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt={currentUser.name} className="h-full w-full object-cover" />
-                ) : (
-                  <User className="h-4 w-4 text-slate-500" />
-                )}
+              <div className="flex items-center gap-2 px-1 py-0.5 rounded-full bg-indigo-50 border border-indigo-100/50">
+                <span className="text-xs font-semibold text-indigo-700 pl-2">{currentUser.name}</span>
+                <div className="flex items-center justify-center h-7 w-7 rounded-full bg-indigo-100 border border-indigo-200 overflow-hidden">
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt={currentUser.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <User className="h-3.5 w-3.5 text-indigo-700" />
+                  )}
+                </div>
               </div>
             </div>
           ) : (
@@ -68,7 +71,7 @@ export function Navbar() {
               <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 Sign In
               </Link>
-              <Link to="/register" className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
+              <Link to="/register-professional" className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
                 Join as Professional
               </Link>
             </>
@@ -91,10 +94,20 @@ export function Navbar() {
           </Link>
           {currentUser ? (
             <>
+              <div className="flex items-center gap-2 py-2 border-b border-slate-100">
+                <div className="flex items-center justify-center h-8 w-8 rounded-full bg-indigo-100 border border-indigo-200 overflow-hidden">
+                  {currentUser.avatar ? (
+                    <img src={currentUser.avatar} alt={currentUser.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <User className="h-4 w-4 text-indigo-700" />
+                  )}
+                </div>
+                <span className="text-sm font-semibold text-slate-800">{currentUser.name}</span>
+              </div>
               <Link to="/dashboard" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
                 Dashboard
               </Link>
-              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="block text-sm font-medium text-slate-600">
+              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} className="block text-sm font-medium text-slate-600 w-full text-left">
                 Sign Out
               </button>
             </>
@@ -103,7 +116,7 @@ export function Navbar() {
               <Link to="/login" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
                 Sign In
               </Link>
-              <Link to="/register" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/register-professional" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
                 Join as Professional
               </Link>
             </>
