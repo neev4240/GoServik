@@ -262,15 +262,6 @@ export const useStore = create<AppState>((set) => ({
     const isEmail = emailOrPhone.includes('@');
     const cleanedIdentifier = emailOrPhone.trim();
 
-    // Check if it's an existing professional in mock
-    const existingPro = state.professionals.find(p => 
-      p.email.toLowerCase() === cleanedIdentifier.toLowerCase() || 
-      p.id === cleanedIdentifier
-    );
-    if (existingPro) {
-      return { currentUser: existingPro };
-    }
-    
     // Admin login
     if (cleanedIdentifier.toLowerCase() === 'admin@goservik.com' || cleanedIdentifier.toLowerCase() === 'admin') {
       return {
@@ -285,8 +276,77 @@ export const useStore = create<AppState>((set) => ({
     }
 
     const finalRole = role || 'customer';
-    
+
+    // Normalize phone numbers for checks
+    let extractedPhone = '';
+    if (cleanedIdentifier.endsWith('@goservik.com')) {
+      const prefix = cleanedIdentifier.split('@')[0];
+      if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
+        extractedPhone = prefix;
+      }
+    } else if (/^\+?\d+$/.test(cleanedIdentifier)) {
+      extractedPhone = cleanedIdentifier;
+    }
+
+    const matchesEmailOrPhone = (user: any) => {
+      const uEmail = (user.email || '').toLowerCase();
+      const uPhone = (user.mobile || '').replace(/\D/g, '');
+      const searchId = cleanedIdentifier.toLowerCase();
+      const searchPhone = extractedPhone.replace(/\D/g, '');
+      
+      if (uEmail === searchId) return true;
+      if (searchPhone && uPhone === searchPhone) return true;
+      if (additionalDetails?.mobile) {
+        const inputPhone = additionalDetails.mobile.replace(/\D/g, '');
+        if (inputPhone && uPhone === inputPhone) return true;
+      }
+      return false;
+    };
+
+    // 1. Cross-role verification (Strict Separation)
+    if (finalRole === 'customer') {
+      const existAsPro = state.professionals.find(matchesEmailOrPhone);
+      if (existAsPro) {
+        throw new Error("This account is registered as a Professional. A Professional cannot log in or register as a Customer.");
+      }
+    } else if (finalRole === 'professional') {
+      const existAsCust = state.customers.find(matchesEmailOrPhone);
+      if (existAsCust) {
+        throw new Error("This account is registered as a Customer. A Customer cannot log in or register as a Professional.");
+      }
+    }
+
+    // 2. Phone number duplication across different accounts
+    const phoneToCheck = extractedPhone || additionalDetails?.mobile || '';
+    const cleanPhoneToCheck = phoneToCheck.replace(/\D/g, '');
+
+    if (cleanPhoneToCheck) {
+      const emailToIgnore = cleanedIdentifier.toLowerCase();
+      
+      const duplicateProPhone = state.professionals.find(p => {
+        const pPhone = (p.mobile || '').replace(/\D/g, '');
+        const pEmail = (p.email || '').toLowerCase();
+        return pPhone === cleanPhoneToCheck && pEmail !== emailToIgnore;
+      });
+
+      const duplicateCustPhone = state.customers.find(c => {
+        const cPhone = (c.mobile || '').replace(/\D/g, '');
+        const cEmail = (c.email || '').toLowerCase();
+        return cPhone === cleanPhoneToCheck && cEmail !== emailToIgnore;
+      });
+
+      if (duplicateProPhone || duplicateCustPhone) {
+        throw new Error("This mobile number is already linked to another registered account. One login per unique phone number is allowed.");
+      }
+    }
+
+    // 3. Handle Professional Login/Registration
     if (finalRole === 'professional') {
+      const existingPro = state.professionals.find(matchesEmailOrPhone);
+      if (existingPro) {
+        return { currentUser: existingPro };
+      }
+
       const proCategory = additionalDetails?.category || 'cat-1';
       const catObj = state.categories.find(c => c.id === proCategory);
       
@@ -332,7 +392,7 @@ export const useStore = create<AppState>((set) => ({
         jobsCompleted: 0,
         // Detailed parameters
         companyName: additionalDetails?.companyName || '',
-        mobile: additionalDetails?.mobile || '',
+        mobile: phoneToCheck || '',
         dob: additionalDetails?.dob || '',
         country: additionalDetails?.country || 'India',
         state: additionalDetails?.state || '',
@@ -341,14 +401,19 @@ export const useStore = create<AppState>((set) => ({
         addressLine: additionalDetails?.addressLine || '',
         landmark: additionalDetails?.landmark || ''
       };
+
+      setDoc(doc(db, 'professionals', newPro.id), newPro).catch(err => 
+        console.warn("Firestore professional login write failed", err)
+      );
+
       return {
         professionals: [...state.professionals, newPro],
         currentUser: newPro
       };
     }
 
-    // Default to customer
-    const existingCustomer = state.customers.find(c => c.email.toLowerCase() === cleanedIdentifier.toLowerCase());
+    // 4. Default to Customer Login/Registration
+    const existingCustomer = state.customers.find(matchesEmailOrPhone);
     if (existingCustomer) {
       return { currentUser: existingCustomer };
     }
@@ -360,7 +425,7 @@ export const useStore = create<AppState>((set) => ({
       role: 'customer',
       joinedAt: new Date().toISOString(),
       companyName: '',
-      mobile: additionalDetails?.mobile || '',
+      mobile: phoneToCheck || '',
       dob: additionalDetails?.dob || '',
       country: additionalDetails?.country || 'India',
       state: additionalDetails?.state || '',

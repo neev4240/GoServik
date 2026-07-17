@@ -17,6 +17,7 @@ const COUNTRY_CODES = [
 
 export function Login() {
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
+  const [role, setRole] = useState<'customer' | 'professional'>('customer');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -24,7 +25,7 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { login } = useStore();
+  const { login, professionals, customers } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,6 +49,46 @@ export function Login() {
     }
     
     try {
+      const cleanId = identifier.toLowerCase();
+      
+      // Determine if they are trying to log in as admin
+      const finalRole = cleanId === 'admin@goservik.com' ? 'admin' : role;
+
+      // Extract phone if login was via mobile identifier
+      let extractedPhone = '';
+      if (cleanId.endsWith('@goservik.com')) {
+        const prefix = cleanId.split('@')[0];
+        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
+          extractedPhone = prefix;
+        }
+      } else if (/^\+?\d+$/.test(cleanId)) {
+        extractedPhone = cleanId;
+      }
+
+      const matchesEmailOrPhone = (user: any) => {
+        const uEmail = (user.email || '').toLowerCase();
+        const uPhone = (user.mobile || '').replace(/\D/g, '');
+        const searchId = cleanId;
+        const searchPhone = extractedPhone.replace(/\D/g, '');
+        
+        if (uEmail === searchId) return true;
+        if (searchPhone && uPhone === searchPhone) return true;
+        return false;
+      };
+
+      // 1. Cross-role login separation: don't allow customer to login as professional and vice versa
+      if (finalRole === 'customer') {
+        const isPro = professionals.find(matchesEmailOrPhone);
+        if (isPro) {
+          throw new Error("This account is registered as a Professional Partner. Please select 'I am a Professional' to log in.");
+        }
+      } else if (finalRole === 'professional') {
+        const isCust = customers.find(matchesEmailOrPhone);
+        if (isCust) {
+          throw new Error("This account is registered as a Customer. Please select 'I am a Customer' to log in.");
+        }
+      }
+
       try {
         await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
@@ -59,16 +100,12 @@ export function Login() {
         }
       }
       
-      // Update local store state
-      const isSamplePro = identifier.toLowerCase() === 'sample.pro@goservik.com';
-      const role = identifier.toLowerCase() === 'admin@goservik.com' ? 'admin' : (isSamplePro ? 'professional' : 'customer');
-      
       // Extract clean name from email
       const displayName = loginMethod === 'email' 
         ? identifier.split('@')[0] 
         : `User ${mobileNumber}`;
 
-      login(identifier, role, displayName);
+      login(identifier, finalRole, displayName, { mobile: extractedPhone });
       
       // Redirect
       const from = location.state?.from?.pathname || "/dashboard";
@@ -91,6 +128,34 @@ export function Login() {
           <p className="mt-2 text-sm text-slate-600">
             Or <Link to="/register" className="font-medium text-indigo-600 hover:underline">create a new account</Link>
           </p>
+        </div>
+
+        {/* Role Switcher */}
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            id="login-role-customer"
+            onClick={() => { setRole('customer'); setError(''); }}
+            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
+              role === 'customer'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
+                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
+            }`}
+          >
+            I am a Customer
+          </button>
+          <button
+            type="button"
+            id="login-role-professional"
+            onClick={() => { setRole('professional'); setError(''); }}
+            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
+              role === 'professional'
+                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
+                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
+            }`}
+          >
+            I am a Professional
+          </button>
         </div>
 
         {/* Tab Selector */}
@@ -233,7 +298,7 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login } = useStore();
+  const { login, professionals, customers } = useStore();
   const navigate = useNavigate();
 
   const handleRegister = async (e: FormEvent) => {
@@ -255,6 +320,52 @@ export function Register() {
     }
 
     try {
+      const cleanId = identifier.toLowerCase();
+      let extractedPhone = '';
+      if (cleanId.endsWith('@goservik.com')) {
+        const prefix = cleanId.split('@')[0];
+        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
+          extractedPhone = prefix;
+        }
+      } else if (/^\+?\d+$/.test(cleanId)) {
+        extractedPhone = cleanId;
+      }
+
+      const matchesEmailOrPhone = (user: any) => {
+        const uEmail = (user.email || '').toLowerCase();
+        const uPhone = (user.mobile || '').replace(/\D/g, '');
+        const searchId = cleanId;
+        const searchPhone = extractedPhone.replace(/\D/g, '');
+        
+        if (uEmail === searchId) return true;
+        if (searchPhone && uPhone === searchPhone) return true;
+        return false;
+      };
+
+      // 1. Cross-role validation during registration
+      if (role === 'customer') {
+        const isPro = professionals.find(matchesEmailOrPhone);
+        if (isPro) {
+          throw new Error("This email/mobile is already registered as a Professional. A Professional cannot register as a Customer.");
+        }
+      } else if (role === 'professional') {
+        const isCust = customers.find(matchesEmailOrPhone);
+        if (isCust) {
+          throw new Error("This email/mobile is already registered as a Customer. A Customer cannot register as a Professional.");
+        }
+      }
+
+      // 2. Phone number uniqueness check across ALL accounts (no duplicate phone logins)
+      const phoneToCheck = extractedPhone || mobileNumber;
+      const cleanPhoneToCheck = phoneToCheck.replace(/\D/g, '');
+      if (cleanPhoneToCheck) {
+        const dupPro = professionals.find(p => (p.mobile || '').replace(/\D/g, '') === cleanPhoneToCheck);
+        const dupCust = customers.find(c => (c.mobile || '').replace(/\D/g, '') === cleanPhoneToCheck);
+        if (dupPro || dupCust) {
+          throw new Error("This mobile number is already linked to another registered account. One login per unique phone number is allowed.");
+        }
+      }
+
       // Firebase auth register
       const userCredential = await createUserWithEmailAndPassword(auth, identifier, password);
       
@@ -268,7 +379,7 @@ export function Register() {
       }
 
       // Log in dynamically inside local state
-      login(identifier, role, name);
+      login(identifier, role, name, { mobile: phoneToCheck });
 
       // Go to Dashboard
       navigate('/dashboard');
