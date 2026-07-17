@@ -69,15 +69,15 @@ export const MOCK_CATEGORIES: ServiceCategory[] = [
 export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   {
     id: 'pro-1',
-    name: 'Sample Testing',
-    email: 'sample.pro@goservik.com',
+    name: 'Rajesh Kumar',
+    email: 'rajesh.kumar@goservik.com',
     role: 'professional',
     joinedAt: '2023-01-15T10:00:00Z',
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200&h=200',
     verified: true,
     tagline: 'Master Plumber & Home Repair Specialist',
     bio: 'With over 15 years of experience in residential and commercial plumbing, I pride myself on delivering top-quality service, clear communication, and transparent pricing. No job is too small, and emergencies are handled with priority.',
-    location: 'London, UK',
+    location: 'Mumbai, Maharashtra',
     serviceRadiusKm: 50,
     languages: ['English', 'Spanish'],
     services: [
@@ -209,7 +209,7 @@ export const MOCK_REVIEWS: Review[] = [
     customerId: 'cust-1',
     professionalId: 'pro-1',
     rating: 5,
-    text: 'Sample Testing was incredibly professional and fixed our emergency leak in record time. Highly recommended!',
+    text: 'Rajesh Kumar was incredibly professional and fixed our emergency leak in record time. Highly recommended!',
     createdAt: '2023-11-10T14:30:00Z',
     customerName: 'Sarah Jenkins',
     customerAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100&h=100'

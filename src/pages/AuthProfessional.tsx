@@ -131,7 +131,7 @@ export function LoginProfessional() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm transition-all"
-                  placeholder="sample.pro@goservik.com"
+                  placeholder="partner@goservik.com"
                 />
               </div>
             </div>

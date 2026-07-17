@@ -178,7 +178,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white/50 pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm transition-all"
-                  placeholder="sample.pro@goservik.com or standard email"
+                  placeholder="name@example.com or your registered email"
                 />
               </div>
             </div>

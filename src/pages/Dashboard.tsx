@@ -1035,9 +1035,19 @@ export function Dashboard() {
                 </div>
 
                 <div className="space-y-0.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estimated visit Fee</span>
-                  <div className="text-xl font-extrabold text-slate-900 mt-1">₹{selectedBooking.totalPrice}</div>
-                  <span className="text-[9px] text-slate-400 block mt-0.5">Payable upon work completion</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Visit Fee & Payment</span>
+                  <div className="text-xl font-extrabold text-slate-900 mt-0.5">₹{selectedBooking.totalPrice}</div>
+                  <div className="text-[9px] mt-1 font-semibold">
+                    {selectedBooking.paymentMethod === 'razorpay' ? (
+                      <span className="text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded font-bold">
+                        Razorpay • PAID
+                      </span>
+                    ) : (
+                      <span className="text-amber-700 bg-amber-50 border border-amber-200/60 px-1.5 py-0.5 rounded font-bold">
+                        Cash • PAY ON VISIT
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1087,6 +1097,23 @@ export function Dashboard() {
                   "{selectedBooking.notes || 'No special instructions listed by client.'}"
                 </p>
               </div>
+
+              {/* Razorpay Transaction Details */}
+              {selectedBooking.paymentMethod === 'razorpay' && (
+                <div className="space-y-1.5 bg-indigo-50/30 p-4 rounded-2xl border border-indigo-100/50">
+                  <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider block">Razorpay Transaction Details</span>
+                  <div className="grid grid-cols-2 gap-2 text-[10px] font-semibold text-slate-600 mt-1">
+                    <div>
+                      <span className="text-[9px] text-slate-400 block font-bold">Payment ID</span>
+                      <span className="font-mono text-slate-800 select-all">{selectedBooking.razorpayPaymentId || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] text-slate-400 block font-bold">Order ID</span>
+                      <span className="font-mono text-slate-800 select-all">{selectedBooking.razorpayOrderId || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
 
             </div>
 

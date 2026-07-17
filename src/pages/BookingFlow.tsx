@@ -42,6 +42,8 @@ export function BookingFlow() {
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Enforce authentication
   if (!currentUser) {
@@ -72,35 +74,6 @@ export function BookingFlow() {
   // Determine current active service name
   const currentServiceName = selectedServiceName || servicesList[0] || '';
 
-  // Calculate pricing based on service and inputs
-  const calculatedPrice = useMemo(() => {
-    const sNameLower = currentServiceName.toLowerCase();
-    
-    // AC Installation: flat 99
-    if (sNameLower.includes('ac installation')) {
-      return 99;
-    }
-    
-    // Tiling: based on area: <= 500 sq ft is 99, otherwise 199
-    if (sNameLower.includes('tiling')) {
-      const area = Number(tilingAreaSqFt) || 0;
-      if (area === 0) return 99; // Default preview
-      return area <= 500 ? 99 : 199;
-    }
-
-    // For other services, we'll check the selected professional's visit fee (defaults to ₹99 if no pro chosen yet)
-    if (selectedProId) {
-      const pro = professionals.find(p => p.id === selectedProId);
-      if (pro) {
-        // Look for service price or default to professional's standard visit charge parameter or general mock visit charge
-        const matchService = pro.services.find(s => s.categoryId === selectedCategoryId);
-        return matchService ? matchService.basePrice : 99;
-      }
-    }
-    
-    return 99; // Base fallback visit charge
-  }, [currentServiceName, tilingAreaSqFt, selectedProId, selectedCategoryId, professionals]);
-
   // Generate lists of professionals who provide services in this category, with simulated distances
   const availablePros: SimulatedPro[] = useMemo(() => {
     // Filter pros that have services or are registered in this category
@@ -117,15 +90,10 @@ export function BookingFlow() {
       const baseDistance = isCityMatch ? 1.0 : 15.0;
       const distanceKm = Number((baseDistance + (((pro.name.charCodeAt(0) || 1) * 3 + index * 1.5) % 8)).toFixed(1));
       
-      // Determine visit charge of the pro for this service category (or choose from approved 49, 99, 149, 199, 249)
+      // Determine visit charge of the pro as entered by the professional (default to approved option if none)
       const chargeOptions = [49, 99, 149, 199, 249];
       const matchSrv = pro.services.find(s => s.categoryId === selectedCategoryId);
-      let visitCharge = matchSrv ? matchSrv.basePrice : chargeOptions[index % chargeOptions.length];
-      
-      // Force constraints
-      if (!chargeOptions.includes(visitCharge)) {
-        visitCharge = chargeOptions[Math.floor(visitCharge / 50) % chargeOptions.length] || 99;
-      }
+      const visitCharge = matchSrv ? matchSrv.basePrice : chargeOptions[index % chargeOptions.length];
 
       return {
         id: pro.id,
@@ -139,7 +107,27 @@ export function BookingFlow() {
         visitCharge
       };
     });
-  }, [professionals, selectedCategoryId, proId]);
+  }, [professionals, selectedCategoryId, proId, currentUser]);
+
+  // Allocate nearest professional automatically for the selected service
+  const nearestPro = useMemo(() => {
+    if (availablePros.length === 0) return null;
+    return [...availablePros].sort((a, b) => a.distanceKm - b.distanceKm)[0];
+  }, [availablePros]);
+
+  // Calculate pricing based entirely on the selected professional's entered visit fee (no hardcoded base prices)
+  const calculatedPrice = useMemo(() => {
+    if (selectedProId) {
+      const pro = availablePros.find(p => p.id === selectedProId);
+      if (pro) {
+        return pro.visitCharge || 199;
+      }
+    }
+    if (nearestPro) {
+      return nearestPro.visitCharge || 199;
+    }
+    return 199; // Fallback visit charge
+  }, [selectedProId, availablePros, nearestPro]);
 
   // Sort professionals based on selection (Only Nearest and Rating are allowed)
   const sortedPros = useMemo(() => {
@@ -150,12 +138,6 @@ export function BookingFlow() {
       return prosCopy.sort((a, b) => b.rating - a.rating);
     }
   }, [availablePros, sortSetting]);
-
-  // Allocate nearest professional automatically for the selected service
-  const nearestPro = useMemo(() => {
-    if (availablePros.length === 0) return null;
-    return [...availablePros].sort((a, b) => a.distanceKm - b.distanceKm)[0];
-  }, [availablePros]);
 
   // Auto-select nearest professional when step 2 is entered or category changes
   const handleNextToStep2 = () => {
@@ -178,10 +160,12 @@ export function BookingFlow() {
   const availableDates = Array.from({ length: 14 }).map((_, i) => addDays(new Date(), i + 1));
   const availableTimes = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'];
 
-  const handleBook = () => {
+  const handleBook = async () => {
     const finalPro = professionals.find(p => p.id === selectedProId);
     if (!finalPro || !selectedDate || !selectedTime) return;
     
+    setPaymentError(null);
+
     const formattedAddress = [
       currentUser.addressLine,
       currentUser.landmark,
@@ -191,21 +175,121 @@ export function BookingFlow() {
       currentUser.country
     ].filter(Boolean).join(', ');
 
-    bookService({
-      customerId: currentUser.id,
-      professionalId: finalPro.id,
-      serviceId: `srv-custom-${Date.now()}`,
-      date: selectedDate.toISOString(),
-      time: selectedTime,
-      notes: `Size/Info: ${approximateSize}. ${notes}`.trim(),
-      totalPrice: calculatedPrice,
-      customerName: currentUser.name || 'Anonymous Customer',
-      customerMobile: currentUser.mobile || 'Not Provided',
-      customerAddress: formattedAddress || 'No detailed address registered',
-      customerServiceOpted: currentServiceName || 'General Standard Service',
-      paymentMethod: paymentMethod
-    });
-    setStep(4); // Success step
+    const performBookingCreation = (paymentId?: string, orderId?: string) => {
+      bookService({
+        customerId: currentUser.id,
+        professionalId: finalPro.id,
+        serviceId: `srv-custom-${Date.now()}`,
+        date: selectedDate.toISOString(),
+        time: selectedTime,
+        notes: `Size/Info: ${approximateSize}. ${notes}`.trim(),
+        totalPrice: calculatedPrice,
+        customerName: currentUser.name || 'Anonymous Customer',
+        customerMobile: currentUser.mobile || 'Not Provided',
+        customerAddress: formattedAddress || 'No detailed address registered',
+        customerServiceOpted: currentServiceName || 'General Standard Service',
+        paymentMethod: paymentMethod,
+        razorpayPaymentId: paymentId,
+        razorpayOrderId: orderId,
+        paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending'
+      });
+      setStep(4); // Success step
+    };
+
+    if (paymentMethod === 'cash') {
+      performBookingCreation();
+    } else {
+      setPaymentLoading(true);
+      try {
+        // Step 1: Create Order on backend
+        const amountInPaise = Math.round(calculatedPrice * 100);
+        const orderResponse = await fetch('/api/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            amount: amountInPaise,
+            currency: 'INR',
+            receipt: `rcpt_${Date.now()}`
+          })
+        });
+
+        if (!orderResponse.ok) {
+          const errData = await orderResponse.json();
+          throw new Error(errData.error || 'Failed to create payment order');
+        }
+
+        const orderData = await orderResponse.json();
+
+        // Step 2: Open Razorpay modal
+        const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_TEYA8yK9iWlsjJ';
+        const options = {
+          key: keyId,
+          amount: orderData.amount,
+          currency: orderData.currency || 'INR',
+          name: 'GoServik',
+          description: `Service booking fee for ${currentServiceName}`,
+          order_id: orderData.id,
+          handler: async function (response: any) {
+            setPaymentLoading(true);
+            try {
+              // Step 3: Verify signature on backend
+              const verifyResponse = await fetch('/api/verify-payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature
+                })
+              });
+
+              if (!verifyResponse.ok) {
+                const verifyErr = await verifyResponse.json();
+                throw new Error(verifyErr.error || 'Signature verification failed');
+              }
+
+              const verifyData = await verifyResponse.json();
+              if (verifyData.verified) {
+                performBookingCreation(response.razorpay_payment_id, response.razorpay_order_id);
+              } else {
+                throw new Error('Payment verification was unsuccessful.');
+              }
+            } catch (err: any) {
+              console.error('Payment verification error:', err);
+              setPaymentError(err.message || 'Payment verification failed');
+            } finally {
+              setPaymentLoading(false);
+            }
+          },
+          prefill: {
+            name: currentUser.name || '',
+            email: currentUser.email || '',
+            contact: currentUser.mobile || ''
+          },
+          theme: {
+            color: '#4f46e5'
+          },
+          modal: {
+            ondismiss: function() {
+              setPaymentLoading(false);
+              setPaymentError('Payment window was closed before completion.');
+            }
+          }
+        };
+
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', function (response: any) {
+          console.error('Razorpay payment failed:', response.error);
+          setPaymentError(`Payment failed: ${response.error.description}`);
+          setPaymentLoading(false);
+        });
+        rzp.open();
+      } catch (err: any) {
+        console.error('Order creation error:', err);
+        setPaymentError(err.message || 'Could not initiate Razorpay payment');
+        setPaymentLoading(false);
+      }
+    }
   };
 
   const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
@@ -665,15 +749,40 @@ export function BookingFlow() {
                 </div>
               </div>
 
+              {/* Payment Status Alerts */}
+              {paymentError && (
+                <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
+                  <div className="text-xs">
+                    <p className="font-extrabold text-red-950">Payment Error</p>
+                    <p className="text-red-700 mt-0.5">{paymentError}</p>
+                  </div>
+                </div>
+              )}
+
               {/* Buttons */}
               <div className="flex justify-between items-center pt-2">
-                <Button variant="outline" onClick={() => setStep(2)} className="rounded-xl text-xs h-10 font-bold">Back</Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setStep(2)} 
+                  disabled={paymentLoading}
+                  className="rounded-xl text-xs h-10 font-bold"
+                >
+                  Back
+                </Button>
                 <Button 
                   onClick={handleBook} 
-                  disabled={!selectedDate || !selectedTime}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-10 shadow-lg"
+                  disabled={!selectedDate || !selectedTime || paymentLoading}
+                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-10 shadow-lg flex items-center gap-2"
                 >
-                  Confirm Visit Booking
+                  {paymentLoading ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Processing Payment...
+                    </>
+                  ) : (
+                    paymentMethod === 'razorpay' ? 'Pay & Confirm Visit' : 'Confirm Visit Booking'
+                  )}
                 </Button>
               </div>
             </div>

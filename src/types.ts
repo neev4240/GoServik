@@ -71,6 +71,9 @@ export interface Booking {
   customerAddress?: string;
   customerServiceOpted?: string;
   paymentMethod?: 'cash' | 'razorpay';
+  razorpayPaymentId?: string;
+  razorpayOrderId?: string;
+  paymentStatus?: 'pending' | 'paid';
 }
 
 export interface Review {
