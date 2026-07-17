@@ -70,6 +70,7 @@ export interface Booking {
   customerMobile?: string;
   customerAddress?: string;
   customerServiceOpted?: string;
+  paymentMethod?: 'cash' | 'razorpay';
 }
 
 export interface Review {

@@ -33,13 +33,7 @@ export function Dashboard() {
   const [chatInput, setChatInput] = useState('');
   const [chatThreads, setChatThreads] = useState<Record<string, Array<{ sender: 'me' | 'them'; text: string; time: string }>>>({
     helpdesk: [
-      { sender: 'them', text: 'Namaste! Welcome to GoServik Premium Support. How can we help you today?', time: '10:00 AM' },
-    ],
-    pro_rajesh: [
-      { sender: 'them', text: 'Hello, I have packed the sanitization kit and am on my way for the cleaning service.', time: '09:15 AM' },
-    ],
-    cust_neev: [
-      { sender: 'them', text: 'Hi, can we reschedule the appliance repair to 4 PM instead of 2 PM?', time: 'Yesterday' }
+      { sender: 'them', text: 'Namaste! Welcome to GoServik Premium Support. How can we help you today?', time: 'Just now' },
     ]
   });
 
@@ -126,9 +120,10 @@ export function Dashboard() {
   const roleNav = navItems[currentUser.role] || navItems.customer;
 
   // Filter bookings based on role
-  const userBookings = bookings.filter(b => 
-    currentUser.role === 'customer' ? b.customerId === currentUser.id : b.professionalId === currentUser.id
-  );
+  const userBookings = bookings.filter(b => {
+    if (currentUser.role === 'admin') return true;
+    return currentUser.role === 'customer' ? b.customerId === currentUser.id : b.professionalId === currentUser.id;
+  });
 
   // Send a simulated chat message
   const handleSendMessage = (e: React.FormEvent) => {

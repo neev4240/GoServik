@@ -17,7 +17,7 @@ const COUNTRY_CODES = [
 
 export function Login() {
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
-  const [role, setRole] = useState<'customer' | 'professional'>('customer');
+  const role = 'customer';
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
   const [mobileNumber, setMobileNumber] = useState('');
@@ -80,12 +80,7 @@ export function Login() {
       if (finalRole === 'customer') {
         const isPro = professionals.find(matchesEmailOrPhone);
         if (isPro) {
-          throw new Error("This account is registered as a Professional Partner. Please select 'I am a Professional' to log in.");
-        }
-      } else if (finalRole === 'professional') {
-        const isCust = customers.find(matchesEmailOrPhone);
-        if (isCust) {
-          throw new Error("This account is registered as a Customer. Please select 'I am a Customer' to log in.");
+          throw new Error("This account is registered as a Professional Partner. Please use the Professional Portal to log in.");
         }
       }
 
@@ -130,32 +125,9 @@ export function Login() {
           </p>
         </div>
 
-        {/* Role Switcher */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            id="login-role-customer"
-            onClick={() => { setRole('customer'); setError(''); }}
-            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
-              role === 'customer'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
-                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
-            }`}
-          >
-            I am a Customer
-          </button>
-          <button
-            type="button"
-            id="login-role-professional"
-            onClick={() => { setRole('professional'); setError(''); }}
-            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
-              role === 'professional'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
-                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
-            }`}
-          >
-            I am a Professional
-          </button>
+        {/* Static customer sign in notice */}
+        <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-xl text-center text-xs font-semibold text-slate-600">
+          Sign In Portal: Customer Account Only
         </div>
 
         {/* Tab Selector */}
@@ -272,15 +244,6 @@ export function Login() {
           <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 transition-all" disabled={loading}>
             {loading ? 'Authenticating...' : 'Sign In'}
           </Button>
-          
-          <div className="mt-4 p-4 bg-white/50 border border-white/60 rounded-2xl text-xs text-slate-600">
-            <p className="font-bold mb-2 flex items-center gap-1.5 text-indigo-600"><Shield className="h-3.5 w-3.5" /> Testing Accounts (Auto-creates):</p>
-            <ul className="list-disc list-inside space-y-1 text-[11px]">
-              <li><b>Professional:</b> sample.pro@goservik.com</li>
-              <li><b>Admin Panel:</b> admin@goservik.com</li>
-              <li><b>Mobile:</b> Try Mobile with 10 digits & password</li>
-            </ul>
-          </div>
         </form>
       </div>
     </div>
@@ -288,7 +251,7 @@ export function Login() {
 }
 
 export function Register() {
-  const [role, setRole] = useState<'customer' | 'professional'>('customer');
+  const role = 'customer';
   const [registerMethod, setRegisterMethod] = useState<'email' | 'mobile'>('email');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -403,30 +366,9 @@ export function Register() {
           </p>
         </div>
 
-        {/* Role Switcher */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setRole('customer')}
-            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
-              role === 'customer'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
-                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
-            }`}
-          >
-            I am a Customer
-          </button>
-          <button
-            type="button"
-            onClick={() => setRole('professional')}
-            className={`py-3 px-4 text-xs font-bold rounded-xl border transition-all text-center ${
-              role === 'professional'
-                ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-100'
-                : 'bg-white/50 hover:bg-white text-slate-600 border-slate-200/60'
-            }`}
-          >
-            I am a Professional
-          </button>
+        {/* Static customer registration notice */}
+        <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-xl text-center text-xs font-semibold text-slate-600">
+          Registration Portal: New Customer Account Only
         </div>
 
         {/* Tab Selector */}

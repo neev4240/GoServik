@@ -187,14 +187,6 @@ export function LoginProfessional() {
           <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 transition-all" disabled={loading}>
             {loading ? 'Logging in...' : 'Sign In to Portal'}
           </Button>
-
-          <div className="mt-4 p-4 bg-white/50 border border-white/60 rounded-2xl text-xs text-slate-600">
-            <p className="font-bold mb-2 flex items-center gap-1.5 text-indigo-600"><Shield className="h-3.5 w-3.5" /> Testing Accounts (Auto-creates):</p>
-            <ul className="list-disc list-inside space-y-1 text-[11px]">
-              <li><b>Sample Partner:</b> sample.pro@goservik.com (password: anything)</li>
-              <li>Or sign in with any mobile number / email for a quick demo!</li>
-            </ul>
-          </div>
         </form>
       </div>
     </div>

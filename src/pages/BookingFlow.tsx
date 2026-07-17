@@ -41,6 +41,7 @@ export function BookingFlow() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [notes, setNotes] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
 
   // Enforce authentication
   if (!currentUser) {
@@ -109,8 +110,12 @@ export function BookingFlow() {
     );
 
     return list.map((pro, index) => {
-      // Deterministic distance calculation based on ID so sorting remains stable
-      const distanceKm = Number((((pro.name.charCodeAt(0) || 1) * 3 + index * 1.5) % 8 + 1.2).toFixed(1));
+      // Deterministic distance calculation based on user's city and professional's location
+      const userCity = currentUser?.city?.toLowerCase().trim() || '';
+      const proLocation = pro.location.toLowerCase().trim();
+      const isCityMatch = userCity && (proLocation.includes(userCity) || userCity.includes(proLocation));
+      const baseDistance = isCityMatch ? 1.0 : 15.0;
+      const distanceKm = Number((baseDistance + (((pro.name.charCodeAt(0) || 1) * 3 + index * 1.5) % 8)).toFixed(1));
       
       // Determine visit charge of the pro for this service category (or choose from approved 49, 99, 149, 199, 249)
       const chargeOptions = [49, 99, 149, 199, 249];
@@ -197,7 +202,8 @@ export function BookingFlow() {
       customerName: currentUser.name || 'Anonymous Customer',
       customerMobile: currentUser.mobile || 'Not Provided',
       customerAddress: formattedAddress || 'No detailed address registered',
-      customerServiceOpted: currentServiceName || 'General Standard Service'
+      customerServiceOpted: currentServiceName || 'General Standard Service',
+      paymentMethod: paymentMethod
     });
     setStep(4); // Success step
   };
@@ -467,7 +473,7 @@ export function BookingFlow() {
                         </div>
 
                         <div className="text-right">
-                          <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wide block">Base Visit Charge</span>
+                          <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wide block">Amount Entered by Professional</span>
                           <span className="text-sm font-extrabold text-slate-900 block">₹{pro.visitCharge}</span>
                         </div>
                       </div>
@@ -564,6 +570,52 @@ export function BookingFlow() {
                 />
               </div>
 
+              {/* Payment Option Selection */}
+              <div className="space-y-3 pt-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Payment Option</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all ${
+                      paymentMethod === 'cash'
+                        ? 'border-slate-900 bg-slate-50/50'
+                        : 'border-slate-100 hover:border-slate-200 bg-white/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-xs font-bold text-slate-900">Cash / Pay on Visit</span>
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        paymentMethod === 'cash' ? 'border-slate-900 bg-slate-900' : 'border-slate-300'
+                      }`}>
+                        {paymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2">Pay the professional directly in cash or via UPI after the visit is completed.</p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('razorpay')}
+                    className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all ${
+                      paymentMethod === 'razorpay'
+                        ? 'border-slate-900 bg-slate-50/50'
+                        : 'border-slate-100 hover:border-slate-200 bg-white/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between w-full">
+                      <span className="text-xs font-bold text-slate-900">Pay via Razorpay</span>
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                        paymentMethod === 'razorpay' ? 'border-slate-900 bg-slate-900' : 'border-slate-300'
+                      }`}>
+                        {paymentMethod === 'razorpay' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-2">Pay securely online using Cards, NetBanking, UPI, or Wallets via Razorpay.</p>
+                  </button>
+                </div>
+              </div>
+
               {/* Summary card */}
               <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-150 space-y-3.5">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">Booking Visit Summary</h4>
@@ -592,12 +644,22 @@ export function BookingFlow() {
                       </span>
                     </div>
                   )}
+                  <div className="sm:col-span-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Option</span>
+                    <span className="font-bold text-slate-800 capitalize">
+                      {paymentMethod === 'cash' ? 'Cash / Pay on Visit' : 'Online Payment (Razorpay)'}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="pt-3 border-t flex justify-between items-center">
                   <div>
                     <span className="font-extrabold text-xs text-slate-900 block">Total Calculated Visit Fee</span>
-                    <span className="text-[9px] text-slate-400 block">Payable directly to expert upon visit arrival</span>
+                    <span className="text-[9px] text-slate-400 block">
+                      {paymentMethod === 'cash' 
+                        ? 'Payable directly to expert upon visit arrival' 
+                        : 'To be paid securely via Razorpay gateway'}
+                    </span>
                   </div>
                   <span className="text-2xl font-extrabold text-slate-900">₹{calculatedPrice}</span>
                 </div>

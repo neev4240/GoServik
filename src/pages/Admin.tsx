@@ -371,43 +371,7 @@ export function AdminPage() {
                 </div>
               </div>
 
-              <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm space-y-6">
-                <div className="space-y-2">
-                  <h3 className="font-extrabold text-slate-900 text-lg flex items-center gap-2">
-                    <Database className="h-5 w-5 text-indigo-600" />
-                    Cloud Database Backup Gateway
-                  </h3>
-                  <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
-                    By default, the platform writes active records on-the-fly to Google Cloud Firestore collections. You can trigger a full sync to force-refresh all local mock entities, reviews, and customers directly into the cloud database schema.
-                  </p>
-                </div>
 
-                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div className="space-y-1">
-                    <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      Active Auto-Sync Mode
-                    </p>
-                    <p className="text-[10px] text-slate-400">All edit & delete operations below are directly synced to Cloud Firestore.</p>
-                  </div>
-
-                  {syncMessage && (
-                    <div className="bg-indigo-50 text-indigo-700 text-xs px-4 py-2 rounded-xl font-bold border border-indigo-100 flex items-center gap-2">
-                      <Sparkles className="h-4 w-4" />
-                      {syncMessage}
-                    </div>
-                  )}
-
-                  <Button 
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl h-10 px-5 shrink-0"
-                    disabled={syncing}
-                    onClick={handleSyncToFirebase}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                    {syncing ? 'Syncing...' : 'Force Sync All to Firestore'}
-                  </Button>
-                </div>
-              </div>
             </div>
           )}
 
