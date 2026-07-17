@@ -23,9 +23,9 @@ export function Profile() {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen pb-16">
+    <div className="bg-transparent min-h-screen pb-16">
       {/* Profile Header */}
-      <div className="bg-white border-b">
+      <div className="bg-white/40 backdrop-blur-md border-b border-white/40 shadow-sm">
         <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="flex text-sm text-slate-500 mb-6">
             <Link to="/explore" className="hover:text-slate-900">Directory</Link>
@@ -95,14 +95,14 @@ export function Profile() {
           
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-8">
-            <section className="bg-white p-6 md:p-8 rounded-2xl border shadow-sm">
+            <section className="bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-white/40 shadow-sm hover:shadow-lg transition-all">
               <h2 className="text-xl font-bold text-slate-900 mb-4">About Me</h2>
               <div className="prose prose-slate max-w-none">
                 <p className="whitespace-pre-wrap">{pro.bio}</p>
               </div>
             </section>
 
-            <section className="bg-white p-6 md:p-8 rounded-2xl border shadow-sm">
+            <section className="bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-white/40 shadow-sm hover:shadow-lg transition-all">
               <h2 className="text-xl font-bold text-slate-900 mb-4">Services Offered</h2>
               <div className="space-y-4">
                 {pro.services.map(service => {
@@ -119,7 +119,7 @@ export function Profile() {
                       </div>
                       <div className="mt-4 sm:mt-0 sm:text-right shrink-0">
                         <div className="font-bold text-lg text-slate-900">
-                          £{service.basePrice}
+                          ₹{service.basePrice}
                           <span className="text-sm font-normal text-slate-500">
                             {service.priceUnit === 'hourly' ? '/hr' : service.priceUnit === 'starting_at' ? ' and up' : ' fixed'}
                           </span>
@@ -132,7 +132,7 @@ export function Profile() {
             </section>
 
             {pro.gallery && pro.gallery.length > 0 && (
-              <section className="bg-white p-6 md:p-8 rounded-2xl border shadow-sm">
+              <section className="bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-white/40 shadow-sm hover:shadow-lg transition-all">
                 <h2 className="text-xl font-bold text-slate-900 mb-4">Portfolio Gallery</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {pro.gallery.map((img, idx) => (
@@ -145,7 +145,7 @@ export function Profile() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl border shadow-sm">
+            <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm hover:shadow-lg transition-all">
               <h3 className="font-bold text-slate-900 mb-4">Professional Details</h3>
               <ul className="space-y-4 text-sm">
                 <li className="flex items-start gap-3 text-slate-600">
@@ -187,7 +187,7 @@ export function Profile() {
               )}
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border shadow-sm">
+            <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm hover:shadow-lg transition-all">
               <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <Clock className="h-5 w-5" /> Working Hours
               </h3>

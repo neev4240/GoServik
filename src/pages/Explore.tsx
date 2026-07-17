@@ -103,7 +103,7 @@ export function Explore() {
 
           <div className="space-y-4">
             {filteredProfessionals.map(pro => (
-              <div key={pro.id} className="flex flex-col sm:flex-row gap-6 p-6 border rounded-xl bg-white hover:shadow-md transition-shadow">
+              <div key={pro.id} className="group flex flex-col sm:flex-row gap-6 p-6 border border-white/40 rounded-2xl bg-white/60 backdrop-blur-md hover:shadow-xl hover:bg-white transition-all">
                 <img 
                   src={pro.avatar} 
                   alt={pro.name} 
@@ -137,10 +137,10 @@ export function Explore() {
                     </div>
                     
                     <div className="flex flex-col gap-2 shrink-0">
-                      <Button asChild>
+                      <Button asChild variant="outline" className="border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl h-10">
                         <Link to={`/pro/${pro.id}`}>View Profile</Link>
                       </Button>
-                      <Button variant="outline" asChild>
+                      <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-100 h-10">
                         <Link to={`/book/${pro.id}`}>Book Now</Link>
                       </Button>
                     </div>

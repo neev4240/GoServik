@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { User, ProfessionalProfile, ServiceCategory, Booking, Review, Message } from './types';
+import { User, ProfessionalProfile, ServiceCategory, Booking, Review, Message, Role } from './types';
+import { db } from './lib/firebase';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 
 // Mock Data
 export const MOCK_CATEGORIES: ServiceCategory[] = [
@@ -33,7 +35,7 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
         categoryId: 'cat-2',
         name: 'Emergency Pipe Repair',
         description: '24/7 emergency service for burst or leaking pipes.',
-        basePrice: 120,
+        basePrice: 12000,
         priceUnit: 'hourly',
         experienceYears: 15,
       },
@@ -42,7 +44,7 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
         categoryId: 'cat-2',
         name: 'Fixture Installation',
         description: 'Installation of sinks, toilets, faucets, and showers.',
-        basePrice: 80,
+        basePrice: 8000,
         priceUnit: 'fixed',
         experienceYears: 12,
       }
@@ -87,7 +89,7 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
         categoryId: 'cat-4',
         name: 'Event Photography',
         description: 'Full coverage for weddings, parties, and corporate events.',
-        basePrice: 500,
+        basePrice: 50000,
         priceUnit: 'starting_at',
         experienceYears: 8,
       }
@@ -145,10 +147,14 @@ interface AppState {
   bookings: Booking[];
   reviews: Review[];
   savedProfessionals: string[];
-  login: (email: string) => void;
+  initializeFromFirestore: () => Promise<void>;
+  login: (emailOrPhone: string, role?: Role, name?: string) => void;
   logout: () => void;
   bookService: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
   toggleSavedProfessional: (proId: string) => void;
+  updateBookingStatus: (bookingId: string, status: Booking['status']) => void;
+  addProfessionalService: (proId: string, service: any) => void;
+  updateUserProfile: (profile: Partial<User & ProfessionalProfile>) => void;
 }
 
 export const useStore = create<AppState>((set) => ({
@@ -159,30 +165,87 @@ export const useStore = create<AppState>((set) => ({
   reviews: MOCK_REVIEWS,
   savedProfessionals: [],
   
-  login: (email) => set((state) => {
-    // Mock login logic: if it's the sample pro email, log them in. Otherwise, create a mock customer.
-    if (email === 'sample.pro@goservik.com') {
-      return { currentUser: state.professionals.find(p => p.email === email) || null };
+  login: (emailOrPhone, role, name) => set((state) => {
+    const isEmail = emailOrPhone.includes('@');
+    const cleanedIdentifier = emailOrPhone.trim();
+
+    // Check if it's an existing professional in mock
+    const existingPro = state.professionals.find(p => 
+      p.email.toLowerCase() === cleanedIdentifier.toLowerCase() || 
+      p.id === cleanedIdentifier
+    );
+    if (existingPro) {
+      return { currentUser: existingPro };
     }
     
     // Admin login
-    if (email === 'admin@goservik.com') {
+    if (cleanedIdentifier.toLowerCase() === 'admin@goservik.com' || cleanedIdentifier.toLowerCase() === 'admin') {
       return {
         currentUser: {
           id: 'admin-1',
-          name: 'Platform Admin',
+          name: name || 'Platform Admin',
           email: 'admin@goservik.com',
           role: 'admin',
           joinedAt: new Date().toISOString()
         }
-      }
+      };
+    }
+
+    const finalRole = role || 'customer';
+    
+    if (finalRole === 'professional') {
+      const newPro: ProfessionalProfile = {
+        id: `pro-${Date.now()}`,
+        name: name || cleanedIdentifier.split('@')[0],
+        email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
+        role: 'professional',
+        joinedAt: new Date().toISOString(),
+        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200',
+        verified: true,
+        tagline: 'Verified Partner',
+        bio: 'Dedicated independent professional registered on GoServik.',
+        location: 'Mumbai, India',
+        serviceRadiusKm: 25,
+        languages: ['English', 'Hindi'],
+        services: [
+          {
+            id: `srv-${Date.now()}`,
+            categoryId: 'cat-1',
+            name: 'General Service',
+            description: 'Standard high-quality service package.',
+            basePrice: 5000,
+            priceUnit: 'fixed',
+            experienceYears: 5
+          }
+        ],
+        gallery: [],
+        certifications: ['Verified GoServik Partner'],
+        workingHours: {
+          Monday: '09:00 - 18:00',
+          Tuesday: '09:00 - 18:00',
+          Wednesday: '09:00 - 18:00',
+          Thursday: '09:00 - 18:00',
+          Friday: '09:00 - 18:00',
+          Saturday: '10:00 - 16:00',
+          Sunday: 'Closed'
+        },
+        responseTime: 'Responds within 2 hours',
+        availabilityStatus: 'available',
+        rating: 5.0,
+        reviewCount: 0,
+        jobsCompleted: 0
+      };
+      return {
+        professionals: [...state.professionals, newPro],
+        currentUser: newPro
+      };
     }
 
     // Default to customer
     const mockCustomer: User = {
-      id: 'cust-current',
-      name: email.split('@')[0],
-      email,
+      id: `cust-${Date.now()}`,
+      name: name || cleanedIdentifier.split('@')[0],
+      email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
       role: 'customer',
       joinedAt: new Date().toISOString()
     };
@@ -191,17 +254,71 @@ export const useStore = create<AppState>((set) => ({
   
   logout: () => set({ currentUser: null }),
   
-  bookService: (booking) => set((state) => ({
-    bookings: [
-      ...state.bookings,
-      {
-        ...booking,
-        id: `bk-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: 'pending'
+  initializeFromFirestore: async () => {
+    try {
+      // 1. Fetch Categories
+      const catSnap = await getDocs(collection(db, 'categories'));
+      let loadedCategories = catSnap.docs.map(doc => doc.data() as ServiceCategory);
+      if (loadedCategories.length === 0) {
+        for (const cat of MOCK_CATEGORIES) {
+          await setDoc(doc(db, 'categories', cat.id), cat);
+        }
+        loadedCategories = MOCK_CATEGORIES;
       }
-    ]
-  })),
+
+      // 2. Fetch Professionals
+      const proSnap = await getDocs(collection(db, 'professionals'));
+      let loadedProfessionals = proSnap.docs.map(doc => doc.data() as ProfessionalProfile);
+      if (loadedProfessionals.length === 0) {
+        for (const pro of MOCK_PROFESSIONALS) {
+          await setDoc(doc(db, 'professionals', pro.id), pro);
+        }
+        loadedProfessionals = MOCK_PROFESSIONALS;
+      }
+
+      // 3. Fetch Bookings
+      const bkSnap = await getDocs(collection(db, 'bookings'));
+      const loadedBookings = bkSnap.docs.map(doc => doc.data() as Booking);
+
+      // 4. Fetch Reviews
+      const revSnap = await getDocs(collection(db, 'reviews'));
+      let loadedReviews = revSnap.docs.map(doc => doc.data() as Review);
+      if (loadedReviews.length === 0) {
+        for (const rev of MOCK_REVIEWS) {
+          await setDoc(doc(db, 'reviews', rev.id), rev);
+        }
+        loadedReviews = MOCK_REVIEWS;
+      }
+
+      set({
+        categories: loadedCategories,
+        professionals: loadedProfessionals,
+        bookings: loadedBookings,
+        reviews: loadedReviews
+      });
+    } catch (err) {
+      console.warn("Firestore initialization failed, using mock data fallback", err);
+    }
+  },
+  
+  bookService: async (booking) => {
+    const newBooking = {
+      ...booking,
+      id: `bk-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      status: 'pending' as const
+    };
+    
+    set((state) => ({
+      bookings: [...state.bookings, newBooking]
+    }));
+
+    try {
+      await setDoc(doc(db, 'bookings', newBooking.id), newBooking);
+    } catch (err) {
+      console.error("Firestore booking write failed", err);
+    }
+  },
 
   toggleSavedProfessional: (proId) => set((state) => {
     const isSaved = state.savedProfessionals.includes(proId);
@@ -210,5 +327,76 @@ export const useStore = create<AppState>((set) => ({
         ? state.savedProfessionals.filter(id => id !== proId)
         : [...state.savedProfessionals, proId]
     };
-  })
+  }),
+
+  updateBookingStatus: async (bookingId, status) => {
+    set((state) => ({
+      bookings: state.bookings.map(b => b.id === bookingId ? { ...b, status } : b)
+    }));
+
+    try {
+      await setDoc(doc(db, 'bookings', bookingId), { status }, { merge: true });
+    } catch (err) {
+      console.error("Firestore booking status update failed", err);
+    }
+  },
+
+  addProfessionalService: async (proId, service) => {
+    const newService = { ...service, id: `srv-${Date.now()}` };
+    
+    set((state) => {
+      const updatedProfessionals = state.professionals.map(p => 
+        p.id === proId 
+          ? { ...p, services: [...p.services, newService] } 
+          : p
+      );
+      
+      const updatedCurrentUser = state.currentUser && state.currentUser.id === proId && state.currentUser.role === 'professional'
+        ? { 
+            ...state.currentUser, 
+            services: [...(state.currentUser as ProfessionalProfile).services, newService] 
+          }
+        : state.currentUser;
+
+      // Sync updated professional profile
+      const proObj = updatedProfessionals.find(p => p.id === proId);
+      if (proObj) {
+        setDoc(doc(db, 'professionals', proId), proObj).catch(err => 
+          console.error("Firestore professional service write failed", err)
+        );
+      }
+
+      return {
+        professionals: updatedProfessionals,
+        currentUser: updatedCurrentUser
+      };
+    });
+  },
+
+  updateUserProfile: async (profile) => {
+    set((state) => {
+      if (!state.currentUser) return {};
+      const updatedUser = { ...state.currentUser, ...profile } as any;
+      const isPro = state.currentUser.role === 'professional';
+
+      if (isPro) {
+        const updatedPro = {
+          ...state.professionals.find(p => p.id === state.currentUser?.id),
+          ...profile
+        } as any;
+        setDoc(doc(db, 'professionals', state.currentUser.id), updatedPro).catch(err =>
+          console.error("Firestore user profile update failed", err)
+        );
+      } else {
+        setDoc(doc(db, 'active_sessions', state.currentUser.id), updatedUser).catch(err =>
+          console.error("Firestore active session sync failed", err)
+        );
+      }
+
+      return {
+        currentUser: updatedUser,
+        professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p)
+      };
+    });
+  }
 }));

@@ -10,32 +10,78 @@ export function Home() {
   return (
     <div className="flex flex-col">
       {/* Hero Section */}
-      <section className="relative overflow-hidden bg-slate-900 text-white">
-        <div className="absolute inset-0 z-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&q=80&w=2000')] bg-cover bg-center" />
-        
-        <div className="relative z-10 mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-          <div className="max-w-3xl">
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl mb-6">
-              Find the perfect professional for your next project.
-            </h1>
-            <p className="text-lg text-slate-300 mb-10 max-w-2xl">
-              GoServik is the premium marketplace connecting you with verified, top-rated independent professionals across hundreds of services.
-            </p>
+      <section className="relative overflow-hidden bg-transparent">
+        <div className="relative z-10 mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+          <div className="flex flex-col md:flex-row gap-8 items-center">
             
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/explore" className="inline-flex h-12 items-center justify-center rounded-md bg-white px-8 text-sm font-medium text-slate-900 shadow transition-colors hover:bg-slate-100">
-                I Want to Hire a Professional
-              </Link>
-              <Link to="/register" className="inline-flex h-12 items-center justify-center rounded-md border border-slate-700 bg-slate-800/50 backdrop-blur-sm px-8 text-sm font-medium text-white shadow transition-colors hover:bg-slate-800">
-                I Am a Professional
-              </Link>
+            <div className="flex-1 max-w-xl">
+              <span className="px-3 py-1 text-[10px] uppercase tracking-widest font-bold text-indigo-600 bg-indigo-50 rounded-full border border-indigo-100 inline-block mb-6">
+                Verified Marketplace
+              </span>
+              <h1 className="text-4xl font-extrabold leading-[1.1] text-slate-900 sm:text-5xl lg:text-6xl mb-6 tracking-tight">
+                Your destination for <br className="hidden sm:block" />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500">expert help.</span>
+              </h1>
+              <p className="text-lg text-slate-500 mb-10 leading-relaxed max-w-2xl">
+                Discover, compare, and hire verified independent professionals across 50+ service categories. Premium quality, simplified booking.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 mb-12">
+                <Link to="/explore" className="group relative flex-1 p-6 bg-white/60 backdrop-blur-lg border border-white/40 rounded-2xl shadow-sm hover:shadow-xl transition-all cursor-pointer">
+                  <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-4 text-white shadow-lg shadow-indigo-200">
+                    <Search className="w-6 h-6" />
+                  </div>
+                  <div className="font-bold text-slate-800 mb-1">I Want to Hire</div>
+                  <div className="text-xs text-slate-500">Explore experts near you</div>
+                </Link>
+                
+                <Link to="/register" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
+                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4 text-white">
+                    <Briefcase className="w-6 h-6" />
+                  </div>
+                  <div className="font-bold text-white mb-1">I am a Professional</div>
+                  <div className="text-xs text-indigo-100">Join as a verified partner</div>
+                </Link>
+              </div>
             </div>
+
+            <div className="w-full md:w-[420px] shrink-0 hidden lg:flex flex-col gap-6">
+               <div className="bg-white/80 rounded-3xl p-6 shadow-2xl shadow-indigo-100/50 border border-white relative overflow-hidden backdrop-blur-xl">
+                 <div className="absolute top-0 right-0 p-4">
+                    <div className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wide shadow-sm">
+                      <ShieldCheck className="w-3 h-3" />
+                      Verified
+                    </div>
+                 </div>
+                 <div className="flex gap-4 items-center mb-6">
+                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center font-bold text-xl text-indigo-400">
+                      <Briefcase className="h-8 w-8 text-indigo-300" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-slate-800 leading-tight">Elite Professionals</h3>
+                      <div className="text-sm text-slate-500">Top Rated Services</div>
+                    </div>
+                 </div>
+                 <div className="grid grid-cols-2 gap-4 mb-6">
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-[10px] uppercase text-slate-400 font-bold mb-0.5">Avg Rating</div>
+                      <div className="font-bold text-slate-800 flex items-center gap-1">4.9 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" /></div>
+                    </div>
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      <div className="text-[10px] uppercase text-slate-400 font-bold mb-0.5">Response Time</div>
+                      <div className="font-bold text-slate-800">&lt; 1 Hour</div>
+                    </div>
+                 </div>
+                 <Button className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-100 mb-3 h-auto">Find Services Now</Button>
+               </div>
+            </div>
+
           </div>
         </div>
       </section>
 
       {/* Trust Indicators */}
-      <section className="border-b bg-white py-12">
+      <section className="py-12 bg-white/40 backdrop-blur-sm border-y border-white/40 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="flex items-start gap-4">
@@ -70,7 +116,7 @@ export function Home() {
       </section>
 
       {/* Popular Categories */}
-      <section className="py-16 sm:py-24 bg-slate-50">
+      <section className="py-16 sm:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">Popular Categories</h2>
@@ -84,9 +130,9 @@ export function Home() {
               <Link 
                 key={cat.id} 
                 to={`/explore?category=${cat.id}`}
-                className="group relative flex flex-col rounded-xl border bg-white p-6 shadow-sm transition-all hover:shadow-md hover:border-slate-300"
+                className="group relative flex flex-col rounded-2xl border border-white/40 bg-white/60 backdrop-blur-md p-6 shadow-sm transition-all hover:shadow-xl hover:bg-white"
               >
-                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-900 group-hover:bg-slate-900 group-hover:text-white transition-colors">
+                <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shadow-sm">
                   {/* Mock icons, ideally mapped to lucide components */}
                   <Briefcase className="h-6 w-6" />
                 </div>

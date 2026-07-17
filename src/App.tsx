@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from 'react';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
+import { useStore } from './store';
 import { Layout } from './components/layout/Layout';
 import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
@@ -11,6 +13,17 @@ import { Profile } from './pages/Profile';
 import { BookingFlow } from './pages/BookingFlow';
 import { Login, Register } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
+import { AdminPage } from './pages/Admin';
+import { 
+  AboutPage, 
+  ContactPage, 
+  TrustSafetyPage, 
+  HowItWorksPage, 
+  SuccessStoriesPage, 
+  CommunityGuidelinesPage, 
+  PrivacyPolicyPage, 
+  TermsPage 
+} from './pages/StaticPages';
 
 const router = createBrowserRouter([
   {
@@ -45,28 +58,51 @@ const router = createBrowserRouter([
         path: 'dashboard',
         element: <Dashboard />,
       },
-      // Placeholders for static pages
       {
         path: 'about',
-        element: <div className="p-20 text-center"><h1 className="text-3xl font-bold">About Us</h1><p className="mt-4">GoServik is a trusted marketplace for professionals.</p></div>
+        element: <AboutPage />
       },
       {
         path: 'contact',
-        element: <div className="p-20 text-center"><h1 className="text-3xl font-bold">Contact Us</h1></div>
+        element: <ContactPage />
+      },
+      {
+        path: 'trust-safety',
+        element: <TrustSafetyPage />
+      },
+      {
+        path: 'how-it-works',
+        element: <HowItWorksPage />
+      },
+      {
+        path: 'success-stories',
+        element: <SuccessStoriesPage />
+      },
+      {
+        path: 'community-guidelines',
+        element: <CommunityGuidelinesPage />
       },
       {
         path: 'privacy',
-        element: <div className="p-20 text-center"><h1 className="text-3xl font-bold">Privacy Policy</h1></div>
+        element: <PrivacyPolicyPage />
       },
       {
         path: 'terms',
-        element: <div className="p-20 text-center"><h1 className="text-3xl font-bold">Terms of Service</h1></div>
+        element: <TermsPage />
+      },
+      {
+        path: 'admin',
+        element: <AdminPage />
       }
     ],
   },
 ]);
 
 export default function App() {
+  useEffect(() => {
+    useStore.getState().initializeFromFirestore();
+  }, []);
+
   return <RouterProvider router={router} />;
 }
 

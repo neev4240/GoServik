@@ -15,14 +15,16 @@ export function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
+    <nav className="sticky top-0 z-50 w-full border-b border-white/20 bg-white/40 backdrop-blur-md shadow-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-900 text-white">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-md shadow-indigo-200">
               <Briefcase className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold tracking-tight text-slate-900">GoServik</span>
+            <span className="text-xl font-bold tracking-tight text-slate-800">
+              Go<span className="text-indigo-600">Servik</span>
+            </span>
           </Link>
           
           <div className="hidden md:flex items-center gap-6">
@@ -66,7 +68,7 @@ export function Navbar() {
               <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 Sign In
               </Link>
-              <Link to="/register" className="inline-flex h-9 items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-slate-50 shadow transition-colors hover:bg-slate-900/90">
+              <Link to="/register" className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
                 Join as Professional
               </Link>
             </>

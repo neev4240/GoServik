@@ -21,9 +21,9 @@ export function Footer() {
           <div>
             <h3 className="font-semibold text-slate-900 mb-4">Customers</h3>
             <ul className="space-y-3 text-sm text-slate-600">
-              <li><Link to="/explore" className="hover:text-slate-900">How to Hire</Link></li>
+              <li><Link to="/how-it-works" className="hover:text-slate-900">How to Hire</Link></li>
               <li><Link to="/explore" className="hover:text-slate-900">Explore Services</Link></li>
-              <li><Link to="/explore" className="hover:text-slate-900">Trust & Safety</Link></li>
+              <li><Link to="/trust-safety" className="hover:text-slate-900">Trust & Safety</Link></li>
             </ul>
           </div>
           
@@ -31,8 +31,8 @@ export function Footer() {
             <h3 className="font-semibold text-slate-900 mb-4">Professionals</h3>
             <ul className="space-y-3 text-sm text-slate-600">
               <li><Link to="/register" className="hover:text-slate-900">Become a Professional</Link></li>
-              <li><Link to="/register" className="hover:text-slate-900">Success Stories</Link></li>
-              <li><Link to="/register" className="hover:text-slate-900">Community Guidelines</Link></li>
+              <li><Link to="/success-stories" className="hover:text-slate-900">Success Stories</Link></li>
+              <li><Link to="/community-guidelines" className="hover:text-slate-900">Community Guidelines</Link></li>
             </ul>
           </div>
           
@@ -43,6 +43,7 @@ export function Footer() {
               <li><Link to="/contact" className="hover:text-slate-900">Contact</Link></li>
               <li><Link to="/privacy" className="hover:text-slate-900">Privacy Policy</Link></li>
               <li><Link to="/terms" className="hover:text-slate-900">Terms of Service</Link></li>
+              <li><Link to="/admin" className="text-xs text-slate-400 hover:text-slate-950 transition-colors">Admin Portal</Link></li>
             </ul>
           </div>
         </div>
@@ -51,7 +52,7 @@ export function Footer() {
           <p>© {new Date().getFullYear()} GoServik. All rights reserved.</p>
           <div className="flex gap-4 mt-4 md:mt-0">
             <span>English (UK)</span>
-            <span>£ GBP</span>
+            <span>₹ INR</span>
           </div>
         </div>
       </div>

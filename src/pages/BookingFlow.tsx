@@ -58,7 +58,7 @@ export function BookingFlow() {
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-12">
+    <div className="bg-transparent min-h-screen py-12">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         
         <button onClick={() => step > 1 ? setStep(step - 1) : navigate(-1)} className="flex items-center text-sm font-medium text-slate-500 hover:text-slate-900 mb-8 transition-colors">
@@ -79,7 +79,7 @@ export function BookingFlow() {
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-lg border border-white/40 overflow-hidden">
           {step === 1 && (
             <div className="p-6 sm:p-8">
               <h2 className="text-xl font-bold text-slate-900 mb-6">Select a Service</h2>
@@ -100,7 +100,7 @@ export function BookingFlow() {
                     <div className="flex-1">
                       <div className="flex justify-between items-center mb-1">
                         <span className="font-semibold text-slate-900">{service.name}</span>
-                        <span className="font-bold">£{service.basePrice}</span>
+                        <span className="font-bold">₹{service.basePrice}</span>
                       </div>
                       <p className="text-sm text-slate-500">{service.description}</p>
                     </div>
@@ -172,7 +172,7 @@ export function BookingFlow() {
             <div className="p-6 sm:p-8">
               <h2 className="text-xl font-bold text-slate-900 mb-6">Review & Confirm</h2>
               
-              <div className="bg-slate-50 rounded-xl p-6 border mb-6">
+              <div className="bg-white/50 backdrop-blur-md rounded-xl p-6 border border-white/50 mb-6">
                 <div className="flex gap-4 mb-6 pb-6 border-b">
                   <img src={pro.avatar} alt={pro.name} className="h-16 w-16 rounded-full object-cover" />
                   <div>
@@ -196,7 +196,7 @@ export function BookingFlow() {
                   </div>
                   <div className="pt-4 mt-4 border-t flex justify-between text-base">
                     <span className="font-bold text-slate-900">Total Price</span>
-                    <span className="font-bold text-slate-900">£{selectedService.basePrice}</span>
+                    <span className="font-bold text-slate-900">₹{selectedService.basePrice}</span>
                   </div>
                 </div>
               </div>
