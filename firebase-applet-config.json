@@ -1,9 +1,12 @@
 {
-  "apiKey": "AIzaSyCSST9EHRk57-MERnU-i9A5a8anZtXgRqQ",
-  "authDomain": "goservik.firebaseapp.com",
-  "projectId": "goservik",
-  "storageBucket": "goservik.firebasestorage.app",
-  "messagingSenderId": "1083463283410",
-  "appId": "1:1083463283410:web:2382534fd1660af3c0330b",
-  "measurementId": "G-JTGBWWL83R"
+  "projectId": "gen-lang-client-0478446290",
+  "appId": "1:673855044166:web:a16c1a6efcfcb2ba9a6847",
+  "apiKey": "AIzaSyAjx4EjJbDasS5ntc8euXUGp6D6Tu3345c",
+  "authDomain": "gen-lang-client-0478446290.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-goservik-d219f14a-6074-4458-810a-7a0a973c122d",
+  "storageBucket": "gen-lang-client-0478446290.firebasestorage.app",
+  "messagingSenderId": "673855044166",
+  "measurementId": "",
+  "oAuthClientId": "673855044166-f0d3knddjif6j1ck5tnheeh8s2dc5ek5.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }

@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "GoServik",
+  "description": "Standardized local service marketplace connecting customers with verified professional experts for plumbing, electrical, cleaning, and beauty.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
