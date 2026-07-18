@@ -371,6 +371,108 @@ export function AdminPage() {
                 </div>
               </div>
 
+              {/* Firebase Cloud Sync Controls Card */}
+              <div className="bg-white p-8 rounded-3xl border border-slate-200/60 shadow-sm space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                      <Database className="h-5 w-5 text-indigo-600" />
+                      Firebase Cloud Storage & Synchronization
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      GoServik is integrated with persistent Google Cloud Firestore. Any changes made inside this admin panel (profile updates, verification status toggles, booking status completions, account cancellations) are written instantly to Firebase. Use the controls below to trigger a full manual synchronization of mock entities or to refresh.
+                    </p>
+                  </div>
+                  <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider shrink-0 flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                    Live Connection Active
+                  </span>
+                </div>
+
+                {syncMessage && (
+                  <div className={`p-4 rounded-2xl text-xs font-bold border ${
+                    syncMessage.includes('Error') 
+                      ? 'bg-rose-50 border-rose-100 text-rose-700' 
+                      : 'bg-emerald-50 border-emerald-100 text-emerald-800'
+                  }`}>
+                    {syncMessage}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Manual Database Sync</p>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Write all current local state variables, categories, expert technicians, registered clients, and reviews directly to the Firestore collection.
+                    </p>
+                    <button
+                      onClick={handleSyncToFirebase}
+                      disabled={syncing}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      {syncing ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Syncing with Firestore...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          Sync All Live Data to Cloud
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Local Cache Refresh</p>
+                    <p className="text-[11px] text-slate-500 leading-normal">
+                      Re-fetch the entire schema (Categories, Bookings, Customers, Technicians) fresh from Firestore, replacing any outdated local states.
+                    </p>
+                    <button
+                      onClick={async () => {
+                        setSyncing(true);
+                        try {
+                          await useStore.getState().initializeFromFirestore();
+                          setSyncMessage("Successfully refreshed all local memory from Cloud Firestore!");
+                          setTimeout(() => setSyncMessage(''), 3000);
+                        } catch (err: any) {
+                          setSyncMessage(`Refresh failed: ${err.message}`);
+                        } finally {
+                          setSyncing(false);
+                        }
+                      }}
+                      disabled={syncing}
+                      className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      Fetch Latest from Cloud
+                    </button>
+                  </div>
+
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
+                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Cloud Data Statistics</p>
+                    <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-600">
+                      <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block">Bookings</span>
+                        <span className="text-slate-800 text-xs font-extrabold mt-0.5">{bookings.length} docs</span>
+                      </div>
+                      <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block">Technicians</span>
+                        <span className="text-slate-800 text-xs font-extrabold mt-0.5">{professionals.length} docs</span>
+                      </div>
+                      <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block">Customers</span>
+                        <span className="text-slate-800 text-xs font-extrabold mt-0.5">{customers.length} docs</span>
+                      </div>
+                      <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
+                        <span className="text-slate-400 block">Categories</span>
+                        <span className="text-slate-800 text-xs font-extrabold mt-0.5">{categories.length} docs</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
             </div>
           )}

@@ -28,6 +28,8 @@ export function BookingFlow() {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showSimulator, setShowSimulator] = useState(false);
+  const [simulatedOrderData, setSimulatedOrderData] = useState<any>(null);
 
   // Hidden/allocated professional state
   const [selectedProId, setSelectedProId] = useState<string>('');
@@ -42,6 +44,30 @@ export function BookingFlow() {
         <div className="flex gap-4 justify-center">
           <Button variant="outline" onClick={() => navigate(-1)} className="rounded-xl">Go Back</Button>
           <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl"><Link to="/login">Sign In</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Restrict professional partners from creating booking jobs
+  if (currentUser.role === 'professional') {
+    return (
+      <div className="mx-auto max-w-md p-8 text-center mt-20 border rounded-3xl shadow-lg bg-white/80 backdrop-blur-md">
+        <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="h-6 w-6 text-rose-500" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2 text-slate-900">Access Restricted</h2>
+        <p className="text-slate-500 mb-6 text-sm leading-relaxed">
+          Professional partner accounts are designed exclusively for managing dashboard requests, chat messages, and job completions. 
+          They are <span className="font-extrabold text-slate-800">not permitted</span> to place booking orders.
+        </p>
+        <div className="flex flex-col gap-2.5">
+          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-full">
+            <Link to="/dashboard">Go to Partner Dashboard</Link>
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/')} className="rounded-xl w-full">
+            Return to Homepage
+          </Button>
         </div>
       </div>
     );
@@ -187,40 +213,76 @@ export function BookingFlow() {
   const availableDates = Array.from({ length: 14 }).map((_, i) => addDays(new Date(), i + 1));
   const availableTimes = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'];
 
+  const performBookingCreation = (paymentId?: string, orderId?: string) => {
+    if (!selectedDate || !selectedTime) return;
+
+    const formattedAddress = [
+      currentUser?.addressLine,
+      currentUser?.landmark,
+      currentUser?.city,
+      currentUser?.state,
+      currentUser?.pincode,
+      currentUser?.country
+    ].filter(Boolean).join(', ');
+
+    bookService({
+      customerId: currentUser?.id || 'guest',
+      professionalId: selectedProId || 'pro-1',
+      serviceId: `srv-custom-${Date.now()}`,
+      date: selectedDate.toISOString(),
+      time: selectedTime,
+      notes: notes.trim() || 'Standard consultation visit requested.',
+      totalPrice: calculatedPrice,
+      customerName: currentUser?.name || 'Anonymous Customer',
+      customerMobile: currentUser?.mobile || 'Not Provided',
+      customerAddress: formattedAddress || 'No detailed address registered',
+      customerServiceOpted: currentServiceName,
+      paymentMethod: paymentMethod,
+      razorpayPaymentId: paymentId,
+      razorpayOrderId: orderId,
+      paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending'
+    });
+    setStep(3); // Success step
+  };
+
+  const handleSimulatedPaymentSuccess = async (simulatedOrderId: string) => {
+    setPaymentLoading(true);
+    setShowSimulator(false);
+    try {
+      const simulatedPaymentId = `pay_sim_${Date.now()}`;
+      const simulatedSignature = `sig_sim_${Date.now()}`;
+      
+      const verifyResponse = await fetch('/api/verify-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: simulatedOrderId,
+          razorpay_payment_id: simulatedPaymentId,
+          razorpay_signature: simulatedSignature
+        })
+      });
+
+      if (!verifyResponse.ok) {
+        throw new Error('Simulation verification failed');
+      }
+
+      const verifyData = await verifyResponse.json();
+      if (verifyData.verified) {
+        performBookingCreation(simulatedPaymentId, simulatedOrderId);
+      } else {
+        throw new Error('Simulated verification returned failed status.');
+      }
+    } catch (err: any) {
+      setPaymentError(err.message || 'Simulated payment processing failed.');
+    } finally {
+      setPaymentLoading(false);
+    }
+  };
+
   const handleBook = async () => {
     if (!selectedDate || !selectedTime) return;
     
     setPaymentError(null);
-
-    const formattedAddress = [
-      currentUser.addressLine,
-      currentUser.landmark,
-      currentUser.city,
-      currentUser.state,
-      currentUser.pincode,
-      currentUser.country
-    ].filter(Boolean).join(', ');
-
-    const performBookingCreation = (paymentId?: string, orderId?: string) => {
-      bookService({
-        customerId: currentUser.id,
-        professionalId: selectedProId || 'pro-1',
-        serviceId: `srv-custom-${Date.now()}`,
-        date: selectedDate.toISOString(),
-        time: selectedTime,
-        notes: notes.trim() || 'Standard consultation visit requested.',
-        totalPrice: calculatedPrice,
-        customerName: currentUser.name || 'Anonymous Customer',
-        customerMobile: currentUser.mobile || 'Not Provided',
-        customerAddress: formattedAddress || 'No detailed address registered',
-        customerServiceOpted: currentServiceName,
-        paymentMethod: paymentMethod,
-        razorpayPaymentId: paymentId,
-        razorpayOrderId: orderId,
-        paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending'
-      });
-      setStep(3); // Success step
-    };
 
     if (paymentMethod === 'cash') {
       performBookingCreation();
@@ -244,6 +306,13 @@ export function BookingFlow() {
         }
 
         const orderData = await orderResponse.json();
+
+        if (orderData.simulated) {
+          setSimulatedOrderData(orderData);
+          setShowSimulator(true);
+          setPaymentLoading(false);
+          return;
+        }
 
         // Open Razorpay modal
         const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_TEYA8yK9iWlsjJ';
@@ -678,6 +747,105 @@ export function BookingFlow() {
 
         </div>
       </div>
+
+      {/* Razorpay Sandbox Payment Simulator Overlay */}
+      {showSimulator && simulatedOrderData && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="bg-indigo-600 px-6 py-5 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-200">Razorpay Secure</h3>
+                <h4 className="text-lg font-black mt-0.5">Sandbox Payment Simulator</h4>
+              </div>
+              <div className="px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-[9px] font-bold uppercase tracking-wider">
+                Demo Mode
+              </div>
+            </div>
+
+            {/* Warning Banner */}
+            <div className="bg-amber-50 border-b border-amber-100 px-6 py-3 flex items-start gap-2.5">
+              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-[11px] text-amber-800 leading-relaxed">
+                <span className="font-extrabold">Simulated Gateway:</span> Razorpay Key variables are not configured in your <code>.env</code> file. Exposing high-fidelity test flow for preview.
+              </div>
+            </div>
+
+            {/* Merchant Details */}
+            <div className="p-6 space-y-4 flex-1">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Booking Service</p>
+                  <p className="text-sm font-extrabold text-slate-850 mt-0.5">{currentServiceName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Amount Due</p>
+                  <p className="text-lg font-black text-slate-900 mt-0.5">₹{calculatedPrice}.00</p>
+                </div>
+              </div>
+
+              {/* Order Meta */}
+              <div className="space-y-2.5 text-xs text-slate-600 font-medium">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Order Reference</span>
+                  <span className="font-mono font-bold text-slate-800">{simulatedOrderData.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Customer Email</span>
+                  <span className="text-slate-800 font-bold">{currentUser?.email || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Customer Contact</span>
+                  <span className="text-slate-800 font-bold">{currentUser?.mobile || 'N/A'}</span>
+                </div>
+              </div>
+
+              {/* Simulated Cards / Flow */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
+                <p className="text-[10px] text-slate-400 font-bold uppercase">Select Simulated Outcome</p>
+                <p className="text-[11px] text-slate-500 leading-normal">
+                  Toggle whether the payment succeeds or fails to test downstream order placement and database updates.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-6 pt-0 space-y-2 bg-slate-50/50 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => handleSimulatedPaymentSuccess(simulatedOrderData.id)}
+                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-100"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Simulate Successful Payment
+              </button>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentError("Simulated checkout was cancelled by the user.");
+                    setShowSimulator(false);
+                  }}
+                  className="py-2.5 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold border border-slate-200 transition-all text-center"
+                >
+                  Cancel / Dismiss
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentError("Simulated transaction failed (Declined by bank).");
+                    setShowSimulator(false);
+                  }}
+                  className="py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-bold border border-rose-100 transition-all text-center"
+                >
+                  Simulate Bank Failure
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

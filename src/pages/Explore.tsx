@@ -35,7 +35,7 @@ const servicesByCategory: Record<string, string[]> = {
 };
 
 export function Explore() {
-  const { categories } = useStore();
+  const { categories, currentUser } = useStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
@@ -142,14 +142,23 @@ export function Explore() {
                     <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Standard Visit Rate</span>
                     <span className="text-lg font-black text-slate-900 block">₹99</span>
                   </div>
-                  <Button 
-                    asChild 
-                    className="bg-slate-900 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md h-10 px-5 text-xs transition-all duration-300"
-                  >
-                    <Link to={`/book?category=${cat.id}`}>
-                      Book Diagnostic Visit <ArrowRight className="h-3.5 w-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </Button>
+                  {currentUser?.role === 'professional' ? (
+                    <Button 
+                      disabled 
+                      className="bg-slate-100 text-slate-400 border border-slate-200 font-bold rounded-xl h-10 px-5 text-xs cursor-not-allowed"
+                    >
+                      Booking Restricted
+                    </Button>
+                  ) : (
+                    <Button 
+                      asChild 
+                      className="bg-slate-900 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md h-10 px-5 text-xs transition-all duration-300"
+                    >
+                      <Link to={`/book?category=${cat.id}`}>
+                        Book Diagnostic Visit <ArrowRight className="h-3.5 w-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             );

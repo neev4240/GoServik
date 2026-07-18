@@ -80,9 +80,15 @@ export function Profile() {
                     <Heart className={`h-4 w-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
                     {isSaved ? 'Saved' : 'Save'}
                   </Button>
-                  <Button asChild className="flex-1 sm:flex-none">
-                    <Link to={`/book/${pro.id}`}>Book Services</Link>
-                  </Button>
+                  {currentUser?.role === 'professional' ? (
+                    <Button disabled className="flex-1 sm:flex-none bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200">
+                      Booking Restricted
+                    </Button>
+                  ) : (
+                    <Button asChild className="flex-1 sm:flex-none">
+                      <Link to={`/book/${pro.id}`}>Book Services</Link>
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
