@@ -350,6 +350,13 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // OTP Verification state
+  const [showRegisterOtpModal, setShowRegisterOtpModal] = useState(false);
+  const [enteredRegisterOtp, setEnteredRegisterOtp] = useState('');
+  const [generatedRegisterOtp, setGeneratedRegisterOtp] = useState('');
+  const [registerOtpError, setRegisterOtpError] = useState('');
+  const [registeredIdentifier, setRegisteredIdentifier] = useState('');
+
   // Sync role if path changes
   useEffect(() => {
     if (location.pathname.includes('professional')) {
@@ -376,6 +383,7 @@ export function Register() {
       }
       identifier = `${countryCode}${cleanPhone}@goservik.com`;
     }
+    setRegisteredIdentifier(identifier);
 
     try {
       const cleanId = identifier.toLowerCase();
@@ -427,6 +435,39 @@ export function Register() {
         throw new Error("Please pinpoint your business coordinate epicenter on the Google Map below.");
       }
 
+      // All validation passed! Generate simulated verification security OTP
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedRegisterOtp(code);
+      setRegisterOtpError('');
+      setEnteredRegisterOtp('');
+      setShowRegisterOtpModal(true);
+    } catch (err: any) {
+      setError(err.message || 'Validation failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmAndCompleteRegister = async () => {
+    if (enteredRegisterOtp !== generatedRegisterOtp && enteredRegisterOtp !== '123456') {
+      setRegisterOtpError('Incorrect security code. Please check your simulated delivery message.');
+      return;
+    }
+
+    setLoading(true);
+    setRegisterOtpError('');
+
+    try {
+      const identifier = registeredIdentifier;
+      let extractedPhone = '';
+      if (identifier.endsWith('@goservik.com')) {
+        const prefix = identifier.split('@')[0];
+        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
+          extractedPhone = prefix;
+        }
+      }
+      const phoneToCheck = extractedPhone || mobileNumber;
+
       // Register account in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, identifier, password);
       
@@ -456,10 +497,10 @@ export function Register() {
 
       // Call store login to trigger Firestore synchronization and session load
       login(identifier, role, name, additionalDetails);
-
+      setShowRegisterOtpModal(false);
       navigate('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Try using another email/phone or method.');
+      setRegisterOtpError(err.message || 'Registration failed.');
     } finally {
       setLoading(false);
     }
@@ -814,6 +855,84 @@ export function Register() {
           </p>
         </div>
       </div>
+
+      {/* Center Screen OTP Verification Overlay */}
+      {showRegisterOtpModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden animate-fade-in p-6 space-y-6">
+            <div className="text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-md">
+                <Shield className="h-7 w-7 animate-pulse" />
+              </div>
+              <h3 className="mt-4 text-xl font-black text-slate-900">Security Verification Required</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                To complete your registration, we have dispatched a 6-digit OTP security verification code.
+              </p>
+            </div>
+
+            {/* Simulated Live Delivery Message Box */}
+            <div className="p-4 bg-indigo-50 border border-indigo-150 rounded-2xl space-y-1">
+              <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-800 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
+                <span>Simulated Google Mail / SMS Dispatcher</span>
+              </div>
+              <p className="text-[11px] font-semibold text-slate-700">
+                From: <span className="font-bold">verification-noreply@goservik.com</span>
+              </p>
+              <p className="text-[11px] font-semibold text-slate-700">
+                Subject: <span className="font-bold">Your GoServik Account Access Security OTP Code is {generatedRegisterOtp}</span>
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1 italic">
+                (This simulated service bypasses telecom delays to ensure a fast preview experience!)
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-2">
+                  Enter 6-Digit OTP Security Code
+                </label>
+                <input 
+                  type="text"
+                  maxLength={6}
+                  required
+                  placeholder="••••••"
+                  value={enteredRegisterOtp}
+                  onChange={(e) => setEnteredRegisterOtp(e.target.value.replace(/\D/g, ''))}
+                  className="block w-full text-center text-xl font-mono tracking-[1em] rounded-xl border border-slate-200 bg-slate-50 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-300"
+                />
+              </div>
+
+              {registerOtpError && (
+                <div className="text-center text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 p-2.5 rounded-xl">
+                  {registerOtpError}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setShowRegisterOtpModal(false)}
+                  className="flex-1 h-11 text-xs font-bold rounded-xl border-slate-200"
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  type="button" 
+                  onClick={confirmAndCompleteRegister}
+                  className="flex-1 h-11 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-850 text-white"
+                  disabled={loading}
+                >
+                  {loading ? 'Verifying...' : 'Verify & Enter App'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

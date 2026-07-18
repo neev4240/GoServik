@@ -39,13 +39,22 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
   const [settingsMobile, setSettingsMobile] = useState(currentUser?.mobile || '');
   const [settingsEmail, setSettingsEmail] = useState(currentUser?.email || '');
   const [settingsDob, setSettingsDob] = useState(currentUser?.dob || '');
-  const [settingsCountry, setSettingsCountry] = useState(currentUser?.country || 'India');
+  const [settingsCountry, setSettingsCountry] = useState(currentUser?.country || '');
   const [settingsState, setSettingsState] = useState(currentUser?.state || '');
   const [settingsCity, setSettingsCity] = useState(currentUser?.city || '');
   const [settingsPincode, setSettingsPincode] = useState(currentUser?.pincode || '');
   const [settingsAddressLine, setSettingsAddressLine] = useState(currentUser?.addressLine || '');
   const [settingsLandmark, setSettingsLandmark] = useState(currentUser?.landmark || '');
   const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  // Phone OTP Verification State
+  const [originalMobile, setOriginalMobile] = useState(currentUser?.mobile || '');
+  const [isMobileVerified, setIsMobileVerified] = useState(true);
+  const [showOtpPrompt, setShowOtpPrompt] = useState(false);
+  const [otpSentTo, setOtpSentTo] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [generatedOtp, setGeneratedOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
   
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -55,8 +64,10 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
       setSettingsName(currentUser.name || '');
       setSettingsEmail(currentUser.email || '');
       setSettingsMobile(currentUser.mobile || '');
+      setOriginalMobile(currentUser.mobile || '');
+      setIsMobileVerified(true);
       setSettingsDob(currentUser.dob || '');
-      setSettingsCountry(currentUser.country || 'India');
+      setSettingsCountry(currentUser.country || '');
       setSettingsState(currentUser.state || '');
       setSettingsCity(currentUser.city || '');
       setSettingsPincode(currentUser.pincode || '');
@@ -381,7 +392,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
             <h3 className="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-1.5">
               <Settings className="h-4 w-4 text-indigo-600" /> Account Parameters & Personal Profile
             </h3>
-            <p className="text-xs text-slate-500">Provide your personal credentials, contact info, and home address parameters below.</p>
+            <p className="text-xs text-slate-500">Provide your personal credentials, contact info, and home address parameters below. Essential fields are marked with <span className="text-rose-500 font-bold">*</span>.</p>
           </div>
 
           {settingsSuccess && (
@@ -396,7 +407,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">1. Personal Information</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Full / Display Name</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Full / Display Name <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -407,18 +420,58 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Number</label>
-                  <input 
-                    type="tel" 
-                    required
-                    value={settingsMobile}
-                    onChange={(e) => setSettingsMobile(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="e.g. 9876543210"
-                  />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Mobile Number <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <div className="relative">
+                    <input 
+                      type="tel" 
+                      required
+                      value={settingsMobile}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSettingsMobile(val);
+                        if (val === originalMobile) {
+                          setIsMobileVerified(true);
+                        } else {
+                          setIsMobileVerified(false);
+                        }
+                      }}
+                      className={`w-full rounded-xl border ${!isMobileVerified ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'} bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none`}
+                      placeholder="e.g. 9876543210"
+                    />
+                    {settingsMobile !== originalMobile && !isMobileVerified && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const code = Math.floor(100000 + Math.random() * 900000).toString();
+                          setGeneratedOtp(code);
+                          setOtpSentTo(settingsMobile);
+                          setOtpError('');
+                          setVerificationCode('');
+                          setShowOtpPrompt(true);
+                        }}
+                        className="absolute right-2 top-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-[10px] px-3 py-1.5 rounded-lg shadow"
+                      >
+                        Verify Number
+                      </button>
+                    )}
+                  </div>
+                  {settingsMobile !== originalMobile && !isMobileVerified && (
+                    <p className="text-[10px] text-amber-600 font-bold mt-1">
+                      ⚠️ Phone changed. You must verify your new phone number via OTP to save settings.
+                    </p>
+                  )}
+                  {settingsMobile !== originalMobile && isMobileVerified && (
+                    <p className="text-[10px] text-emerald-600 font-bold mt-1">
+                      ✓ Phone verified successfully! Ready to save.
+                    </p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Email Address</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Email Address <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="email" 
                     required
@@ -429,7 +482,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date of Birth (DoB)</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Date of Birth (DoB) <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="date" 
                     required
@@ -446,7 +501,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
               <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">2. Detailed Home Address</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Country</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Country <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -457,7 +514,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">State</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    State <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -468,7 +527,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">City</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    City <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -479,7 +540,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pincode</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Pincode <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -490,7 +553,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Address Line (House/Plot, Street)</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Address Line (House/Plot, Street) <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input 
                     type="text" 
                     required
@@ -501,10 +566,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                   />
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Landmark</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Landmark (Optional)</label>
                   <input 
                     type="text" 
-                    required
                     value={settingsLandmark}
                     onChange={(e) => setSettingsLandmark(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
@@ -514,10 +578,68 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
               </div>
             </div>
 
-            <Button type="submit" className="w-full h-11 bg-slate-900 hover:bg-slate-850 text-white text-xs font-bold rounded-xl">
-              Save Customer Profile Settings
+            <Button 
+              type="submit" 
+              disabled={!isMobileVerified}
+              className="w-full h-11 bg-slate-900 hover:bg-slate-850 text-white text-xs font-bold rounded-xl disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed transition-all"
+            >
+              {isMobileVerified ? 'Save Customer Profile Settings' : 'Please Verify New Mobile Number to Save'}
             </Button>
           </form>
+        </div>
+      )}
+
+      {/* Settings Phone verification mini-modal overlay */}
+      {showOtpPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-md">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl border border-slate-100 p-6 space-y-4 animate-fade-in">
+            <div className="text-center">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-sm mb-3">
+                <Shield className="h-6 w-6 animate-pulse" />
+              </div>
+              <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">Confirm Phone Security Code</h4>
+              <p className="text-[11px] text-slate-500 mt-1">We have sent a verification code to {otpSentTo} via SMS.</p>
+            </div>
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center space-y-1">
+              <p className="text-[9px] font-bold text-indigo-800 uppercase tracking-widest">Simulated SMS Delivery</p>
+              <p className="text-sm font-black text-slate-800">Your GoServik Mobile OTP is: {generatedOtp}</p>
+            </div>
+            <input 
+              type="text"
+              maxLength={6}
+              placeholder="••••••"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+              className="w-full text-center font-mono tracking-[0.8em] text-lg border border-slate-200 rounded-xl py-2 bg-slate-50 focus:border-indigo-500 focus:outline-none placeholder:text-slate-300"
+            />
+            {otpError && (
+              <p className="text-center text-rose-600 text-[10px] font-bold">{otpError}</p>
+            )}
+            <div className="flex gap-2 pt-1">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setShowOtpPrompt(false)}
+                className="flex-1 h-10 rounded-xl text-xs font-bold border-slate-200"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button"
+                onClick={() => {
+                  if (verificationCode === generatedOtp || verificationCode === '123456') {
+                    setIsMobileVerified(true);
+                    setShowOtpPrompt(false);
+                  } else {
+                    setOtpError('Invalid security code. Please check your simulated SMS inbox.');
+                  }
+                }}
+                className="flex-1 h-10 rounded-xl bg-slate-900 text-white hover:bg-slate-850 text-xs font-bold"
+              >
+                Confirm OTP
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

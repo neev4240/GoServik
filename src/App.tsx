@@ -6,6 +6,8 @@
 import { useEffect } from 'react';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { useStore } from './store';
+import { auth } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Layout } from './components/layout/Layout';
 import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
@@ -118,7 +120,49 @@ const router = createBrowserRouter([
 
 export default function App() {
   useEffect(() => {
-    useStore.getState().initializeFromFirestore();
+    // 1. Initialize from firestore first
+    useStore.getState().initializeFromFirestore().then(() => {
+      // 2. Set up listener to auto-resume active sessions on browser reload
+      const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+        if (authUser) {
+          const email = authUser.email?.toLowerCase();
+          if (email) {
+            if (email === 'admin@goservik.com') {
+              useStore.setState({
+                currentUser: {
+                  id: 'admin-1',
+                  name: 'Platform Admin',
+                  email: 'admin@goservik.com',
+                  role: 'admin',
+                  joinedAt: new Date().toISOString()
+                }
+              });
+              return;
+            }
+
+            const state = useStore.getState();
+            // Try matching in customer collection
+            const foundCust = state.customers.find(c => c.email.toLowerCase() === email);
+            if (foundCust) {
+              useStore.setState({ currentUser: foundCust });
+              return;
+            }
+
+            // Try matching in professional collection
+            const foundPro = state.professionals.find(p => p.email.toLowerCase() === email);
+            if (foundPro) {
+              useStore.setState({ currentUser: foundPro });
+              return;
+            }
+          }
+        } else {
+          // No user found, reset state
+          useStore.setState({ currentUser: null });
+        }
+      });
+
+      return () => unsubscribe();
+    });
   }, []);
 
   return <RouterProvider router={router} />;
