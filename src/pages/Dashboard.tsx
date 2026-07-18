@@ -98,7 +98,6 @@ export function Dashboard() {
     customer: [
       { id: 'overview', label: 'Overview', icon: UserIcon },
       { id: 'bookings', label: 'My Bookings', icon: Calendar },
-      { id: 'favorites', label: 'Saved Professionals', icon: Heart },
       { id: 'messages', label: 'Helpline & Chat', icon: MessageSquare },
       { id: 'settings', label: 'Profile Settings', icon: Settings },
     ],
@@ -670,11 +669,11 @@ export function Dashboard() {
                     }`}
                   >
                     <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden">
-                      <img src="https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&q=80&w=100&h=100" alt="Rajesh" className="object-cover h-full w-full" />
+                      <img src="https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&q=80&w=100&h=100" alt="Partner" className="object-cover h-full w-full" />
                     </div>
                     <div className="text-xs">
-                      <p className="font-bold text-slate-800">Rajesh Prasad</p>
-                      <p className="text-[10px] text-slate-500 truncate max-w-[120px]">Expert Plumbing Partner</p>
+                      <p className="font-bold text-slate-800">Assigned Service Partner</p>
+                      <p className="text-[10px] text-slate-500 truncate max-w-[120px]">Expert Service Partner</p>
                     </div>
                   </button>
                 ) : (
@@ -700,7 +699,7 @@ export function Dashboard() {
                 {/* Header */}
                 <div className="p-4 border-b border-slate-200/60 bg-white/80 font-bold text-xs text-slate-850 flex items-center gap-2">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Talking to {activeChatContact === 'helpdesk' ? 'Support Helpline' : activeChatContact === 'pro_rajesh' ? 'Rajesh Prasad (Plumber)' : 'Neev Aggarwal (Customer)'}
+                  Talking to {activeChatContact === 'helpdesk' ? 'Support Helpline' : activeChatContact === 'pro_rajesh' ? 'Assigned Service Partner' : 'Neev Aggarwal (Customer)'}
                 </div>
 
                 {/* Messages Body */}

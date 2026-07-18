@@ -23,7 +23,7 @@ export function Home() {
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-blue-500">expert help.</span>
               </h1>
               <p className="text-lg text-slate-500 mb-10 leading-relaxed max-w-2xl">
-                Discover, compare, and hire verified independent professionals across 50+ service categories. Premium quality, simplified booking.
+                Discover and book verified home service professionals across 16+ categories. Premium quality, standardized pricing, and instant scheduling.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 mb-12">
@@ -31,8 +31,8 @@ export function Home() {
                   <div className="w-12 h-12 bg-indigo-600 rounded-xl flex items-center justify-center mb-4 text-white shadow-lg shadow-indigo-200">
                     <Search className="w-6 h-6" />
                   </div>
-                  <div className="font-bold text-slate-800 mb-1">I Want to Hire</div>
-                  <div className="text-xs text-slate-500">Explore experts near you</div>
+                  <div className="font-bold text-slate-800 mb-1">I Want to Book a Service</div>
+                  <div className="text-xs text-slate-500">Explore and book home services</div>
                 </Link>
                 
                 <Link to="/register-professional" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
@@ -50,7 +50,7 @@ export function Home() {
                  <div className="absolute top-0 right-0 p-4">
                     <div className="bg-indigo-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wide shadow-sm">
                       <ShieldCheck className="w-3 h-3" />
-                      Direct Model
+                      Direct Booking
                     </div>
                  </div>
                  <div className="flex gap-4 items-center mb-6">
@@ -58,7 +58,7 @@ export function Home() {
                       <ShieldCheck className="h-8 w-8 text-indigo-600 animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-lg text-slate-800 leading-tight">Direct Engagement</h3>
+                      <h3 className="font-bold text-lg text-slate-800 leading-tight">Direct Booking Model</h3>
                       <div className="text-sm text-slate-500">Transparent & Commission-Free</div>
                     </div>
                  </div>
@@ -67,14 +67,14 @@ export function Home() {
                       <div className="text-indigo-600 font-bold text-sm bg-indigo-50 px-2.5 py-0.5 rounded-lg">0%</div>
                       <div>
                         <div className="text-xs font-bold text-slate-800">No Platform Commission</div>
-                        <div className="text-[10px] text-slate-500">You pay professionals directly with no middleman.</div>
+                        <div className="text-[10px] text-slate-500">You book instantly and pay directly after service, with no middleman.</div>
                       </div>
                     </div>
                     <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
                       <div className="text-indigo-600 font-bold text-sm bg-indigo-50 px-2 py-0.5 rounded-lg">✓</div>
                       <div>
-                        <div className="text-xs font-bold text-slate-800">Verified Contact & Addresses</div>
-                        <div className="text-[10px] text-slate-500">Every pro profile carries real verified credentials.</div>
+                        <div className="text-xs font-bold text-slate-800">Standard Diagnostics Fee</div>
+                        <div className="text-[10px] text-slate-500">Flat ₹99 visit fee. No complex pricing charts or size estimates.</div>
                       </div>
                     </div>
                  </div>

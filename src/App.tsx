@@ -44,7 +44,11 @@ const router = createBrowserRouter([
         element: <Profile />,
       },
       {
-        path: 'book/:proId',
+        path: 'book',
+        element: <BookingFlow />,
+      },
+      {
+        path: 'book/:categoryId',
         element: <BookingFlow />,
       },
       {

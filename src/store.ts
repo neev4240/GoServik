@@ -66,6 +66,12 @@ export const MOCK_CATEGORIES: ServiceCategory[] = [
   { id: 'cat-8', name: 'Gardening & Landscaping', description: 'Lawn care, weeding, tree trimming', icon: 'TreePine' },
   { id: 'cat-9', name: 'Masonry & Tiling', description: 'Tile cracks, cement work, plastering', icon: 'Grid3X3' },
   { id: 'cat-10', name: 'Home Security & CCTV', description: 'CCTV setup, smart locks, video doorbells', icon: 'Cctv' },
+  { id: 'cat-11', name: 'Smart Home & WiFi', description: 'Smart speakers, router setup, home automation setup', icon: 'Cpu' },
+  { id: 'cat-12', name: 'Packers & Movers', description: 'Local shifting, packing help, furniture loading', icon: 'Truck' },
+  { id: 'cat-13', name: 'Appliance Deep Cleaning', description: 'Kitchen chimney, water purifier, oven degreasing', icon: 'Droplets' },
+  { id: 'cat-14', name: 'Salon & Grooming at Home', description: 'Haircuts, skin care, relaxing massage visits', icon: 'Smile' },
+  { id: 'cat-15', name: 'Home Physiotherapy & Care', description: 'Physio therapy assessments, elderly care checkups', icon: 'HeartPulse' },
+  { id: 'cat-16', name: 'Disinfection & Fogging', description: 'Anti-viral fogging, sanitization sprays', icon: 'ShieldCheck' },
 ];
 
 export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [

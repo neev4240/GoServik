@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/ui/Button';
 import { 
@@ -10,13 +10,15 @@ import { format, addDays } from 'date-fns';
 
 export function BookingFlow() {
   const { proId } = useParams<{ proId: string }>();
+  const [searchParams] = useSearchParams();
+  const catParam = searchParams.get('category') || useParams<{ categoryId: string }>().categoryId;
   const navigate = useNavigate();
   const { professionals, categories, currentUser, bookService } = useStore();
 
   const [step, setStep] = useState(1);
 
   // STEP 1 state: Category & Suboption Selection (No size/work input required!)
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('cat-1');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(catParam || 'cat-1');
   const [selectedServiceName, setSelectedServiceName] = useState<string>('');
 
   // STEP 2 state: Date, Time & Confirm
@@ -117,6 +119,48 @@ export function BookingFlow() {
       'Smart Door Lock Configuration',
       'Video Doorbell Wiring & Assembly',
       'Security Sensors & Alarm Consult'
+    ],
+    'cat-11': [
+      'General Home Visit / Consult',
+      'Router Setup & WiFi Range Extension',
+      'Smart Speaker / Voice Assistant Setup',
+      'Smart TV & Streaming Device Setup',
+      'Smart Lighting & Switch Installation'
+    ],
+    'cat-12': [
+      'General Home Visit / Consult',
+      'Local Shifting Pre-move Assessment',
+      'Secure Packing & Loading Assistance',
+      'Unpacking & Furniture Reassembly',
+      'Inter-city Relocation Advice & Quote'
+    ],
+    'cat-13': [
+      'General Home Visit / Consult',
+      'Kitchen Chimney Deep Cleaning',
+      'Water Purifier / RO Service & Filter Change',
+      'Microwave Oven Deep Sanitization',
+      'Hob & Gas Stove Cleaning & Checkup'
+    ],
+    'cat-14': [
+      'General Home Visit / Consult',
+      'Men\'s Haircut & Beard Grooming',
+      'Women\'s Haircut & Hair Styling',
+      'Express Facial & Face Massage',
+      'Stress Relief Massage Therapy Visit'
+    ],
+    'cat-15': [
+      'General Home Visit / Consult',
+      'Physiotherapy Knee/Back Pain Assessment',
+      'Elderly Companion & Health Checkup',
+      'Post-operative Daily Nursing Visit',
+      'Infant Care & Mother Support Consult'
+    ],
+    'cat-16': [
+      'General Home Visit / Consult',
+      'Whole House Sanitization Fogging',
+      'Kitchen & Bathroom Steam Disinfection',
+      'Office / Workstation Sanitization Spray',
+      'Car Cabin Sanitization & Fogging'
     ]
   };
 
