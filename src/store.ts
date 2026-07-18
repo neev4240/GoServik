@@ -56,14 +56,16 @@ export const MOCK_CUSTOMERS: User[] = [
 ];
 
 export const MOCK_CATEGORIES: ServiceCategory[] = [
-  { id: 'cat-1', name: 'Home Cleaning', description: 'Deep cleaning, regular cleaning, move in/out', icon: 'Sparkles' },
-  { id: 'cat-2', name: 'Plumbing', description: 'Repairs, installations, emergencies', icon: 'Wrench' },
-  { id: 'cat-3', name: 'Electrical', description: 'Wiring, fixtures, inspections', icon: 'Zap' },
-  { id: 'cat-4', name: 'Photography', description: 'Events, portraits, commercial', icon: 'Camera' },
-  { id: 'cat-5', name: 'Tutoring', description: 'Math, languages, sciences', icon: 'GraduationCap' },
-  { id: 'cat-6', name: 'Personal Training', description: 'Fitness, yoga, nutrition', icon: 'Dumbbell' },
-  { id: 'cat-7', name: 'Landscaping', description: 'Gardening, lawn care, design', icon: 'TreePine' },
-  { id: 'cat-8', name: 'IT Support', description: 'Troubleshooting, setup, networking', icon: 'Computer' },
+  { id: 'cat-1', name: 'Home Cleaning', description: 'Deep cleaning, sofa cleaning, sanitization', icon: 'Sparkles' },
+  { id: 'cat-2', name: 'Plumbing Services', description: 'Leak repairs, installations, drain clearing', icon: 'Wrench' },
+  { id: 'cat-3', name: 'Electrical Repairs', description: 'Fan install, wiring, switchboards', icon: 'Zap' },
+  { id: 'cat-4', name: 'AC & Appliance Repair', description: 'AC service, fridge, washing machine', icon: 'Tv' },
+  { id: 'cat-5', name: 'Carpentry & Furniture', description: 'Locks, hinge repair, furniture assembly', icon: 'Hammer' },
+  { id: 'cat-6', name: 'Painting & Waterproofing', description: 'Wall touch-ups, waterproofing inspection', icon: 'Paintbrush' },
+  { id: 'cat-7', name: 'Pest Control', description: 'Termite protection, cockroach, herbal spray', icon: 'ShieldAlert' },
+  { id: 'cat-8', name: 'Gardening & Landscaping', description: 'Lawn care, weeding, tree trimming', icon: 'TreePine' },
+  { id: 'cat-9', name: 'Masonry & Tiling', description: 'Tile cracks, cement work, plastering', icon: 'Grid3X3' },
+  { id: 'cat-10', name: 'Home Security & CCTV', description: 'CCTV setup, smart locks, video doorbells', icon: 'Cctv' },
 ];
 
 export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [

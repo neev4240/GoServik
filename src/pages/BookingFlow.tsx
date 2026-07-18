@@ -4,21 +4,9 @@ import { useStore } from '../store';
 import { Button } from '../components/ui/Button';
 import { 
   ChevronLeft, Calendar as CalendarIcon, Clock, CheckCircle2, 
-  AlertCircle, MapPin, Star, Sparkles, Building, Ruler, HelpCircle 
+  AlertCircle, MapPin, Sparkles, HelpCircle 
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-
-interface SimulatedPro {
-  id: string;
-  name: string;
-  avatar: string;
-  tagline: string;
-  rating: number;
-  reviewCount: number;
-  location: string;
-  distanceKm: number;
-  visitCharge: number;
-}
 
 export function BookingFlow() {
   const { proId } = useParams<{ proId: string }>();
@@ -27,23 +15,20 @@ export function BookingFlow() {
 
   const [step, setStep] = useState(1);
 
-  // STEP 1 state: Service selection & size details
+  // STEP 1 state: Category & Suboption Selection (No size/work input required!)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('cat-1');
   const [selectedServiceName, setSelectedServiceName] = useState<string>('');
-  const [approximateSize, setApproximateSize] = useState<string>('');
-  const [tilingAreaSqFt, setTilingAreaSqFt] = useState<string>('');
 
-  // STEP 2 state: Professional selection
-  const [selectedProId, setSelectedProId] = useState<string>('');
-  const [sortSetting, setSortSetting] = useState<'nearest' | 'rating'>('nearest');
-
-  // STEP 3 state: Date & Time
+  // STEP 2 state: Date, Time & Confirm
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // Hidden/allocated professional state
+  const [selectedProId, setSelectedProId] = useState<string>('');
 
   // Enforce authentication
   if (!currentUser) {
@@ -60,100 +45,98 @@ export function BookingFlow() {
     );
   }
 
-  // Pre-populate category services for dropdown
+  // Expanded Categories and appropriate Suboptions (no manual typing required!)
   const standardServicesByCategory: Record<string, string[]> = {
-    'cat-1': ['Full Home Deep Cleaning', 'Bathroom Sanitization', 'Sofa & Carpet Cleaning', 'Tiling Services / Repair'],
-    'cat-2': ['Emergency Leak Repair', 'Faucet & Sink Installation', 'Drain Blockage Removal', 'Geycer Diagnostics & Repair'],
-    'cat-3': ['Ceiling Fan Installation', 'House Re-wiring Inspection', 'Switchboard Repair', 'Inverter Battery Setup'],
-    'cat-4': ['AC Filter Cleaning & Servicing', 'AC Installation', 'AC Gas Charging', 'AC Compressor Repair'],
-    'cat-5': ['Washing Machine Diagnostics', 'Refrigerator Gas Top-up', 'Microwave Oven Repair', 'Water Purifier Filter Change'],
+    'cat-1': [
+      'General Home Visit / Consult',
+      'Full Home Deep Cleaning',
+      'Sofa & Carpet Wet Shampooing',
+      'Bathroom Deep Cleaning & Sanitization',
+      'Kitchen Deep Cleaning & Degreasing'
+    ],
+    'cat-2': [
+      'General Home Visit / Consult',
+      'Emergency Leakage & Pipe Repair',
+      'Faucet, Tap, or Sink Install/Repair',
+      'Drainage & Clog Removal Service',
+      'Geyser, Water Heater Inspection'
+    ],
+    'cat-3': [
+      'General Home Visit / Consult',
+      'Switch, Socket, or Fuse Box Repair',
+      'Ceiling Fan & Exhaust Fan Installation',
+      'House Re-wiring Inspection & Diagnostics',
+      'Inverter Battery Service & Setup'
+    ],
+    'cat-4': [
+      'General Home Visit / Consult',
+      'AC Servicing & Wet Filter Wash',
+      'AC Gas Leak Check & Refilling',
+      'Refrigerator / Fridge Repair',
+      'Washing Machine Setup & Repair',
+      'Microwave & OTG Oven Diagnostics'
+    ],
+    'cat-5': [
+      'General Home Visit / Consult',
+      'Door Lock, Hinge, or Handle Repair',
+      'Furniture Repair & Assembly Service',
+      'Modular Kitchen Cabinet Hinge Adjustment',
+      'Drawer Slider Install & Replacement'
+    ],
+    'cat-6': [
+      'General Home Visit / Consult',
+      'Wall Paint Touch-ups & Scraping',
+      'Waterproofing Damage Inspection',
+      'Interior Wall Texture Consult',
+      'Full Flat Painting Consult'
+    ],
+    'cat-7': [
+      'General Home Visit / Consult',
+      'General Pest Control Treatment',
+      'Cockroach & Ant Gel Application',
+      'Bedbug Herbal Spray Treatment',
+      'Termite Protection Inspection'
+    ],
+    'cat-8': [
+      'General Home Visit / Consult',
+      'Lawn Mowing & Grass Trim',
+      'Weeding & Soil Treatment',
+      'Indoor Planter Maintenance',
+      'New Garden Setup & Consultation'
+    ],
+    'cat-9': [
+      'General Home Visit / Consult',
+      'Broken Floor/Wall Tile Grouting',
+      'Cement Wall Crack Plastering',
+      'Bathroom Tiling Repair Consult',
+      'General Brickwork / Masonry Repair'
+    ],
+    'cat-10': [
+      'General Home Visit / Consult',
+      'CCTV Camera Installation & Wire Setup',
+      'Smart Door Lock Configuration',
+      'Video Doorbell Wiring & Assembly',
+      'Security Sensors & Alarm Consult'
+    ]
   };
 
-  const servicesList = standardServicesByCategory[selectedCategoryId] || [];
+  const servicesList = standardServicesByCategory[selectedCategoryId] || ['General Home Visit / Consult'];
 
-  // Determine current active service name
-  const currentServiceName = selectedServiceName || servicesList[0] || '';
+  // Current active service name or default to first
+  const currentServiceName = selectedServiceName || servicesList[0] || 'General Home Visit / Consult';
 
-  // Generate lists of professionals who provide services in this category, with simulated distances
-  const availablePros: SimulatedPro[] = useMemo(() => {
-    // Filter pros that have services or are registered in this category
-    const list = professionals.filter(pro => 
-      pro.role === 'professional' && 
-      (pro.id === proId || proId === 'any' || !proId || pro.services.some(s => s.categoryId === selectedCategoryId))
-    );
+  // Flat transparent service visit fee - no need to calculate complex variable pricing or enter job sizes
+  const calculatedPrice = 99;
 
-    return list.map((pro, index) => {
-      // Deterministic distance calculation based on user's city and professional's location
-      const userCity = currentUser?.city?.toLowerCase().trim() || '';
-      const proLocation = pro.location.toLowerCase().trim();
-      const isCityMatch = userCity && (proLocation.includes(userCity) || userCity.includes(proLocation));
-      const baseDistance = isCityMatch ? 1.0 : 15.0;
-      const distanceKm = Number((baseDistance + (((pro.name.charCodeAt(0) || 1) * 3 + index * 1.5) % 8)).toFixed(1));
-      
-      // Determine visit charge of the pro as entered by the professional (default to approved option if none)
-      const chargeOptions = [49, 99, 149, 199, 249];
-      const matchSrv = pro.services.find(s => s.categoryId === selectedCategoryId);
-      const visitCharge = matchSrv ? matchSrv.basePrice : chargeOptions[index % chargeOptions.length];
-
-      return {
-        id: pro.id,
-        name: pro.name,
-        avatar: pro.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100&h=100',
-        tagline: pro.tagline || 'Certified Home Specialist',
-        rating: pro.rating || 4.8,
-        reviewCount: pro.reviewCount || 12,
-        location: pro.location || 'Mumbai, India',
-        distanceKm,
-        visitCharge
-      };
-    });
-  }, [professionals, selectedCategoryId, proId, currentUser]);
-
-  // Allocate nearest professional automatically for the selected service
-  const nearestPro = useMemo(() => {
-    if (availablePros.length === 0) return null;
-    return [...availablePros].sort((a, b) => a.distanceKm - b.distanceKm)[0];
-  }, [availablePros]);
-
-  // Calculate pricing based entirely on the selected professional's entered visit fee (no hardcoded base prices)
-  const calculatedPrice = useMemo(() => {
-    if (selectedProId) {
-      const pro = availablePros.find(p => p.id === selectedProId);
-      if (pro) {
-        return pro.visitCharge || 199;
-      }
-    }
-    if (nearestPro) {
-      return nearestPro.visitCharge || 199;
-    }
-    return 199; // Fallback visit charge
-  }, [selectedProId, availablePros, nearestPro]);
-
-  // Sort professionals based on selection (Only Nearest and Rating are allowed)
-  const sortedPros = useMemo(() => {
-    const prosCopy = [...availablePros];
-    if (sortSetting === 'nearest') {
-      return prosCopy.sort((a, b) => a.distanceKm - b.distanceKm);
-    } else {
-      return prosCopy.sort((a, b) => b.rating - a.rating);
-    }
-  }, [availablePros, sortSetting]);
-
-  // Auto-select nearest professional when step 2 is entered or category changes
+  // Auto-allocate best professional/technician on Step 1 Continue
   const handleNextToStep2 = () => {
-    if (!currentServiceName) return;
-    if (!approximateSize.trim()) return;
-    
-    // Auto-allocate nearest pro
-    if (nearestPro) {
-      setSelectedProId(nearestPro.id);
+    const assignedPro = professionals.find(p => p.services.some(s => s.categoryId === selectedCategoryId)) || professionals[0];
+    if (assignedPro) {
+      setSelectedProId(assignedPro.id);
+    } else {
+      setSelectedProId('pro-1');
     }
     setStep(2);
-  };
-
-  const handleNextToStep3 = () => {
-    if (!selectedProId) return;
-    setStep(3);
   };
 
   // Generate next 14 days for booking
@@ -161,8 +144,7 @@ export function BookingFlow() {
   const availableTimes = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'];
 
   const handleBook = async () => {
-    const finalPro = professionals.find(p => p.id === selectedProId);
-    if (!finalPro || !selectedDate || !selectedTime) return;
+    if (!selectedDate || !selectedTime) return;
     
     setPaymentError(null);
 
@@ -178,22 +160,22 @@ export function BookingFlow() {
     const performBookingCreation = (paymentId?: string, orderId?: string) => {
       bookService({
         customerId: currentUser.id,
-        professionalId: finalPro.id,
+        professionalId: selectedProId || 'pro-1',
         serviceId: `srv-custom-${Date.now()}`,
         date: selectedDate.toISOString(),
         time: selectedTime,
-        notes: `Size/Info: ${approximateSize}. ${notes}`.trim(),
+        notes: notes.trim() || 'Standard consultation visit requested.',
         totalPrice: calculatedPrice,
         customerName: currentUser.name || 'Anonymous Customer',
         customerMobile: currentUser.mobile || 'Not Provided',
         customerAddress: formattedAddress || 'No detailed address registered',
-        customerServiceOpted: currentServiceName || 'General Standard Service',
+        customerServiceOpted: currentServiceName,
         paymentMethod: paymentMethod,
         razorpayPaymentId: paymentId,
         razorpayOrderId: orderId,
         paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending'
       });
-      setStep(4); // Success step
+      setStep(3); // Success step
     };
 
     if (paymentMethod === 'cash') {
@@ -201,7 +183,6 @@ export function BookingFlow() {
     } else {
       setPaymentLoading(true);
       try {
-        // Step 1: Create Order on backend
         const amountInPaise = Math.round(calculatedPrice * 100);
         const orderResponse = await fetch('/api/create-order', {
           method: 'POST',
@@ -220,7 +201,7 @@ export function BookingFlow() {
 
         const orderData = await orderResponse.json();
 
-        // Step 2: Open Razorpay modal
+        // Open Razorpay modal
         const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_TEYA8yK9iWlsjJ';
         const options = {
           key: keyId,
@@ -232,7 +213,6 @@ export function BookingFlow() {
           handler: async function (response: any) {
             setPaymentLoading(true);
             try {
-              // Step 3: Verify signature on backend
               const verifyResponse = await fetch('/api/verify-payment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -293,7 +273,6 @@ export function BookingFlow() {
   };
 
   const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
-  const activeProObj = availablePros.find(p => p.id === selectedProId);
 
   return (
     <div className="bg-transparent min-h-screen py-10">
@@ -309,276 +288,112 @@ export function BookingFlow() {
         </button>
 
         {/* Header Steps */}
-        {step < 4 && (
+        {step < 3 && (
           <div className="mb-8 bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
             <h1 className="text-xl font-extrabold text-slate-900 mb-3 flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-indigo-600 animate-pulse" /> Book Home Visit Service
             </h1>
             <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-xs">
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>1. Service & Size Info</span>
+              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>1. Select Service & Category</span>
               <div className="h-px w-3 bg-slate-300" />
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>2. Allocate Partner</span>
-              <div className="h-px w-3 bg-slate-300" />
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 3 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>3. Date, Time & Confirm</span>
+              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>2. Date, Time & Confirm</span>
             </div>
           </div>
         )}
 
         <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-xl border border-white/40 overflow-hidden">
           
-          {/* STEP 1: SERVICE SELECTION & APPROXIMATE SIZE */}
+          {/* STEP 1: SERVICE SELECTION */}
           {step === 1 && (
-            <div className="p-6 sm:p-8 space-y-6">
+            <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
               <div>
-                <h2 className="text-base font-extrabold text-slate-900 mb-1">Select Service Parameters</h2>
-                <p className="text-xs text-slate-500">Provide work category, specific service, and the approximate size details for our records.</p>
+                <h2 className="text-base font-extrabold text-slate-900 mb-1">What service are you looking for?</h2>
+                <p className="text-xs text-slate-500">
+                  Select a category and choose a specialization if needed. No need to write size details, scope, or specify amount of work!
+                </p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Category Selector */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Service Category</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-wider">Service Category</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {categories.map(cat => (
                       <button
                         key={cat.id}
                         type="button"
                         onClick={() => {
                           setSelectedCategoryId(cat.id);
-                          const firstService = standardServicesByCategory[cat.id]?.[0] || '';
-                          setSelectedServiceName(firstService);
+                          const defaultSrv = standardServicesByCategory[cat.id]?.[0] || 'General Home Visit / Consult';
+                          setSelectedServiceName(defaultSrv);
                         }}
-                        className={`p-3 rounded-2xl border text-left transition-all ${
+                        className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
                           selectedCategoryId === cat.id 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02]' 
                             : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
                         }`}
                       >
-                        <p className="text-xs font-bold truncate">{cat.name}</p>
-                        <p className={`text-[9px] mt-0.5 truncate ${selectedCategoryId === cat.id ? 'text-slate-300' : 'text-slate-400'}`}>{cat.description}</p>
+                        <p className="text-xs font-extrabold truncate w-full">{cat.name}</p>
+                        <p className={`text-[9px] leading-snug line-clamp-2 mt-1.5 ${selectedCategoryId === cat.id ? 'text-slate-300' : 'text-slate-400'}`}>
+                          {cat.description}
+                        </p>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Specific Service Dropdown */}
+                {/* Specific Service Suboptions (Fully optional, beautifully structured!) */}
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Specific Service Work</label>
-                  <select
-                    value={currentServiceName}
-                    onChange={(e) => setSelectedServiceName(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                  >
-                    {servicesList.map(sName => (
-                      <option key={sName} value={sName}>{sName}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Specific Service Area (Optional)
+                    </label>
+                    <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg">
+                      No size or work amount description required
+                    </span>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {servicesList.map(sName => {
+                      const isSelected = currentServiceName === sName;
+                      return (
+                        <button
+                          key={sName}
+                          type="button"
+                          onClick={() => setSelectedServiceName(sName)}
+                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
+                            isSelected 
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                              : 'bg-white hover:border-slate-300 border-slate-200 text-slate-600'
+                          }`}
+                        >
+                          {sName}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Approximate Size Input (Mandatory, just for info to the company) */}
-                <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                  <div className="flex items-center gap-2 text-indigo-700">
-                    <Building className="h-4 w-4" />
-                    <h4 className="text-xs font-bold uppercase">Approximate Size & Scope Details</h4>
+                {/* Transparent Flat Visit Charge Notice */}
+                <div className="p-4 bg-gradient-to-r from-indigo-50/40 to-blue-50/40 border border-indigo-100 rounded-2xl flex justify-between items-center">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block">Standard Visit & Diagnostics Fee</span>
+                    <span className="text-[11px] text-indigo-600/90 font-medium leading-relaxed block max-w-sm">
+                      Pay only standard diagnostics visit charge. Our professional will inspect the parameters at your home and give transparent advice.
+                    </span>
                   </div>
-                  <p className="text-[10px] text-slate-500 leading-normal">
-                    Please provide the approximate size or scale of the job (e.g. "300 sq feet", "2 rooms", "single appliance"). This information is shared strictly with the company and technician for prior equipment planning.
-                  </p>
-
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-500 uppercase mb-1">Scope description (Just for info to company)</label>
-                    <input 
-                      type="text"
-                      required
-                      placeholder='e.g. 450 sq feet tiling, or 1 window AC installation'
-                      value={approximateSize}
-                      onChange={(e) => setApproximateSize(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  {/* Special conditional input for Tiling area */}
-                  {currentServiceName.toLowerCase().includes('tiling') && (
-                    <div className="space-y-2 pt-2 border-t border-slate-200/50 animate-in fade-in duration-200">
-                      <div className="flex items-center gap-1 text-slate-700">
-                        <Ruler className="h-3.5 w-3.5 text-indigo-600" />
-                        <label className="block text-[10px] font-bold uppercase">Specify exact area (In Sq Feet)</label>
-                      </div>
-                      <input 
-                        type="number"
-                        required
-                        placeholder="e.g. 350"
-                        value={tilingAreaSqFt}
-                        onChange={(e) => setTilingAreaSqFt(e.target.value)}
-                        className="w-40 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                      />
-                      <p className="text-[10px] text-indigo-600 font-semibold">
-                        Automatic Pricing Logic: &le; 500 sq feet = ₹99 Visit fee. &gt; 500 sq feet = ₹199 Visit fee.
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Special notice for AC Installation */}
-                  {currentServiceName.toLowerCase().includes('ac installation') && (
-                    <div className="p-2.5 bg-indigo-50/50 rounded-xl border border-indigo-100 text-[10px] text-indigo-700 font-semibold flex items-center gap-2 animate-in fade-in duration-200">
-                      <Sparkles className="h-3.5 w-3.5 text-indigo-600 animate-spin" />
-                      <span>Standard Rate Auto-Locked: ₹99 Visit charge for AC installation parameters.</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Displaying Current Calculated Visit Price */}
-                <div className="p-4 bg-white border border-slate-200/60 rounded-2xl flex justify-between items-center">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Estimated Service Visit Charge</span>
-                    <span className="text-[11px] text-slate-500">Based on visit standards & your parameters</span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-2xl font-extrabold text-indigo-600 block">₹{calculatedPrice}</span>
-                    <span className="text-[10px] text-slate-400 font-semibold block">Visit Fee Only</span>
+                  <div className="text-right shrink-0">
+                    <span className="text-2xl font-black text-indigo-600 block">₹{calculatedPrice}</span>
+                    <span className="text-[9px] text-indigo-500 font-bold block">Visit Fee Only</span>
                   </div>
                 </div>
 
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end pt-2 border-t border-slate-100">
                 <Button 
                   onClick={handleNextToStep2} 
-                  disabled={!approximateSize.trim() || (currentServiceName.toLowerCase().includes('tiling') && !tilingAreaSqFt)}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs h-10 shadow-lg shadow-indigo-100"
-                >
-                  Continue to Select Professionals
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 2: PROFESSIONAL ALLOCATION & SORTING */}
-          {step === 2 && (
-            <div className="p-6 sm:p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900 mb-1">Allocate Service Specialist</h2>
-                  <p className="text-xs text-slate-500">We have loaded certified experts nearby. The nearest professional is automatically allocated.</p>
-                </div>
-
-                {/* ONLY 2 SORT SETTINGS ALLOWED: NEAREST AND RATING */}
-                <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setSortSetting('nearest')}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
-                      sortSetting === 'nearest' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Nearest
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSortSetting('rating')}
-                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
-                      sortSetting === 'rating' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Rating
-                  </button>
-                </div>
-              </div>
-
-              {/* Auto-Allocated Highlight Block */}
-              {nearestPro && (
-                <div className="bg-gradient-to-r from-indigo-50/50 to-purple-50/50 p-4 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src={nearestPro.avatar} alt={nearestPro.name} className="w-12 h-12 rounded-full object-cover border border-indigo-200" referrerPolicy="no-referrer" />
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="bg-indigo-600 text-white text-[8px] font-extrabold px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">Auto-Allocated</span>
-                        <span className="text-xs font-bold text-slate-900">{nearestPro.name}</span>
-                      </div>
-                      <p className="text-[10px] text-slate-500">{nearestPro.tagline}</p>
-                      <p className="text-[9px] text-indigo-600 font-bold flex items-center gap-1 mt-0.5">
-                        <MapPin className="h-3 w-3" /> Nearest to you ({nearestPro.distanceKm} km away)
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedProId(nearestPro.id)}
-                    className={`text-[10px] font-extrabold px-4 py-2 rounded-xl border transition-all ${
-                      selectedProId === nearestPro.id 
-                        ? 'bg-slate-900 text-white border-slate-900' 
-                        : 'bg-white text-slate-700 hover:bg-slate-50 border-slate-200'
-                    }`}
-                  >
-                    {selectedProId === nearestPro.id ? 'Selected' : 'Select Nearest'}
-                  </button>
-                </div>
-              )}
-
-              {/* List of experts */}
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider block">Available Experts ({sortedPros.length})</h3>
-                {sortedPros.map(pro => {
-                  const isSelected = selectedProId === pro.id;
-                  const isNearest = nearestPro?.id === pro.id;
-                  return (
-                    <label
-                      key={pro.id}
-                      className={`flex items-start p-4 rounded-2xl border-2 cursor-pointer transition-all ${
-                        isSelected ? 'border-slate-900 bg-slate-50/50 shadow-sm' : 'border-slate-100 hover:border-slate-200 bg-white/40'
-                      }`}
-                    >
-                      <input 
-                        type="radio"
-                        name="allocatedPro"
-                        checked={isSelected}
-                        onChange={() => setSelectedProId(pro.id)}
-                        className="mt-1.5 mr-4 h-4 w-4 text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <div className="flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div>
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-extrabold text-xs text-slate-900">{pro.name}</h4>
-                            {isNearest && <span className="bg-slate-200 text-slate-700 text-[8px] font-bold px-1.5 py-0.5 rounded-full">Nearest</span>}
-                          </div>
-                          <p className="text-[10px] text-slate-500 leading-normal">{pro.tagline}</p>
-                          
-                          <div className="flex items-center gap-3 text-[9px] text-slate-400 font-semibold mt-1.5">
-                            <span className="flex items-center gap-0.5 text-amber-600">
-                              <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> {pro.rating.toFixed(1)} ({pro.reviewCount} reviews)
-                            </span>
-                            <span>•</span>
-                            <span className="flex items-center gap-0.5">
-                              <MapPin className="h-3 w-3" /> {pro.distanceKm} km away
-                            </span>
-                            <span>•</span>
-                            <span>Visit: ₹{pro.visitCharge}</span>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-xs font-extrabold text-slate-500 uppercase tracking-wide block">Amount Entered by Professional</span>
-                          <span className="text-sm font-extrabold text-slate-900 block">₹{pro.visitCharge}</span>
-                        </div>
-                      </div>
-                    </label>
-                  );
-                })}
-
-                {sortedPros.length === 0 && (
-                  <div className="text-center py-10 border rounded-2xl bg-slate-50/50">
-                    <AlertCircle className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500 font-bold">No verified experts registered for this specific category yet.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex justify-between items-center pt-2 border-t border-slate-200/60">
-                <Button variant="outline" onClick={() => setStep(1)} className="rounded-xl text-xs h-10 font-bold">Back</Button>
-                <Button 
-                  onClick={handleNextToStep3} 
-                  disabled={!selectedProId}
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs h-10 shadow-lg shadow-indigo-100"
+                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-11 shadow-lg shadow-indigo-100"
                 >
                   Continue to Date & Time
                 </Button>
@@ -586,18 +401,18 @@ export function BookingFlow() {
             </div>
           )}
 
-          {/* STEP 3: DATE, TIME & CONFIRM */}
-          {step === 3 && activeProObj && (
-            <div className="p-6 sm:p-8 space-y-6">
+          {/* STEP 2: DATE, TIME & CONFIRM */}
+          {step === 2 && (
+            <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
               <div>
                 <h2 className="text-base font-extrabold text-slate-900 mb-1">Select Date & Time</h2>
-                <p className="text-xs text-slate-500">Pick a comfortable date and slot for your independent visit. Standard tools provided.</p>
+                <p className="text-xs text-slate-500">Pick a comfortable date and arrival window for your expert home visit.</p>
               </div>
 
               {/* Date Slider */}
               <div className="space-y-2">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Available Visit Dates</label>
-                <div className="flex overflow-x-auto pb-4 gap-2.5 snap-x">
+                <div className="flex overflow-x-auto pb-4 gap-2.5 snap-x scrollbar-thin">
                   {availableDates.map(date => {
                     const isSelected = selectedDate?.toDateString() === date.toDateString();
                     return (
@@ -607,7 +422,7 @@ export function BookingFlow() {
                         onClick={() => setSelectedDate(date)}
                         className={`flex flex-col items-center justify-center p-2.5 rounded-xl border min-w-[70px] shrink-0 snap-start transition-all ${
                           isSelected 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02]' 
                             : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
                         }`}
                       >
@@ -650,7 +465,7 @@ export function BookingFlow() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none min-h-[70px]"
-                  placeholder="Describe standard parameters, instructions, or gate passcode..."
+                  placeholder="Tell us about any specific instructions, landmark, or gate codes for our visiting partner..."
                 />
               </div>
 
@@ -675,7 +490,9 @@ export function BookingFlow() {
                         {paymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2">Pay the professional directly in cash or via UPI after the visit is completed.</p>
+                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                      Pay our professional directly in cash or via UPI after the diagnostic check/service is completed.
+                    </p>
                   </button>
 
                   <button
@@ -695,7 +512,9 @@ export function BookingFlow() {
                         {paymentMethod === 'razorpay' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-500 mt-2">Pay securely online using Cards, NetBanking, UPI, or Wallets via Razorpay.</p>
+                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                      Pay visit fee securely online using Cards, NetBanking, UPI, or Wallets via Razorpay gateway.
+                    </p>
                   </button>
                 </div>
               </div>
@@ -709,16 +528,8 @@ export function BookingFlow() {
                     <span className="font-bold text-slate-800">{currentCategoryObj?.name}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Specific Work</span>
-                    <span className="font-bold text-slate-800">{currentServiceName}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Approximate Size / Scope</span>
-                    <span className="font-bold text-slate-800 text-indigo-600">{approximateSize}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Allocated Specialist</span>
-                    <span className="font-bold text-slate-800">{activeProObj.name} ({activeProObj.distanceKm} km away)</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chosen specialization</span>
+                    <span className="font-bold text-indigo-600">{currentServiceName}</span>
                   </div>
                   {selectedDate && selectedTime && (
                     <div className="sm:col-span-2">
@@ -741,7 +552,7 @@ export function BookingFlow() {
                     <span className="font-extrabold text-xs text-slate-900 block">Total Calculated Visit Fee</span>
                     <span className="text-[9px] text-slate-400 block">
                       {paymentMethod === 'cash' 
-                        ? 'Payable directly to expert upon visit arrival' 
+                        ? 'Payable directly upon partner arrival' 
                         : 'To be paid securely via Razorpay gateway'}
                     </span>
                   </div>
@@ -764,7 +575,7 @@ export function BookingFlow() {
               <div className="flex justify-between items-center pt-2">
                 <Button 
                   variant="outline" 
-                  onClick={() => setStep(2)} 
+                  onClick={() => setStep(1)} 
                   disabled={paymentLoading}
                   className="rounded-xl text-xs h-10 font-bold"
                 >
@@ -788,9 +599,9 @@ export function BookingFlow() {
             </div>
           )}
 
-          {/* STEP 4: SUCCESS STEP */}
-          {step === 4 && (
-            <div className="p-12 text-center space-y-6">
+          {/* STEP 3: SUCCESS STEP */}
+          {step === 3 && (
+            <div className="p-12 text-center space-y-6 animate-in fade-in duration-200">
               <div className="mx-auto h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center border border-emerald-100 shadow-sm">
                 <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               </div>
@@ -806,7 +617,7 @@ export function BookingFlow() {
                 <p className="text-[11px] leading-relaxed">
                   1. You can track this booking on your customer dashboard.<br />
                   2. Use the "Helpline & Chat" tab to communicate with the professional.<br />
-                  3. Compare other professionals by creating more visit requests!
+                  3. A technician will arrive at your home at the specified date & slot.
                 </p>
               </div>
 
