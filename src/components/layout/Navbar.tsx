@@ -71,7 +71,7 @@ export function Navbar() {
               <Link to="/login" className="text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
                 Sign In
               </Link>
-              <Link to="/register-professional" className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
+              <Link to="/professionals" className="inline-flex h-9 items-center justify-center rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-200 transition-colors hover:bg-indigo-700">
                 Join as Professional
               </Link>
             </>
@@ -116,7 +116,7 @@ export function Navbar() {
               <Link to="/login" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
                 Sign In
               </Link>
-              <Link to="/register-professional" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/professionals" className="block text-sm font-medium text-slate-600" onClick={() => setIsMenuOpen(false)}>
                 Join as Professional
               </Link>
             </>

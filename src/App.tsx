@@ -13,6 +13,7 @@ import { Profile } from './pages/Profile';
 import { BookingFlow } from './pages/BookingFlow';
 import { Login, Register } from './pages/Auth';
 import { LoginProfessional, RegisterProfessional } from './pages/AuthProfessional';
+import { ProfessionalPortal } from './pages/ProfessionalPortal';
 import { Dashboard } from './pages/Dashboard';
 import { AdminPage } from './pages/Admin';
 import { 
@@ -66,6 +67,10 @@ const router = createBrowserRouter([
       {
         path: 'register-professional',
         element: <RegisterProfessional />,
+      },
+      {
+        path: 'professionals',
+        element: <ProfessionalPortal />,
       },
       {
         path: 'dashboard',

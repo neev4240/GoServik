@@ -16,22 +16,41 @@ const iconMap: Record<string, any> = {
 };
 
 const servicesByCategory: Record<string, string[]> = {
-  'cat-1': ['Full Home Deep Cleaning', 'Sofa Wet Shampooing', 'Bathroom Sanitization', 'Kitchen Degreasing'],
-  'cat-2': ['Emergency Leakage & Pipe Repair', 'Faucet & Sink Install', 'Drainage Clog Removal', 'Geyser Inspection'],
-  'cat-3': ['Switch & Socket Repair', 'Ceiling Fan Installation', 'House Re-wiring Inspection', 'Inverter Battery Service'],
-  'cat-4': ['AC Servicing & Filter Wash', 'AC Gas Refilling', 'Refrigerator Repair', 'Washing Machine Repair'],
-  'cat-5': ['Door Lock & Hinge Repair', 'Furniture Repair & Assembly', 'Modular Cabinet Adjustment', 'Drawer Slider Install'],
-  'cat-6': ['Wall Paint Touch-ups', 'Waterproofing Damage Inspection', 'Interior Wall Texture', 'Flat Painting Consult'],
-  'cat-7': ['General Pest Control', 'Cockroach & Ant Gel', 'Bedbug Herbal Spray', 'Termite Protection'],
-  'cat-8': ['Lawn Mowing & Grass Trim', 'Weeding & Soil Treatment', 'Indoor Planter Maintenance', 'New Garden Setup'],
-  'cat-9': ['Floor/Wall Tile Grouting', 'Cement Wall Crack Plastering', 'Bathroom Tiling Repair', 'Brickwork/Masonry'],
-  'cat-10': ['CCTV Camera Setup', 'Smart Door Lock Setup', 'Video Doorbell Wiring', 'Security Sensors Consult'],
-  'cat-11': ['Router Setup & WiFi', 'Smart Speaker Setup', 'Smart TV Installation', 'Smart Lighting Switch'],
-  'cat-12': ['Local Shift Pre-move', 'Packing & Loading Help', 'Furniture Reassembly', 'Inter-city Relocation'],
-  'cat-13': ['Kitchen Chimney Clean', 'Water Purifier RO Service', 'Microwave Deep Clean', 'Hob & Stove Checkup'],
-  'cat-14': ['Men Haircut & Groom', 'Women Hair & Styling', 'Facial & Face Massage', 'Stress Relief Massage'],
-  'cat-15': ['Physio Pain Assessment', 'Elderly Companion Visit', 'Daily Nursing Visit', 'Infant Care Consult'],
-  'cat-16': ['Whole House Sanitization', 'Steam Disinfection', 'Workstation Spray', 'Car Cabin Fogging']
+  'cat-1': ['Full Home Deep Cleaning', 'Sofa Wet Shampooing', 'Bathroom Sanitization', 'Kitchen Degreasing', 'Balcony & Window Cleaning', 'Post-Construction Cleanup'],
+  'cat-2': ['Emergency Leakage & Pipe Repair', 'Faucet & Sink Install', 'Drainage Clog Removal', 'Geyser Inspection', 'Water Tank & Sump Cleaning', 'Toilet Seat & Flush Repair'],
+  'cat-3': ['Switch & Socket Repair', 'Ceiling Fan Installation', 'House Re-wiring Inspection', 'Inverter Battery Service', 'Smart Meter & MCB Repair', 'Chandelier & Decorative Lighting'],
+  'cat-4': ['AC Servicing & Filter Wash', 'AC Gas Refilling', 'Refrigerator Repair', 'Washing Machine Repair', 'Microwave Oven Fix', 'Water Purifier RO Service'],
+  'cat-5': ['Door Lock & Hinge Repair', 'Furniture Repair & Assembly', 'Modular Cabinet Adjustment', 'Drawer Slider Install', 'Wooden Partition Setup', 'Sofa Frame Stitching & Fix'],
+  'cat-6': ['Wall Paint Touch-ups', 'Waterproofing Damage Inspection', 'Interior Wall Texture', 'Flat Painting Consult', 'Wallpaper Stencil Design', 'Wood & Metal Enamel Polish'],
+  'cat-7': ['General Pest Control', 'Cockroach & Ant Gel', 'Bedbug Herbal Spray', 'Termite Protection', 'Mosquito Screen Treatment', 'Rodent & Rat Baiting'],
+  'cat-8': ['Lawn Mowing & Grass Trim', 'Weeding & Soil Treatment', 'Indoor Planter Maintenance', 'New Garden Setup', 'Artificial Turf Fitting', 'Tree Pruning & Shrub Shaping'],
+  'cat-9': ['Floor/Wall Tile Grouting', 'Cement Wall Crack Plastering', 'Bathroom Tiling Repair', 'Brickwork/Masonry', 'Marble Grinding & Polishing', 'Granite Countertop Repair'],
+  'cat-10': ['CCTV Camera Setup', 'Smart Door Lock Setup', 'Video Doorbell Wiring', 'Security Sensors Consult', 'Intercom System Repair', 'Burglar Alarm Integration'],
+  'cat-11': ['Router Setup & WiFi', 'Smart Speaker Setup', 'Smart TV Installation', 'Smart Lighting Switch', 'Home Theatre Calibration', 'Ethernet Cabling (Cat6)'],
+  'cat-12': ['Local Shift Pre-move', 'Packing & Loading Help', 'Furniture Reassembly', 'Inter-city Relocation', 'Office Goods Transport', 'Fragile Item Air-Bubble Wrap'],
+  'cat-13': ['Kitchen Chimney Clean', 'Water Purifier RO Service', 'Microwave Deep Clean', 'Hob & Stove Checkup', 'Dishwasher Filter Wash', 'Induction Cooker Repair'],
+  'cat-14': ['Men Haircut & Groom', 'Women Hair & Styling', 'Facial & Face Massage', 'Stress Relief Massage', 'Bridal & Groom Makeup', 'Mani-Pedi at Home'],
+  'cat-15': ['Physio Pain Assessment', 'Elderly Companion Visit', 'Daily Nursing Visit', 'Infant Care Consult', 'Post-Surgery Rehab Care', 'Acupressure Reflexology'],
+  'cat-16': ['Whole House Sanitization', 'Steam Disinfection', 'Workstation Spray', 'Car Cabin Fogging', 'School/Gym Sanitization', 'Antibacterial Upholstery Spray']
+};
+
+const keywordsByCategory: Record<string, string[]> = {
+  'cat-1': ['cleaning', 'clean', 'wash', 'sofa', 'carpet', 'vacuum', 'dusting', 'sweeping', 'bathroom', 'kitchen', 'deep clean', 'maid', 'housekeeper'],
+  'cat-2': ['plumber', 'plumbing', 'leak', 'leakage', 'pipe', 'water', 'tap', 'sink', 'faucet', 'toilet', 'flush', 'drain', 'clog', 'blockage', 'geyser', 'heater', 'tank'],
+  'cat-3': ['electrician', 'electricity', 'wire', 'wiring', 'switch', 'socket', 'plug', 'fan', 'light', 'chandelier', 'inverter', 'battery', 'short circuit', 'mcb', 'fuse'],
+  'cat-4': ['ac', 'air conditioner', 'cooling', 'fridge', 'refrigerator', 'compressor', 'gas fill', 'washing machine', 'dryer', 'microwave', 'oven', 'appliance'],
+  'cat-5': ['carpenter', 'carpentry', 'wood', 'wooden', 'door', 'lock', 'hinge', 'handle', 'key', 'furniture', 'cabinet', 'drawer', 'sofa repair', 'table', 'chair'],
+  'cat-6': ['painter', 'painting', 'paint', 'wall', 'wall color', 'waterproof', 'moisture', 'leakage wall', 'texture', 'stencil', 'wallpaper', 'polish', 'enamel'],
+  'cat-7': ['pest', 'cockroach', 'ant', 'bug', 'bedbug', 'termite', 'mosquito', 'insect', 'rodent', 'rat', 'mouse', 'lizard', 'spray', 'fumigation'],
+  'cat-8': ['gardener', 'gardening', 'garden', 'plant', 'lawn', 'grass', 'flower', 'pot', 'soil', 'weed', 'tree', 'trim', 'pruning', 'fertilizer'],
+  'cat-9': ['mason', 'masonry', 'brick', 'tile', 'cement', 'plaster', 'concrete', 'floor', 'granite', 'marble', 'grout', 'crack'],
+  'cat-10': ['security', 'cctv', 'camera', 'surveillance', 'lock', 'video door', 'bell', 'sensor', 'alarm', 'intercom', 'burglar'],
+  'cat-11': ['wifi', 'router', 'internet', 'network', 'smart home', 'alexa', 'google', 'speaker', 'tv', 'smart light', 'ethernet', 'cable'],
+  'cat-12': ['packer', 'mover', 'shift', 'shifting', 'pack', 'luggage', 'transport', 'truck', 'moving', 'relocation', 'office shift', 'bubble wrap'],
+  'cat-13': ['kitchen', 'chimney', 'ro', 'purifier', 'water filter', 'microwave', 'oven', 'stove', 'hob', 'burner', 'dishwasher'],
+  'cat-14': ['salon', 'parlor', 'grooming', 'haircut', 'shave', 'beard', 'facial', 'massage', 'spa', 'makeup', 'pedicure', 'manicure', 'hair style'],
+  'cat-15': ['physio', 'physiotherapy', 'doctor', 'nurse', 'elderly', 'elder', 'nursing', 'rehab', 'massage pain', 'back pain', 'knee pain', 'medical', 'health'],
+  'cat-16': ['sanitizer', 'sanitisation', 'sanitization', 'disinfection', 'fogging', 'germs', 'virus', 'covid', 'spray', 'antibacterial', 'sterilize']
 };
 
 export function Explore() {
@@ -51,12 +70,19 @@ export function Explore() {
 
   const filteredCategories = useMemo(() => {
     return categories.filter(cat => {
-      const query = searchQuery.toLowerCase();
+      const query = searchQuery.toLowerCase().trim();
+      if (!query) return true;
+      
       const nameMatch = cat.name.toLowerCase().includes(query);
       const descMatch = cat.description.toLowerCase().includes(query);
+      
       const suboptions = servicesByCategory[cat.id] || [];
       const suboptionsMatch = suboptions.some(sub => sub.toLowerCase().includes(query));
-      return nameMatch || descMatch || suboptionsMatch;
+      
+      const keys = keywordsByCategory[cat.id] || [];
+      const keywordsMatch = keys.some(key => key.toLowerCase().includes(query));
+      
+      return nameMatch || descMatch || suboptionsMatch || keywordsMatch;
     });
   }, [categories, searchQuery]);
 

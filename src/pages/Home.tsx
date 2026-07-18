@@ -35,7 +35,7 @@ export function Home() {
                   <div className="text-xs text-slate-500">Explore and book home services</div>
                 </Link>
                 
-                <Link to="/register-professional" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
+                <Link to="/professionals" className="group relative flex-1 p-6 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transition-all cursor-pointer">
                   <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mb-4 text-white">
                     <Briefcase className="w-6 h-6" />
                   </div>

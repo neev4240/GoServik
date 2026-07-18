@@ -78,115 +78,146 @@ export function BookingFlow() {
     'cat-1': [
       'General Home Visit / Consult',
       'Full Home Deep Cleaning',
-      'Sofa & Carpet Wet Shampooing',
-      'Bathroom Deep Cleaning & Sanitization',
-      'Kitchen Deep Cleaning & Degreasing'
+      'Sofa Wet Shampooing',
+      'Bathroom Sanitization',
+      'Kitchen Degreasing',
+      'Balcony & Window Cleaning',
+      'Post-Construction Cleanup'
     ],
     'cat-2': [
       'General Home Visit / Consult',
       'Emergency Leakage & Pipe Repair',
-      'Faucet, Tap, or Sink Install/Repair',
-      'Drainage & Clog Removal Service',
-      'Geyser, Water Heater Inspection'
+      'Faucet & Sink Install',
+      'Drainage Clog Removal',
+      'Geyser Inspection',
+      'Water Tank & Sump Cleaning',
+      'Toilet Seat & Flush Repair'
     ],
     'cat-3': [
       'General Home Visit / Consult',
-      'Switch, Socket, or Fuse Box Repair',
-      'Ceiling Fan & Exhaust Fan Installation',
-      'House Re-wiring Inspection & Diagnostics',
-      'Inverter Battery Service & Setup'
+      'Switch & Socket Repair',
+      'Ceiling Fan Installation',
+      'House Re-wiring Inspection',
+      'Inverter Battery Service',
+      'Smart Meter & MCB Repair',
+      'Chandelier & Decorative Lighting'
     ],
     'cat-4': [
       'General Home Visit / Consult',
-      'AC Servicing & Wet Filter Wash',
-      'AC Gas Leak Check & Refilling',
-      'Refrigerator / Fridge Repair',
-      'Washing Machine Setup & Repair',
-      'Microwave & OTG Oven Diagnostics'
+      'AC Servicing & Filter Wash',
+      'AC Gas Refilling',
+      'Refrigerator Repair',
+      'Washing Machine Repair',
+      'Microwave Oven Fix',
+      'Water Purifier RO Service'
     ],
     'cat-5': [
       'General Home Visit / Consult',
-      'Door Lock, Hinge, or Handle Repair',
-      'Furniture Repair & Assembly Service',
-      'Modular Kitchen Cabinet Hinge Adjustment',
-      'Drawer Slider Install & Replacement'
+      'Door Lock & Hinge Repair',
+      'Furniture Repair & Assembly',
+      'Modular Cabinet Adjustment',
+      'Drawer Slider Install',
+      'Wooden Partition Setup',
+      'Sofa Frame Stitching & Fix'
     ],
     'cat-6': [
       'General Home Visit / Consult',
-      'Wall Paint Touch-ups & Scraping',
+      'Wall Paint Touch-ups',
       'Waterproofing Damage Inspection',
-      'Interior Wall Texture Consult',
-      'Full Flat Painting Consult'
+      'Interior Wall Texture',
+      'Flat Painting Consult',
+      'Wallpaper Stencil Design',
+      'Wood & Metal Enamel Polish'
     ],
     'cat-7': [
       'General Home Visit / Consult',
-      'General Pest Control Treatment',
-      'Cockroach & Ant Gel Application',
-      'Bedbug Herbal Spray Treatment',
-      'Termite Protection Inspection'
+      'General Pest Control',
+      'Cockroach & Ant Gel',
+      'Bedbug Herbal Spray',
+      'Termite Protection',
+      'Mosquito Screen Treatment',
+      'Rodent & Rat Baiting'
     ],
     'cat-8': [
       'General Home Visit / Consult',
       'Lawn Mowing & Grass Trim',
       'Weeding & Soil Treatment',
       'Indoor Planter Maintenance',
-      'New Garden Setup & Consultation'
+      'New Garden Setup',
+      'Artificial Turf Fitting',
+      'Tree Pruning & Shrub Shaping'
     ],
     'cat-9': [
       'General Home Visit / Consult',
-      'Broken Floor/Wall Tile Grouting',
+      'Floor/Wall Tile Grouting',
       'Cement Wall Crack Plastering',
-      'Bathroom Tiling Repair Consult',
-      'General Brickwork / Masonry Repair'
+      'Bathroom Tiling Repair',
+      'Brickwork/Masonry',
+      'Marble Grinding & Polishing',
+      'Granite Countertop Repair'
     ],
     'cat-10': [
       'General Home Visit / Consult',
-      'CCTV Camera Installation & Wire Setup',
-      'Smart Door Lock Configuration',
-      'Video Doorbell Wiring & Assembly',
-      'Security Sensors & Alarm Consult'
+      'CCTV Camera Setup',
+      'Smart Door Lock Setup',
+      'Video Doorbell Wiring',
+      'Security Sensors Consult',
+      'Intercom System Repair',
+      'Burglar Alarm Integration'
     ],
     'cat-11': [
       'General Home Visit / Consult',
-      'Router Setup & WiFi Range Extension',
-      'Smart Speaker / Voice Assistant Setup',
-      'Smart TV & Streaming Device Setup',
-      'Smart Lighting & Switch Installation'
+      'Router Setup & WiFi',
+      'Smart Speaker Setup',
+      'Smart TV Installation',
+      'Smart Lighting Switch',
+      'Home Theatre Calibration',
+      'Ethernet Cabling (Cat6)'
     ],
     'cat-12': [
       'General Home Visit / Consult',
-      'Local Shifting Pre-move Assessment',
-      'Secure Packing & Loading Assistance',
-      'Unpacking & Furniture Reassembly',
-      'Inter-city Relocation Advice & Quote'
+      'Local Shift Pre-move',
+      'Packing & Loading Help',
+      'Furniture Reassembly',
+      'Inter-city Relocation',
+      'Office Goods Transport',
+      'Fragile Item Air-Bubble Wrap'
     ],
     'cat-13': [
       'General Home Visit / Consult',
-      'Kitchen Chimney Deep Cleaning',
-      'Water Purifier / RO Service & Filter Change',
-      'Microwave Oven Deep Sanitization',
-      'Hob & Gas Stove Cleaning & Checkup'
+      'Kitchen Chimney Clean',
+      'Water Purifier RO Service',
+      'Microwave Deep Clean',
+      'Hob & Stove Checkup',
+      'Dishwasher Filter Wash',
+      'Induction Cooker Repair'
     ],
     'cat-14': [
       'General Home Visit / Consult',
-      'Men\'s Haircut & Beard Grooming',
-      'Women\'s Haircut & Hair Styling',
-      'Express Facial & Face Massage',
-      'Stress Relief Massage Therapy Visit'
+      'Men Haircut & Groom',
+      'Women Hair & Styling',
+      'Facial & Face Massage',
+      'Stress Relief Massage',
+      'Bridal & Groom Makeup',
+      'Mani-Pedi at Home'
     ],
     'cat-15': [
       'General Home Visit / Consult',
-      'Physiotherapy Knee/Back Pain Assessment',
-      'Elderly Companion & Health Checkup',
-      'Post-operative Daily Nursing Visit',
-      'Infant Care & Mother Support Consult'
+      'Physio Pain Assessment',
+      'Elderly Companion Visit',
+      'Daily Nursing Visit',
+      'Infant Care Consult',
+      'Post-Surgery Rehab Care',
+      'Acupressure Reflexology'
     ],
     'cat-16': [
       'General Home Visit / Consult',
-      'Whole House Sanitization Fogging',
-      'Kitchen & Bathroom Steam Disinfection',
-      'Office / Workstation Sanitization Spray',
-      'Car Cabin Sanitization & Fogging'
+      'Whole House Sanitization',
+      'Steam Disinfection',
+      'Workstation Spray',
+      'Car Cabin Fogging',
+      'School/Gym Sanitization',
+      'Antibacterial Upholstery Spray'
     ]
   };
 

@@ -25,9 +25,34 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { login, professionals, customers } = useStore();
+  const { currentUser, login, professionals, customers } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
+
+  if (currentUser && currentUser.role === 'professional') {
+    return (
+      <div className="flex min-h-[85vh] items-center justify-center px-4 py-12 bg-transparent">
+        <div className="w-full max-w-md p-8 text-center bg-white/60 backdrop-blur-md rounded-3xl shadow-2xl border border-white/40">
+          <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4">
+            <Shield className="h-6 w-6 text-rose-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-slate-900">Access Restricted</h2>
+          <p className="text-slate-500 mb-6 text-xs leading-relaxed">
+            You are currently signed in as a <span className="font-extrabold text-indigo-600 uppercase">Professional Partner</span>. 
+            Professional accounts are strictly barred from logging in or registering as customers, or booking client services.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-full text-xs font-bold h-10">
+              <Link to="/dashboard">Go to Partner Dashboard</Link>
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')} className="rounded-xl w-full text-xs font-bold h-10">
+              Return to Homepage
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -261,8 +286,33 @@ export function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login, professionals, customers } = useStore();
+  const { currentUser, login, professionals, customers } = useStore();
   const navigate = useNavigate();
+
+  if (currentUser && currentUser.role === 'professional') {
+    return (
+      <div className="flex min-h-[85vh] items-center justify-center px-4 py-12 bg-transparent">
+        <div className="w-full max-w-md p-8 text-center bg-white/60 backdrop-blur-md rounded-3xl shadow-2xl border border-white/40">
+          <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4">
+            <Shield className="h-6 w-6 text-rose-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2 text-slate-900">Access Restricted</h2>
+          <p className="text-slate-500 mb-6 text-xs leading-relaxed">
+            You are currently signed in as a <span className="font-extrabold text-indigo-600 uppercase">Professional Partner</span>. 
+            Professional accounts are strictly barred from logging in or registering as customers, or booking client services.
+          </p>
+          <div className="flex flex-col gap-2.5">
+            <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-full text-xs font-bold h-10">
+              <Link to="/dashboard">Go to Partner Dashboard</Link>
+            </Button>
+            <Button variant="outline" onClick={() => navigate('/')} className="rounded-xl w-full text-xs font-bold h-10">
+              Return to Homepage
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleRegister = async (e: FormEvent) => {
     e.preventDefault();
