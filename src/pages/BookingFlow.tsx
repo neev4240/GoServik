@@ -1,12 +1,110 @@
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/ui/Button';
 import { 
   ChevronLeft, Calendar as CalendarIcon, Clock, CheckCircle2, 
-  AlertCircle, MapPin, Sparkles, HelpCircle 
+  AlertCircle, MapPin, Sparkles, HelpCircle, Map as MapIcon, Compass
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
+
+// Interactive Leaflet Map Picker Component
+export function MapPicker({ value, onChange }: { value?: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const markerRef = useRef<any>(null);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+
+  useEffect(() => {
+    // 1. Check if Leaflet CSS is loaded
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    // 2. Load Leaflet script dynamically
+    if (!(window as any).L) {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+      script.async = true;
+      script.onload = () => setLeafletLoaded(true);
+      document.body.appendChild(script);
+    } else {
+      setLeafletLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!leafletLoaded || !containerRef.current || !(window as any).L) return;
+
+    const L = (window as any).L;
+    // Standard starting coordinates (Mumbai center as map focus, but value remains undefined until user clicks)
+    const initialLat = value?.lat || 19.0760;
+    const initialLng = value?.lng || 72.8777;
+
+    if (!mapRef.current) {
+      mapRef.current = L.map(containerRef.current).setView([initialLat, initialLng], 12);
+      
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(mapRef.current);
+
+      mapRef.current.on('click', (e: any) => {
+        const { lat, lng } = e.latlng;
+        onChange({ lat, lng });
+
+        if (markerRef.current) {
+          markerRef.current.setLatLng([lat, lng]);
+        } else {
+          markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+        }
+      });
+    }
+
+    if (value && mapRef.current) {
+      const pos = [value.lat, value.lng] as [number, number];
+      if (markerRef.current) {
+        markerRef.current.setLatLng(pos);
+      } else {
+        markerRef.current = L.marker(pos).addTo(mapRef.current);
+      }
+      mapRef.current.setView(pos, mapRef.current.getZoom());
+    }
+  }, [leafletLoaded, value, onChange]);
+
+  // Clean up map ref on unmount
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
+
+  return (
+    <div className="space-y-2">
+      <div 
+        ref={containerRef} 
+        style={{ height: '280px', width: '100%' }} 
+        className="rounded-2xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative z-0"
+      />
+      {!value ? (
+        <p className="text-rose-600 text-[11px] font-extrabold flex items-center gap-1">
+          ⚠️ Please click on the map to pinpoint your location coordinates (Mandatory).
+        </p>
+      ) : (
+        <p className="text-emerald-600 text-[11px] font-bold flex items-center gap-1">
+          ✅ Pinplaced Coordinates: {value.lat.toFixed(5)} Latitude, {value.lng.toFixed(5)} Longitude
+        </p>
+      )}
+    </div>
+  );
+}
 
 export function BookingFlow() {
   const { proId } = useParams<{ proId: string }>();
@@ -17,22 +115,56 @@ export function BookingFlow() {
 
   const [step, setStep] = useState(1);
 
-  // STEP 1 state: Category & Suboption Selection (No size/work input required!)
+  // STEP 1 state: Category & checklist subcategories selection
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(catParam || 'cat-1');
-  const [selectedServiceName, setSelectedServiceName] = useState<string>('');
+  const [selectedSubcats, setSelectedSubcats] = useState<string[]>([]);
 
-  // STEP 2 state: Date, Time & Confirm
+  // STEP 2 state: Customer Details, Map Picker, Date & Time, Payment
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState<string>('');
+  
+  // Mandatory input fields
+  const [custName, setCustName] = useState('');
+  const [custMobile, setCustMobile] = useState('');
+  const [custEmail, setCustEmail] = useState('');
+  const [custAddressLine, setCustAddressLine] = useState('');
+  const [custCoordinates, setCustCoordinates] = useState<{ lat: number, lng: number } | undefined>(undefined);
+
+  // Optional fields
+  const [custLandmark, setCustLandmark] = useState('');
+  const [custCity, setCustCity] = useState('');
+  const [custState, setCustState] = useState('');
+  const [custPincode, setCustPincode] = useState('');
   const [notes, setNotes] = useState('');
+
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [showSimulator, setShowSimulator] = useState(false);
   const [simulatedOrderData, setSimulatedOrderData] = useState<any>(null);
 
-  // Hidden/allocated professional state
-  const [selectedProId, setSelectedProId] = useState<string>('');
+  // Prefill fields from authenticated customer profile
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'customer') {
+      setCustName(currentUser.name || '');
+      setCustMobile(currentUser.mobile || '');
+      setCustEmail(currentUser.email || '');
+      setCustAddressLine(currentUser.addressLine || '');
+      setCustLandmark(currentUser.landmark || '');
+      setCustCity(currentUser.city || '');
+      setCustState(currentUser.state || '');
+      setCustPincode(currentUser.pincode || '');
+      if (currentUser.coordinates) {
+        setCustCoordinates(currentUser.coordinates);
+      }
+    }
+  }, [currentUser]);
+
+  // Handle category change -> reset chosen subcategories
+  const handleCategoryChange = (catId: string) => {
+    setSelectedCategoryId(catId);
+    setSelectedSubcats([]);
+  };
 
   // Enforce authentication
   if (!currentUser) {
@@ -73,169 +205,16 @@ export function BookingFlow() {
     );
   }
 
-  // Expanded Categories and appropriate Suboptions (no manual typing required!)
-  const standardServicesByCategory: Record<string, string[]> = {
-    'cat-1': [
-      'General Home Visit / Consult',
-      'Full Home Deep Cleaning',
-      'Sofa Wet Shampooing',
-      'Bathroom Sanitization',
-      'Kitchen Degreasing',
-      'Balcony & Window Cleaning',
-      'Post-Construction Cleanup'
-    ],
-    'cat-2': [
-      'General Home Visit / Consult',
-      'Emergency Leakage & Pipe Repair',
-      'Faucet & Sink Install',
-      'Drainage Clog Removal',
-      'Geyser Inspection',
-      'Water Tank & Sump Cleaning',
-      'Toilet Seat & Flush Repair'
-    ],
-    'cat-3': [
-      'General Home Visit / Consult',
-      'Switch & Socket Repair',
-      'Ceiling Fan Installation',
-      'House Re-wiring Inspection',
-      'Inverter Battery Service',
-      'Smart Meter & MCB Repair',
-      'Chandelier & Decorative Lighting'
-    ],
-    'cat-4': [
-      'General Home Visit / Consult',
-      'AC Servicing & Filter Wash',
-      'AC Gas Refilling',
-      'Refrigerator Repair',
-      'Washing Machine Repair',
-      'Microwave Oven Fix',
-      'Water Purifier RO Service'
-    ],
-    'cat-5': [
-      'General Home Visit / Consult',
-      'Door Lock & Hinge Repair',
-      'Furniture Repair & Assembly',
-      'Modular Cabinet Adjustment',
-      'Drawer Slider Install',
-      'Wooden Partition Setup',
-      'Sofa Frame Stitching & Fix'
-    ],
-    'cat-6': [
-      'General Home Visit / Consult',
-      'Wall Paint Touch-ups',
-      'Waterproofing Damage Inspection',
-      'Interior Wall Texture',
-      'Flat Painting Consult',
-      'Wallpaper Stencil Design',
-      'Wood & Metal Enamel Polish'
-    ],
-    'cat-7': [
-      'General Home Visit / Consult',
-      'General Pest Control',
-      'Cockroach & Ant Gel',
-      'Bedbug Herbal Spray',
-      'Termite Protection',
-      'Mosquito Screen Treatment',
-      'Rodent & Rat Baiting'
-    ],
-    'cat-8': [
-      'General Home Visit / Consult',
-      'Lawn Mowing & Grass Trim',
-      'Weeding & Soil Treatment',
-      'Indoor Planter Maintenance',
-      'New Garden Setup',
-      'Artificial Turf Fitting',
-      'Tree Pruning & Shrub Shaping'
-    ],
-    'cat-9': [
-      'General Home Visit / Consult',
-      'Floor/Wall Tile Grouting',
-      'Cement Wall Crack Plastering',
-      'Bathroom Tiling Repair',
-      'Brickwork/Masonry',
-      'Marble Grinding & Polishing',
-      'Granite Countertop Repair'
-    ],
-    'cat-10': [
-      'General Home Visit / Consult',
-      'CCTV Camera Setup',
-      'Smart Door Lock Setup',
-      'Video Doorbell Wiring',
-      'Security Sensors Consult',
-      'Intercom System Repair',
-      'Burglar Alarm Integration'
-    ],
-    'cat-11': [
-      'General Home Visit / Consult',
-      'Router Setup & WiFi',
-      'Smart Speaker Setup',
-      'Smart TV Installation',
-      'Smart Lighting Switch',
-      'Home Theatre Calibration',
-      'Ethernet Cabling (Cat6)'
-    ],
-    'cat-12': [
-      'General Home Visit / Consult',
-      'Local Shift Pre-move',
-      'Packing & Loading Help',
-      'Furniture Reassembly',
-      'Inter-city Relocation',
-      'Office Goods Transport',
-      'Fragile Item Air-Bubble Wrap'
-    ],
-    'cat-13': [
-      'General Home Visit / Consult',
-      'Kitchen Chimney Clean',
-      'Water Purifier RO Service',
-      'Microwave Deep Clean',
-      'Hob & Stove Checkup',
-      'Dishwasher Filter Wash',
-      'Induction Cooker Repair'
-    ],
-    'cat-14': [
-      'General Home Visit / Consult',
-      'Men Haircut & Groom',
-      'Women Hair & Styling',
-      'Facial & Face Massage',
-      'Stress Relief Massage',
-      'Bridal & Groom Makeup',
-      'Mani-Pedi at Home'
-    ],
-    'cat-15': [
-      'General Home Visit / Consult',
-      'Physio Pain Assessment',
-      'Elderly Companion Visit',
-      'Daily Nursing Visit',
-      'Infant Care Consult',
-      'Post-Surgery Rehab Care',
-      'Acupressure Reflexology'
-    ],
-    'cat-16': [
-      'General Home Visit / Consult',
-      'Whole House Sanitization',
-      'Steam Disinfection',
-      'Workstation Spray',
-      'Car Cabin Fogging',
-      'School/Gym Sanitization',
-      'Antibacterial Upholstery Spray'
-    ]
-  };
+  const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
+  const subcatsList = currentCategoryObj?.subcategories || [];
 
-  const servicesList = standardServicesByCategory[selectedCategoryId] || ['General Home Visit / Consult'];
-
-  // Current active service name or default to first
-  const currentServiceName = selectedServiceName || servicesList[0] || 'General Home Visit / Consult';
-
-  // Flat transparent service visit fee - no need to calculate complex variable pricing or enter job sizes
+  // Flat transparent standard visit charge
   const calculatedPrice = 99;
 
-  // Auto-allocate best professional/technician on Step 1 Continue
   const handleNextToStep2 = () => {
-    const assignedPro = professionals.find(p => p.services.some(s => s.categoryId === selectedCategoryId)) || professionals[0];
-    if (assignedPro) {
-      setSelectedProId(assignedPro.id);
-    } else {
-      setSelectedProId('pro-1');
+    if (selectedSubcats.length === 0) {
+      alert("Please select at least one service subcategory work checklist.");
+      return;
     }
     setStep(2);
   };
@@ -244,30 +223,45 @@ export function BookingFlow() {
   const availableDates = Array.from({ length: 14 }).map((_, i) => addDays(new Date(), i + 1));
   const availableTimes = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'];
 
-  const performBookingCreation = (paymentId?: string, orderId?: string) => {
-    if (!selectedDate || !selectedTime) return;
+  // Mandatory fields checklist validator
+  const isFormValid = () => {
+    return (
+      custName.trim().length > 0 &&
+      custMobile.trim().length > 0 &&
+      custEmail.trim().length > 0 &&
+      custAddressLine.trim().length > 0 &&
+      custCoordinates !== undefined &&
+      selectedDate !== null &&
+      selectedTime.length > 0
+    );
+  };
 
-    const formattedAddress = [
-      currentUser?.addressLine,
-      currentUser?.landmark,
-      currentUser?.city,
-      currentUser?.state,
-      currentUser?.pincode,
-      currentUser?.country
+  const performBookingCreation = (paymentId?: string, orderId?: string) => {
+    if (!selectedDate || !selectedTime || !custCoordinates) return;
+
+    // Construct full customer address
+    const fullAddr = [
+      custAddressLine.trim(),
+      custLandmark.trim(),
+      custCity.trim(),
+      custState.trim(),
+      custPincode.trim(),
+      'India'
     ].filter(Boolean).join(', ');
 
     bookService({
       customerId: currentUser?.id || 'guest',
-      professionalId: selectedProId || 'pro-1',
-      serviceId: `srv-custom-${Date.now()}`,
-      date: selectedDate.toISOString(),
+      date: selectedDate.toISOString().split('T')[0],
       time: selectedTime,
       notes: notes.trim() || 'Standard consultation visit requested.',
       totalPrice: calculatedPrice,
-      customerName: currentUser?.name || 'Anonymous Customer',
-      customerMobile: currentUser?.mobile || 'Not Provided',
-      customerAddress: formattedAddress || 'No detailed address registered',
-      customerServiceOpted: currentServiceName,
+      customerName: custName.trim(),
+      customerMobile: custMobile.trim(),
+      customerAddress: fullAddr,
+      customerServiceOpted: `${currentCategoryObj?.name} (${selectedSubcats.join(', ')})`,
+      categoryId: selectedCategoryId,
+      selectedSubcategories: selectedSubcats,
+      coordinates: custCoordinates,
       paymentMethod: paymentMethod,
       razorpayPaymentId: paymentId,
       razorpayOrderId: orderId,
@@ -311,7 +305,10 @@ export function BookingFlow() {
   };
 
   const handleBook = async () => {
-    if (!selectedDate || !selectedTime) return;
+    if (!isFormValid()) {
+      alert("Please ensure all mandatory fields (Name, Mobile, Email, Address & Map Coordinates, Date & Time) are provided!");
+      return;
+    }
     
     setPaymentError(null);
 
@@ -345,14 +342,13 @@ export function BookingFlow() {
           return;
         }
 
-        // Open Razorpay modal
         const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_TEYA8yK9iWlsjJ';
         const options = {
           key: keyId,
           amount: orderData.amount,
           currency: orderData.currency || 'INR',
           name: 'GoServik',
-          description: `Service booking fee for ${currentServiceName}`,
+          description: `Standard visit fee for ${currentCategoryObj?.name}`,
           order_id: orderData.id,
           handler: async function (response: any) {
             setPaymentLoading(true);
@@ -386,9 +382,9 @@ export function BookingFlow() {
             }
           },
           prefill: {
-            name: currentUser.name || '',
-            email: currentUser.email || '',
-            contact: currentUser.mobile || ''
+            name: custName,
+            email: custEmail,
+            contact: custMobile
           },
           theme: {
             color: '#4f46e5'
@@ -416,8 +412,6 @@ export function BookingFlow() {
     }
   };
 
-  const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
-
   return (
     <div className="bg-transparent min-h-screen py-10">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
@@ -435,30 +429,30 @@ export function BookingFlow() {
         {step < 3 && (
           <div className="mb-8 bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
             <h1 className="text-xl font-extrabold text-slate-900 mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600 animate-pulse" /> Book Home Visit Service
+              <Sparkles className="h-5 w-5 text-indigo-600" /> Book Standard Home Visit
             </h1>
             <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-xs">
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>1. Select Service & Category</span>
+              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>1. Select Service Category & Works</span>
               <div className="h-px w-3 bg-slate-300" />
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>2. Date, Time & Confirm</span>
+              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>2. Details, Map & Schedule</span>
             </div>
           </div>
         )}
 
         <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-xl border border-white/40 overflow-hidden">
           
-          {/* STEP 1: SERVICE SELECTION */}
+          {/* STEP 1: CATEGORY & WORK CHECKLIST SELECTION */}
           {step === 1 && (
             <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
               <div>
-                <h2 className="text-base font-extrabold text-slate-900 mb-1">What service are you looking for?</h2>
+                <h2 className="text-base font-extrabold text-slate-900 mb-1">What service category do you require?</h2>
                 <p className="text-xs text-slate-500">
-                  Select a category and choose a specialization if needed. No need to write size details, scope, or specify amount of work!
+                  Select a category and select as many works as you need from the checklist below.
                 </p>
               </div>
 
               <div className="space-y-6">
-                {/* Category Selector */}
+                {/* Category Grid */}
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-wider">Service Category</label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -466,11 +460,7 @@ export function BookingFlow() {
                       <button
                         key={cat.id}
                         type="button"
-                        onClick={() => {
-                          setSelectedCategoryId(cat.id);
-                          const defaultSrv = standardServicesByCategory[cat.id]?.[0] || 'General Home Visit / Consult';
-                          setSelectedServiceName(defaultSrv);
-                        }}
+                        onClick={() => handleCategoryChange(cat.id)}
                         className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
                           selectedCategoryId === cat.id 
                             ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02]' 
@@ -486,44 +476,60 @@ export function BookingFlow() {
                   </div>
                 </div>
 
-                {/* Specific Service Suboptions (Fully optional, beautifully structured!) */}
+                {/* Subcategory Checklist */}
                 <div>
                   <div className="flex items-center justify-between mb-2.5">
                     <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Specific Service Area (Optional)
+                      Select Required Works (Check multiple if needed)
                     </label>
                     <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg">
-                      No size or work amount description required
+                      Checklist Selection
                     </span>
                   </div>
                   
-                  <div className="flex flex-wrap gap-2">
-                    {servicesList.map(sName => {
-                      const isSelected = currentServiceName === sName;
-                      return (
-                        <button
-                          key={sName}
-                          type="button"
-                          onClick={() => setSelectedServiceName(sName)}
-                          className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                            isSelected 
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                              : 'bg-white hover:border-slate-300 border-slate-200 text-slate-600'
-                          }`}
-                        >
-                          {sName}
-                        </button>
-                      );
-                    })}
-                  </div>
+                  {subcatsList.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">No subcategories registered.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {subcatsList.map(subcat => {
+                        const isChecked = selectedSubcats.includes(subcat);
+                        return (
+                          <button
+                            key={subcat}
+                            type="button"
+                            onClick={() => {
+                              if (isChecked) {
+                                setSelectedSubcats(selectedSubcats.filter(s => s !== subcat));
+                              } else {
+                                setSelectedSubcats([...selectedSubcats, subcat]);
+                              }
+                            }}
+                            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                              isChecked 
+                                ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-300' 
+                                : 'bg-white/80 hover:bg-white border-slate-200'
+                            }`}
+                          >
+                            <input 
+                              type="checkbox"
+                              checked={isChecked}
+                              readOnly
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 pointer-events-none"
+                            />
+                            <span className="text-xs font-bold text-slate-700">{subcat}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
 
-                {/* Transparent Flat Visit Charge Notice */}
+                {/* Flat Visit Fee Notice */}
                 <div className="p-4 bg-gradient-to-r from-indigo-50/40 to-blue-50/40 border border-indigo-100 rounded-2xl flex justify-between items-center">
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block">Standard Visit & Diagnostics Fee</span>
                     <span className="text-[11px] text-indigo-600/90 font-medium leading-relaxed block max-w-sm">
-                      Pay only standard diagnostics visit charge. Our professional will inspect the parameters at your home and give transparent advice.
+                      Our system assigns this visit broadcast to all nearby qualified technicians within service range. Flat visit fee covers inspection & consult.
                     </span>
                   </div>
                   <div className="text-right shrink-0">
@@ -537,26 +543,142 @@ export function BookingFlow() {
               <div className="flex justify-end pt-2 border-t border-slate-100">
                 <Button 
                   onClick={handleNextToStep2} 
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-11 shadow-lg shadow-indigo-100"
+                  disabled={selectedSubcats.length === 0}
+                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-11 shadow-lg shadow-indigo-100"
                 >
-                  Continue to Date & Time
+                  Continue to Booking details & Map
                 </Button>
               </div>
             </div>
           )}
 
-          {/* STEP 2: DATE, TIME & CONFIRM */}
+          {/* STEP 2: DETAILS, MAP & CONFIRMATION */}
           {step === 2 && (
             <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900 mb-1">Select Date & Time</h2>
-                <p className="text-xs text-slate-500">Pick a comfortable date and arrival window for your expert home visit.</p>
+              
+              {/* Mandatory Fields Section */}
+              <div className="space-y-4">
+                <div className="border-b pb-2">
+                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">1. Contact & Booking Information</h3>
+                  <p className="text-[10px] text-slate-400">Please provide mandatory contact and address coordinates below.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Contact Name <span className="text-rose-500">*</span></label>
+                    <input 
+                      type="text"
+                      required
+                      value={custName}
+                      onChange={(e) => setCustName(e.target.value)}
+                      placeholder="Enter Full Name"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Mobile Number <span className="text-rose-500">*</span></label>
+                    <input 
+                      type="tel"
+                      required
+                      value={custMobile}
+                      onChange={(e) => setCustMobile(e.target.value)}
+                      placeholder="Enter 10-digit Mobile"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Email Address <span className="text-rose-500">*</span></label>
+                    <input 
+                      type="email"
+                      required
+                      value={custEmail}
+                      onChange={(e) => setCustEmail(e.target.value)}
+                      placeholder="Enter Email Address"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">House / Flat / Street Address <span className="text-rose-500">*</span></label>
+                    <input 
+                      type="text"
+                      required
+                      value={custAddressLine}
+                      onChange={(e) => setCustAddressLine(e.target.value)}
+                      placeholder="Flat No, Wing, Building Name, Street"
+                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Landmark (Optional)</label>
+                    <input 
+                      type="text"
+                      value={custLandmark}
+                      onChange={(e) => setCustLandmark(e.target.value)}
+                      placeholder="e.g. Near Station"
+                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">City (Optional)</label>
+                    <input 
+                      type="text"
+                      value={custCity}
+                      onChange={(e) => setCustCity(e.target.value)}
+                      placeholder="Mumbai"
+                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">State (Optional)</label>
+                    <input 
+                      type="text"
+                      value={custState}
+                      onChange={(e) => setCustState(e.target.value)}
+                      placeholder="Maharashtra"
+                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Pincode (Optional)</label>
+                    <input 
+                      type="text"
+                      value={custPincode}
+                      onChange={(e) => setCustPincode(e.target.value)}
+                      placeholder="400001"
+                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
               </div>
 
-              {/* Date Slider */}
+              {/* Map Location Picker */}
               <div className="space-y-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Available Visit Dates</label>
-                <div className="flex overflow-x-auto pb-4 gap-2.5 snap-x scrollbar-thin">
+                <div className="border-b pb-2">
+                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
+                    <MapIcon className="h-4 w-4 text-indigo-600" /> 2. Pin Address Coordinates on Map <span className="text-rose-500">*</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Click on the map to pin your exact location. No preselected or default values set.</p>
+                </div>
+                <MapPicker value={custCoordinates} onChange={setCustCoordinates} />
+              </div>
+
+              {/* Date & Time Select */}
+              <div className="space-y-4">
+                <div className="border-b pb-2">
+                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
+                    <CalendarIcon className="h-4 w-4 text-indigo-600" /> 3. Schedule Visit Slot <span className="text-rose-500">*</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Select date and standard arrival time slot.</p>
+                </div>
+
+                {/* Date Slider */}
+                <div className="flex overflow-x-auto pb-2 gap-2 snap-x scrollbar-thin">
                   {availableDates.map(date => {
                     const isSelected = selectedDate?.toDateString() === date.toDateString();
                     return (
@@ -566,24 +688,21 @@ export function BookingFlow() {
                         onClick={() => setSelectedDate(date)}
                         className={`flex flex-col items-center justify-center p-2.5 rounded-xl border min-w-[70px] shrink-0 snap-start transition-all ${
                           isSelected 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02]' 
+                            ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
                             : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
                         }`}
                       >
                         <span className="text-[9px] uppercase font-bold opacity-80">{format(date, 'MMM')}</span>
-                        <span className="text-lg font-extrabold my-0.5">{format(date, 'd')}</span>
+                        <span className="text-base font-extrabold my-0.5">{format(date, 'd')}</span>
                         <span className="text-[9px] font-bold opacity-80">{format(date, 'EEE')}</span>
                       </button>
                     );
                   })}
                 </div>
-              </div>
 
-              {/* Time Slots */}
-              {selectedDate && (
-                <div className="space-y-2 animate-in slide-in-from-bottom-2 duration-200">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Select Preferred Arrival Slot</label>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                {/* Time Slots */}
+                {selectedDate && (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 animate-in slide-in-from-bottom-2 duration-200">
                     {availableTimes.map(time => (
                       <button
                         key={time}
@@ -599,21 +718,21 @@ export function BookingFlow() {
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Additional notes */}
+              {/* Instructions / Notes */}
               <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Instructions or Landmark (Optional)</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Instructions or Work Details (Optional)</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none min-h-[70px]"
-                  placeholder="Tell us about any specific instructions, landmark, or gate codes for our visiting partner..."
+                  placeholder="Specify any special notes or entry instructions..."
                 />
               </div>
 
-              {/* Payment Option Selection */}
+              {/* Payment Gateway */}
               <div className="space-y-3 pt-2">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Payment Option</label>
                 <div className="grid grid-cols-2 gap-3">
@@ -635,7 +754,7 @@ export function BookingFlow() {
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                      Pay our professional directly in cash or via UPI after the diagnostic check/service is completed.
+                      Pay visit fee directly to partner in cash/UPI upon diagnostic arrival.
                     </p>
                   </button>
 
@@ -657,13 +776,13 @@ export function BookingFlow() {
                       </span>
                     </div>
                     <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                      Pay visit fee securely online using Cards, NetBanking, UPI, or Wallets via Razorpay gateway.
+                      Secure checkout with UPI, Cards or Netbanking.
                     </p>
                   </button>
                 </div>
               </div>
 
-              {/* Summary card */}
+              {/* Summary Card */}
               <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-150 space-y-3.5">
                 <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">Booking Visit Summary</h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -673,7 +792,7 @@ export function BookingFlow() {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chosen specialization</span>
-                    <span className="font-bold text-indigo-600">{currentServiceName}</span>
+                    <span className="font-bold text-indigo-600">{selectedSubcats.join(', ')}</span>
                   </div>
                   {selectedDate && selectedTime && (
                     <div className="sm:col-span-2">
@@ -683,28 +802,26 @@ export function BookingFlow() {
                       </span>
                     </div>
                   )}
-                  <div className="sm:col-span-2">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payment Option</span>
-                    <span className="font-bold text-slate-800 capitalize">
-                      {paymentMethod === 'cash' ? 'Cash / Pay on Visit' : 'Online Payment (Razorpay)'}
-                    </span>
-                  </div>
+                  {custCoordinates && (
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delivery Coordinates</span>
+                      <span className="font-mono text-slate-700 font-bold">
+                        {custCoordinates.lat.toFixed(5)} °N, {custCoordinates.lng.toFixed(5)} °E
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="pt-3 border-t flex justify-between items-center">
                   <div>
                     <span className="font-extrabold text-xs text-slate-900 block">Total Calculated Visit Fee</span>
-                    <span className="text-[9px] text-slate-400 block">
-                      {paymentMethod === 'cash' 
-                        ? 'Payable directly upon partner arrival' 
-                        : 'To be paid securely via Razorpay gateway'}
-                    </span>
+                    <span className="text-[9px] text-slate-400 block">Standard diagnostic visit charge.</span>
                   </div>
                   <span className="text-2xl font-extrabold text-slate-900">₹{calculatedPrice}</span>
                 </div>
               </div>
 
-              {/* Payment Status Alerts */}
+              {/* Payment Error */}
               {paymentError && (
                 <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
@@ -715,7 +832,7 @@ export function BookingFlow() {
                 </div>
               )}
 
-              {/* Buttons */}
+              {/* Step 2 Actions */}
               <div className="flex justify-between items-center pt-2">
                 <Button 
                   variant="outline" 
@@ -727,13 +844,13 @@ export function BookingFlow() {
                 </Button>
                 <Button 
                   onClick={handleBook} 
-                  disabled={!selectedDate || !selectedTime || paymentLoading}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-10 shadow-lg flex items-center gap-2"
+                  disabled={!isFormValid() || paymentLoading}
+                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-10 shadow-lg disabled:opacity-50 flex items-center gap-2"
                 >
                   {paymentLoading ? (
                     <>
                       <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Processing Payment...
+                      Processing...
                     </>
                   ) : (
                     paymentMethod === 'razorpay' ? 'Pay & Confirm Visit' : 'Confirm Visit Booking'
@@ -750,18 +867,18 @@ export function BookingFlow() {
                 <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               </div>
               <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Visit Request Sent!</h2>
+                <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Standard Visit Placed!</h2>
                 <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                  Your standardized visit booking request has been successfully created and synced to Firebase. The technician has been notified to confirm the arrival window.
+                  Your standard visit request has been created and broadcasted to all technicians within their service radius in your area. First technician to accept gets assigned!
                 </p>
               </div>
 
               <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 max-w-sm mx-auto text-xs text-slate-600 space-y-2">
-                <p className="font-bold text-slate-800">What happens next?</p>
-                <p className="text-[11px] leading-relaxed">
-                  1. You can track this booking on your customer dashboard.<br />
-                  2. Use the "Helpline & Chat" tab to communicate with the professional.<br />
-                  3. A technician will arrive at your home at the specified date & slot.
+                <p className="font-bold text-slate-800">First-Come-First-Serve Booking Broadcast</p>
+                <p className="text-[11px] leading-relaxed text-left">
+                  1. Your pinned coordinates and required works are broadcasted to qualified technicians within 10 km (or custom service radius).<br />
+                  2. The first technician who clicks "Accept" on their dashboard secures the job.<br />
+                  3. You can communicate via Helpline chat as soon as an expert accepts.
                 </p>
               </div>
 
@@ -807,7 +924,7 @@ export function BookingFlow() {
               <div className="flex justify-between items-center pb-4 border-b border-slate-100">
                 <div>
                   <p className="text-[10px] text-slate-400 font-bold uppercase">Booking Service</p>
-                  <p className="text-sm font-extrabold text-slate-850 mt-0.5">{currentServiceName}</p>
+                  <p className="text-sm font-extrabold text-slate-850 mt-0.5">{selectedSubcats.join(', ')}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-[10px] text-slate-400 font-bold uppercase">Amount Due</p>
@@ -823,15 +940,14 @@ export function BookingFlow() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Customer Email</span>
-                  <span className="text-slate-800 font-bold">{currentUser?.email || 'N/A'}</span>
+                  <span className="text-slate-800 font-bold">{custEmail}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Customer Contact</span>
-                  <span className="text-slate-800 font-bold">{currentUser?.mobile || 'N/A'}</span>
+                  <span className="text-slate-800 font-bold">{custMobile}</span>
                 </div>
               </div>
 
-              {/* Simulated Cards / Flow */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
                 <p className="text-[10px] text-slate-400 font-bold uppercase">Select Simulated Outcome</p>
                 <p className="text-[11px] text-slate-500 leading-normal">

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useStore } from '../../store';
+import { useStore, getDistanceKm } from '../../store';
 import { Button } from '../../components/ui/Button';
 import { 
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
   FileText, Bell, MapPin, Activity, CheckCircle, 
   XCircle, Send, Star, UserCheck, Plus, Trash2, ShieldAlert, Sparkles, Languages,
-  X, Phone, Mail, Clock
+  X, Phone, Mail, Clock, Compass
 } from 'lucide-react';
 
 interface ProfessionalDashboardViewProps {
@@ -59,6 +59,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
   const [settingsBio, setSettingsBio] = useState(proUser?.bio || 'Certified premium partner of GoServik.');
   const [settingsLanguages, setSettingsLanguages] = useState(proUser?.languages?.join(', ') || 'English, Hindi');
   const [settingsStatus, setSettingsStatus] = useState<'available' | 'busy' | 'offline'>(proUser?.availabilityStatus || 'available');
+  const [settingsRadius, setSettingsRadius] = useState<number>(proUser?.serviceRadiusKm || 10);
   const [settingsSuccess, setSettingsSuccess] = useState('');
 
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
@@ -82,6 +83,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
         setSettingsLanguages(proUser.languages.join(', '));
       }
       setSettingsStatus(proUser.availabilityStatus || 'available');
+      setSettingsRadius(proUser.serviceRadiusKm || 10);
     }
   }, [proUser]);
 
@@ -91,8 +93,33 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
 
   if (!currentUser) return null;
 
-  // Filter bookings for professional
-  const userBookings = bookings.filter(b => b.professionalId === currentUser.id);
+  // Filter 1: My assigned jobs (including active/confirmed and completed ones)
+  const assignedJobs = bookings.filter(b => b.professionalId === currentUser.id);
+
+  // Filter 2: Available unassigned broadcasts in radius matching
+  const broadcastJobs = bookings.filter(b => {
+    // Must be pending and not assigned to anyone yet
+    if (b.status !== 'pending' || b.professionalId) return false;
+
+    // Check if the professional supports this category of service
+    const supportsCat = proUser?.services?.some((s: any) => s.categoryId === b.categoryId);
+    if (!supportsCat) return false;
+
+    // Check radius range using coordinates
+    if (proUser?.coordinates && b.coordinates) {
+      const distance = getDistanceKm(
+        proUser.coordinates.lat,
+        proUser.coordinates.lng,
+        b.coordinates.lat,
+        b.coordinates.lng
+      );
+      const activeRadius = proUser.serviceRadiusKm || 10;
+      return distance <= activeRadius;
+    }
+
+    // Default to true if coordinates are missing (for safety fallback)
+    return true;
+  });
 
   // Send a simulated chat message
   const handleSendMessage = (e: React.FormEvent) => {
@@ -165,7 +192,8 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
       location: settingsCity ? `${settingsCity}, ${settingsState || settingsCountry}` : settingsLocation,
       bio: settingsBio,
       languages: settingsLanguages.split(',').map(s => s.trim()),
-      availabilityStatus: settingsStatus
+      availabilityStatus: settingsStatus,
+      serviceRadiusKm: Number(settingsRadius) || 10
     };
 
     updateUserProfile(updatedFields);
@@ -173,9 +201,9 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
     setTimeout(() => setSettingsSuccess(''), 3000);
   };
 
-  const pendingRequestsCount = userBookings.filter(b => b.status === 'pending').length;
-  const completedCount = userBookings.filter(b => b.status === 'completed').length;
-  const totalRevenue = userBookings.filter(b => b.status === 'completed').reduce((acc, b) => acc + b.totalPrice, 0);
+  const pendingRequestsCount = assignedJobs.filter(b => b.status === 'pending' || b.status === 'confirmed').length;
+  const completedCount = assignedJobs.filter(b => b.status === 'completed').length;
+  const totalRevenue = assignedJobs.filter(b => b.status === 'completed').reduce((acc, b) => acc + b.totalPrice, 0);
 
   return (
     <div className="space-y-6">
@@ -185,7 +213,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Pending Requests</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Assigned Jobs</div>
               <div className="text-3xl font-extrabold text-indigo-600">{pendingRequestsCount}</div>
             </div>
             <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
@@ -198,18 +226,81 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
             </div>
           </div>
 
-          {/* Action Board */}
-          <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-md">
-            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-              <Activity className="h-4 w-4 text-indigo-600" /> Recent Job Requests
-            </h3>
-            {userBookings.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
-                No active booking orders or customer requests assigned. Make sure your availability status is set to "Available".
+          {/* RADIUS BROADCAST PANEL */}
+          <div className="bg-gradient-to-r from-indigo-500/10 to-indigo-600/5 backdrop-blur-md p-6 rounded-3xl border border-indigo-150 shadow-md">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-2 border-b border-indigo-100">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wider">
+                <Compass className="h-4.5 w-4.5 text-indigo-600 animate-spin" /> Live Broadcast Alerts ({settingsRadius} km Range)
+              </h3>
+              <span className="text-[10px] bg-indigo-100 text-indigo-800 font-bold px-2.5 py-1 rounded-full">
+                First-Come, First-Serve Assignment Flow
+              </span>
+            </div>
+
+            {broadcastJobs.length === 0 ? (
+              <div className="p-8 text-center bg-white/40 rounded-2xl border border-dashed border-slate-200 text-xs text-slate-500">
+                No active booking broadcasts matching your specializations within your {settingsRadius} km range. 
+                Keep this tab open to monitor real-time local demand broadcasts!
               </div>
             ) : (
               <div className="space-y-3">
-                {userBookings.slice(0, 3).map(booking => (
+                {broadcastJobs.map(b => {
+                  let distanceText = "Near You";
+                  if (proUser?.coordinates && b.coordinates) {
+                    const dist = getDistanceKm(
+                      proUser.coordinates.lat,
+                      proUser.coordinates.lng,
+                      b.coordinates.lat,
+                      b.coordinates.lng
+                    );
+                    distanceText = `${dist.toFixed(1)} km away`;
+                  }
+                  return (
+                    <div 
+                      key={b.id}
+                      className="p-4 bg-white/90 rounded-2xl border border-indigo-100 shadow-sm hover:shadow flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[9px] bg-indigo-150 text-indigo-800 font-extrabold px-2 py-0.5 rounded-full uppercase">
+                            Radius Match
+                          </span>
+                          <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold px-2 py-0.5 rounded-full">
+                            {distanceText}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-extrabold text-slate-900 mt-2">{b.customerServiceOpted}</h4>
+                        <p className="text-[10px] text-slate-500 mt-0.5">Date: {new Date(b.date).toLocaleDateString()} at {b.time}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Delivery Locality: {b.customerAddress.split(',').slice(0,2).join(', ')}</p>
+                      </div>
+
+                      <div className="shrink-0 flex gap-2 w-full sm:w-auto">
+                        <Button
+                          onClick={() => updateBookingStatus(b.id, 'confirmed', currentUser.id)}
+                          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] px-4 py-2 rounded-xl shadow-md h-9"
+                        >
+                          Accept Broadcast &rarr;
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Action Board - My Active Assignments */}
+          <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-md">
+            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
+              <Activity className="h-4 w-4 text-indigo-600" /> My Assigned Active Jobs
+            </h3>
+            {assignedJobs.filter(b => b.status !== 'completed').length === 0 ? (
+              <div className="p-8 text-center text-slate-500 text-xs">
+                No active jobs currently assigned. Claim an open broadcast in the broadcast matching panel above.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {assignedJobs.filter(b => b.status !== 'completed').slice(0, 3).map(booking => (
                   <button 
                     key={booking.id} 
                     onClick={() => setSelectedBooking(booking)}
@@ -222,12 +313,11 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                       <p className="text-slate-500">{new Date(booking.date).toLocaleDateString()} at {booking.time}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-[10px] text-indigo-600 font-bold hover:underline hidden sm:inline">Review Request &rarr;</span>
+                      <span className="text-[10px] text-indigo-600 font-bold hover:underline hidden sm:inline">Open Job Card &rarr;</span>
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
                         booking.status === 'confirmed' ? 'bg-green-50 text-green-700 border border-green-100' :
                         booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
-                        booking.status === 'completed' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                        'bg-slate-100 text-slate-600 border border-slate-200'
+                        'bg-slate-150 text-slate-600 border border-slate-200'
                       }`}>
                         {booking.status}
                       </span>
@@ -243,15 +333,22 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
       {/* TAB: BOOKINGS (JOB REQUESTS) */}
       {currentTab === 'bookings' && (
         <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm overflow-hidden p-6 space-y-6">
-          {userBookings.length === 0 ? (
+          <div className="border-b pb-3 flex justify-between items-center">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Job Board Desk</h2>
+              <p className="text-xs text-slate-500">Manage your active service appointments and check in on completed contracts.</p>
+            </div>
+          </div>
+
+          {assignedJobs.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="font-bold">No booking requests available.</p>
-              <p className="text-xs text-slate-400 mt-1">When customers book your services, requests will appear here instantly.</p>
+              <p className="font-bold">No assigned bookings available.</p>
+              <p className="text-xs text-slate-400 mt-1">Accept local broadcasts inside the Overview page to assign jobs to yourself.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {userBookings.map(booking => (
+              {assignedJobs.map(booking => (
                 <div 
                   key={booking.id} 
                   onClick={() => setSelectedBooking(booking)}
@@ -307,7 +404,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                       <Button 
                         size="sm" 
                         onClick={() => updateBookingStatus(booking.id, 'completed')}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold h-9 rounded-xl"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold h-9 rounded-xl px-4"
                       >
                         Mark Completed
                       </Button>
@@ -326,7 +423,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
           {/* Add Service Form */}
           <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm p-6">
             <h3 className="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-1.5">
-              <Plus className="h-4 w-4 text-indigo-600" /> Add New Service Listing
+              <Plus className="h-4 w-4 text-indigo-600" /> Add New Service Listing Category
             </h3>
             {serviceSuccess && (
               <div className="bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs p-3 rounded-xl font-bold text-center mb-4">
@@ -335,11 +432,11 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
             )}
             <form onSubmit={handleAddService} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Service Name</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Service Display Name</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="e.g. AC Filter Wash & Installation"
+                  placeholder="e.g. MCB Wiring & MCB Board Setup"
                   value={newServiceName}
                   onChange={(e) => setNewServiceName(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
@@ -348,26 +445,27 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
               <div>
                 <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Service Category</label>
                 <select 
+                  required
                   value={newServiceCategory}
                   onChange={(e) => setNewServiceCategory(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="cat-1">Home Cleaning Services</option>
-                  <option value="cat-2">Plumbing & Pipe Repair</option>
-                  <option value="cat-3">Electrical Services</option>
-                  <option value="cat-4">Air Conditioner Servicing</option>
-                  <option value="cat-5">Appliance Repair & Diagnostics</option>
-                  <option value="cat-6">House Painting Consult</option>
-                  <option value="cat-7">Pest Control Herbal Treatment</option>
-                  <option value="cat-8">Garden & Turf Setup</option>
-                  <option value="cat-9">Tile & Masonry Work</option>
-                  <option value="cat-10">CCTV & Smart Lock Integration</option>
-                  <option value="cat-11">WiFi Setup & Smart Home Integration</option>
-                  <option value="cat-12">Packers & Movers Shifting Assistance</option>
-                  <option value="cat-13">Kitchen Chimney & Appliances Cleaning</option>
-                  <option value="cat-14">Men & Women Haircut Salon Home Visit</option>
-                  <option value="cat-15">Physiotherapy & Companion Nursing Visit</option>
-                  <option value="cat-16">Disinfection Sanitization Fogging</option>
+                  <option value="cat-1">Electrical Services</option>
+                  <option value="cat-2">Plumbing Services</option>
+                  <option value="cat-3">Carpentry & Woodwork</option>
+                  <option value="cat-4">Masonry & Civil Work</option>
+                  <option value="cat-5">Painting & Wall Finishes</option>
+                  <option value="cat-6">Tiles, Marble & Flooring</option>
+                  <option value="cat-7">Aluminium, Glass & Metal Work</option>
+                  <option value="cat-8">AC, Fridge & Appliances</option>
+                  <option value="cat-9">Cleaning & Sanitization</option>
+                  <option value="cat-10">Waterproofing & Damp Repair</option>
+                  <option value="cat-11">Interior Design & Modular Kitchen</option>
+                  <option value="cat-12">Smart Home & CCTV Installation</option>
+                  <option value="cat-13">New House Construction</option>
+                  <option value="cat-14">Gardening & Outdoor Landscaping</option>
+                  <option value="cat-15">Fabrication & Welding</option>
+                  <option value="cat-16">Home Safety & Structure Inspection</option>
                 </select>
               </div>
               <div>
@@ -378,11 +476,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                   onChange={(e) => setNewServicePrice(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="49">₹49 (Standard Visit)</option>
-                  <option value="99">₹99 (Premium Visit)</option>
-                  <option value="149">₹149 (Specialist Visit)</option>
-                  <option value="199">₹199 (Elite Visit)</option>
-                  <option value="249">₹249 (Express Visit)</option>
+                  <option value="99">₹99 (Standard Diagnostics)</option>
                 </select>
               </div>
               <div>
@@ -397,7 +491,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                 </select>
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Years of Experience Required</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Years of Personal Experience</label>
                 <input 
                   type="number" 
                   required
@@ -408,9 +502,9 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Description / Deliverables</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Description / Specialty Covered</label>
                 <textarea 
-                  placeholder="Describe what tasks are covered under this service pricing package"
+                  placeholder="Describe your credentials under this category listing..."
                   value={newServiceDesc}
                   onChange={(e) => setNewServiceDesc(e.target.value)}
                   rows={2}
@@ -419,7 +513,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
               </div>
               <div className="sm:col-span-2">
                 <Button type="submit" className="w-full h-10 bg-indigo-600 hover:bg-indigo-700 text-xs font-bold text-white rounded-xl">
-                  Publish Active Service
+                  Publish Active Service Listing
                 </Button>
               </div>
             </form>
@@ -427,7 +521,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
 
           {/* Active listings */}
           <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm p-6">
-            <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">My Active Public Listings</h3>
+            <h3 className="text-sm font-bold text-slate-900 mb-4 uppercase tracking-wider">My Registered Specializations</h3>
             <div className="space-y-3">
               {proUser?.services && (proUser.services as any[]).map((srv: any) => (
                 <div key={srv.id || srv.name} className="p-4 bg-white/75 border border-slate-100 rounded-xl flex justify-between items-center text-xs">
@@ -530,7 +624,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
             <h3 className="text-base font-extrabold text-slate-900 mb-1 flex items-center gap-1.5">
               <Settings className="h-4 w-4 text-indigo-600" /> Professional Business Settings Profile
             </h3>
-            <p className="text-xs text-slate-500">Provide your expert credentials, contact hotline, business address parameters and availability below.</p>
+            <p className="text-xs text-slate-500">Provide your credentials, contact hotline, business service range, and availability below.</p>
           </div>
 
           {settingsSuccess && (
@@ -587,9 +681,9 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
               </div>
             </div>
 
-            {/* SECTION 2: BUSINESS LOCATION */}
+            {/* SECTION 2: BUSINESS LOCATION & RANGE */}
             <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">2. Operating Location</h4>
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">2. Operating Location & Service Range</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Country</label>
@@ -650,6 +744,30 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     onChange={(e) => setSettingsLandmark(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
                   />
+                </div>
+                
+                {/* Custom Service Radius Picker */}
+                <div className="sm:col-span-3 bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+                  <label className="block text-[10px] font-extrabold text-indigo-950 uppercase mb-1.5 tracking-wider">
+                    Custom Service Radius: {settingsRadius} km Range
+                  </label>
+                  <p className="text-[10px] text-slate-500 mb-3">
+                    Adjust the physical radius range within which you want to capture open booking alerts from customers. Defaults to 10 km range.
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <input 
+                      type="range"
+                      min={1}
+                      max={50}
+                      step={1}
+                      value={settingsRadius}
+                      onChange={(e) => setSettingsRadius(Number(e.target.value))}
+                      className="flex-1 accent-indigo-600 h-2 bg-slate-200 rounded-lg cursor-pointer"
+                    />
+                    <span className="text-xs font-black text-indigo-700 bg-white border border-indigo-200 px-3 py-1.5 rounded-xl shrink-0">
+                      {settingsRadius} km
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -816,6 +934,20 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                       <p className="text-xs font-bold text-slate-850 leading-relaxed select-all">{selectedBooking.customerAddress || 'No address provided'}</p>
                     </div>
                   </div>
+                  
+                  {selectedBooking.coordinates && (
+                    <div className="flex items-start gap-3">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 shrink-0">
+                        <Compass className="h-4 w-4 text-indigo-600" />
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase block">Map Coordinates</span>
+                        <p className="text-xs font-mono font-bold text-slate-850 select-all">
+                          {selectedBooking.coordinates.lat.toFixed(6)} °N, {selectedBooking.coordinates.lng.toFixed(6)} °E
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -845,23 +977,12 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                   <Button 
                     size="sm" 
                     onClick={() => {
-                      updateBookingStatus(selectedBooking.id, 'confirmed');
-                      setSelectedBooking(prev => prev ? { ...prev, status: 'confirmed' } : null);
+                      updateBookingStatus(selectedBooking.id, 'confirmed', currentUser.id);
+                      setSelectedBooking(prev => prev ? { ...prev, status: 'confirmed', professionalId: currentUser.id } : null);
                     }}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl h-10 px-4"
                   >
-                    Accept Job
-                  </Button>
-                  <Button 
-                    variant="outline"
-                    size="sm" 
-                    onClick={() => {
-                      updateBookingStatus(selectedBooking.id, 'cancelled');
-                      setSelectedBooking(prev => prev ? { ...prev, status: 'cancelled' } : null);
-                    }}
-                    className="text-red-600 hover:bg-red-50 border-red-200 text-xs font-bold rounded-xl h-10 px-4"
-                  >
-                    Decline
+                    Accept Broadcast Job
                   </Button>
                 </>
               )}

@@ -4,6 +4,18 @@ import { db } from './lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 
 // Mock Data
+export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 export const MOCK_CUSTOMERS: User[] = [
   {
     id: 'cust-neev',
@@ -19,7 +31,8 @@ export const MOCK_CUSTOMERS: User[] = [
     pincode: '400001',
     addressLine: 'Flat 402, Green Avenue',
     landmark: 'Near Central Park',
-    companyName: ''
+    companyName: '',
+    coordinates: { lat: 19.0760, lng: 72.8777 }
   },
   {
     id: 'cust-sarah',
@@ -35,7 +48,8 @@ export const MOCK_CUSTOMERS: User[] = [
     pincode: '560066',
     addressLine: 'Villa 12, Palm Meadows',
     landmark: 'Gate No. 2',
-    companyName: ''
+    companyName: '',
+    coordinates: { lat: 12.9716, lng: 77.5946 }
   },
   {
     id: 'cust-michael',
@@ -51,27 +65,272 @@ export const MOCK_CUSTOMERS: User[] = [
     pincode: '110001',
     addressLine: 'A-45, Connaught Place',
     landmark: 'Opposite Metro Station',
-    companyName: ''
+    companyName: '',
+    coordinates: { lat: 28.6139, lng: 77.2090 }
   }
 ];
 
 export const MOCK_CATEGORIES: ServiceCategory[] = [
-  { id: 'cat-1', name: 'Home Cleaning', description: 'Deep cleaning, sofa cleaning, sanitization', icon: 'Sparkles' },
-  { id: 'cat-2', name: 'Plumbing Services', description: 'Leak repairs, installations, drain clearing', icon: 'Wrench' },
-  { id: 'cat-3', name: 'Electrical Repairs', description: 'Fan install, wiring, switchboards', icon: 'Zap' },
-  { id: 'cat-4', name: 'AC & Appliance Repair', description: 'AC service, fridge, washing machine', icon: 'Tv' },
-  { id: 'cat-5', name: 'Carpentry & Furniture', description: 'Locks, hinge repair, furniture assembly', icon: 'Hammer' },
-  { id: 'cat-6', name: 'Painting & Waterproofing', description: 'Wall touch-ups, waterproofing inspection', icon: 'Paintbrush' },
-  { id: 'cat-7', name: 'Pest Control', description: 'Termite protection, cockroach, herbal spray', icon: 'ShieldAlert' },
-  { id: 'cat-8', name: 'Gardening & Landscaping', description: 'Lawn care, weeding, tree trimming', icon: 'TreePine' },
-  { id: 'cat-9', name: 'Masonry & Tiling', description: 'Tile cracks, cement work, plastering', icon: 'Grid3X3' },
-  { id: 'cat-10', name: 'Home Security & CCTV', description: 'CCTV setup, smart locks, video doorbells', icon: 'Cctv' },
-  { id: 'cat-11', name: 'Smart Home & WiFi', description: 'Smart speakers, router setup, home automation setup', icon: 'Cpu' },
-  { id: 'cat-12', name: 'Packers & Movers', description: 'Local shifting, packing help, furniture loading', icon: 'Truck' },
-  { id: 'cat-13', name: 'Appliance Deep Cleaning', description: 'Kitchen chimney, water purifier, oven degreasing', icon: 'Droplets' },
-  { id: 'cat-14', name: 'Salon & Grooming at Home', description: 'Haircuts, skin care, relaxing massage visits', icon: 'Smile' },
-  { id: 'cat-15', name: 'Home Physiotherapy & Care', description: 'Physio therapy assessments, elderly care checkups', icon: 'HeartPulse' },
-  { id: 'cat-16', name: 'Disinfection & Fogging', description: 'Anti-viral fogging, sanitization sprays', icon: 'ShieldCheck' },
+  {
+    id: 'cat-1',
+    name: 'Electrical Services',
+    description: 'Wiring, switches, sockets, fan installations, EV charger setup, and fault repairs',
+    icon: 'Zap',
+    subcategories: [
+      'Wiring',
+      'Switches & Sockets',
+      'Fan Installation',
+      'Lighting',
+      'MCB & Distribution Boards',
+      'Inverter Installation',
+      'Generator Connection',
+      'EV Charger Installation',
+      'Electrical Fault Repair'
+    ]
+  },
+  {
+    id: 'cat-2',
+    name: 'Plumbing Services',
+    description: 'Faucet repair, pipe leakage, bathroom fittings, water tanks, sewage and drain cleaning',
+    icon: 'Wrench',
+    subcategories: [
+      'Tap & Faucet Repair',
+      'Pipe Leakage',
+      'Bathroom Fittings',
+      'Kitchen Plumbing',
+      'Water Tank Installation',
+      'Drain Cleaning',
+      'Toilet Repair',
+      'Sewage Line',
+      'Water Pressure Issues'
+    ]
+  },
+  {
+    id: 'cat-3',
+    name: 'Carpentry & Woodwork',
+    description: 'Furniture assembly, modular furniture, doors, windows, locks, wardrobes, and custom work',
+    icon: 'Hammer',
+    subcategories: [
+      'Furniture Assembly',
+      'Modular Furniture',
+      'Doors & Windows',
+      'Locks',
+      'Cabinets',
+      'Wardrobes',
+      'Shelves',
+      'Wooden Flooring',
+      'Custom Furniture'
+    ]
+  },
+  {
+    id: 'cat-4',
+    name: 'Masonry & Civil Work',
+    description: 'Brickwork, plastering, RCC repair, boundary walls, floor repairs, stairs and tile base prep',
+    icon: 'Grid3X3',
+    subcategories: [
+      'Brickwork',
+      'Plastering',
+      'RCC Repair',
+      'Concrete Work',
+      'Boundary Walls',
+      'Floor Repair',
+      'Stair Construction',
+      'Tile Base Preparation',
+      'Structural Repairs'
+    ]
+  },
+  {
+    id: 'cat-5',
+    name: 'Painting & Wall Finishes',
+    description: 'Interior & exterior painting, texture paint, putty work, waterproof coatings, and wallpaper',
+    icon: 'Paintbrush',
+    subcategories: [
+      'Interior Painting',
+      'Exterior Painting',
+      'Texture Paint',
+      'Putty Work',
+      'Waterproof Coatings',
+      'Wall Repair',
+      'Wallpaper Installation',
+      'POP Designs'
+    ]
+  },
+  {
+    id: 'cat-6',
+    name: 'Tiles, Marble & Flooring',
+    description: 'Tile installation, replacement, marble/granite work, vinyl/wooden flooring, and polishing',
+    icon: 'Layers',
+    subcategories: [
+      'Tile Installation',
+      'Tile Replacement',
+      'Marble Installation',
+      'Granite Work',
+      'Wooden Flooring',
+      'Vinyl Flooring',
+      'Floor Polishing',
+      'Grouting'
+    ]
+  },
+  {
+    id: 'cat-7',
+    name: 'Aluminium, Glass & UPVC',
+    description: 'UPVC windows, sliding windows, aluminium doors, toughened glass, and mosquito mesh',
+    icon: 'Columns',
+    subcategories: [
+      'UPVC Windows',
+      'Aluminium Doors',
+      'Sliding Windows',
+      'Toughened Glass',
+      'Glass Partitions',
+      'Shower Enclosures',
+      'Mosquito Mesh',
+      'Balcony Glazing'
+    ]
+  },
+  {
+    id: 'cat-8',
+    name: 'AC & Home Appliances',
+    description: 'AC install & repair, refrigerator, washing machine, microwave, chimney, and geysers',
+    icon: 'Tv',
+    subcategories: [
+      'AC Installation',
+      'AC Repair',
+      'Refrigerator Repair',
+      'Washing Machine Repair',
+      'Microwave Repair',
+      'Chimney Service',
+      'Geyser Repair',
+      'Dishwasher Repair',
+      'Water Purifier (RO)'
+    ]
+  },
+  {
+    id: 'cat-9',
+    name: 'Home Cleaning & Sanitization',
+    description: 'Deep home cleaning, sofa & carpet cleaning, water tanks, kitchen and post-construction cleaning',
+    icon: 'Sparkles',
+    subcategories: [
+      'Deep Cleaning',
+      'Sofa Cleaning',
+      'Carpet Cleaning',
+      'Bathroom Cleaning',
+      'Kitchen Cleaning',
+      'Water Tank Cleaning',
+      'Move-in Cleaning',
+      'Post-Construction Cleaning'
+    ]
+  },
+  {
+    id: 'cat-10',
+    name: 'Waterproofing & Roofing',
+    description: 'Roof & terrace waterproofing, crack repairs, basement waterproofing, and heatproof coatings',
+    icon: 'Umbrella',
+    subcategories: [
+      'Roof Waterproofing',
+      'Terrace Waterproofing',
+      'Crack Repair',
+      'Basement Waterproofing',
+      'Roof Leakage Repair',
+      'Heatproof Coating',
+      'Rainwater Protection'
+    ]
+  },
+  {
+    id: 'cat-11',
+    name: 'Interior & Modular Solutions',
+    description: 'Modular kitchens, wardrobes, TV units, false ceilings, office interiors, and layout planning',
+    icon: 'Layout',
+    subcategories: [
+      'Modular Kitchen',
+      'Wardrobes',
+      'TV Units',
+      'False Ceiling',
+      'Partition Walls',
+      'Office Interiors',
+      'Space Planning',
+      'Interior Consultation'
+    ]
+  },
+  {
+    id: 'cat-12',
+    name: 'Smart Home & Security',
+    description: 'CCTV setup, video door phones, smart locks, home automation, wifi and intercom setups',
+    icon: 'Cctv',
+    subcategories: [
+      'CCTV Installation',
+      'Video Door Phone',
+      'Smart Locks',
+      'Home Automation',
+      'Wi-Fi Setup',
+      'Alarm Systems',
+      'Access Control',
+      'Intercom Systems'
+    ]
+  },
+  {
+    id: 'cat-13',
+    name: 'Construction & Renovation',
+    description: 'House construction, room extensions, demolition, remodels, and structural consultation',
+    icon: 'Building',
+    subcategories: [
+      'House Construction',
+      'Room Extension',
+      'Demolition',
+      'Renovation',
+      'Remodeling',
+      'Foundation Work',
+      'Structural Consultation',
+      'Turnkey Projects'
+    ]
+  },
+  {
+    id: 'cat-14',
+    name: 'Outdoor & Exterior Services',
+    description: 'Gates, fencing, paver blocks, driveways, landscaping, and garden irrigation',
+    icon: 'Sun',
+    subcategories: [
+      'Gates',
+      'Fencing',
+      'Paver Blocks',
+      'Driveways',
+      'Landscaping',
+      'Garden Irrigation',
+      'Outdoor Lighting',
+      'Compound Wall Repair'
+    ]
+  },
+  {
+    id: 'cat-15',
+    name: 'Metal Fabrication & Welding',
+    description: 'Steel gates, railings, grills, staircases, welding repairs, and shed fabrication',
+    icon: 'Flame',
+    subcategories: [
+      'Steel Gates',
+      'Railings',
+      'Grills',
+      'Staircases',
+      'Shed Fabrication',
+      'Welding Repair',
+      'Stainless Steel Work',
+      'Iron Fabrication'
+    ]
+  },
+  {
+    id: 'cat-16',
+    name: 'Home Inspection & Maintenance',
+    description: 'Property inspections, electrical/plumbing safety inspects, snag lists, and handyman services',
+    icon: 'ClipboardCheck',
+    subcategories: [
+      'Property Inspection',
+      'Electrical Safety Inspection',
+      'Plumbing Inspection',
+      'Annual Home Maintenance',
+      'Preventive Maintenance',
+      'Snag List Inspection',
+      'Rental Property Check',
+      'General Handyman Services'
+    ]
+  }
 ];
 
 export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
@@ -84,34 +343,26 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
     avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200&h=200',
     verified: true,
     tagline: 'Master Plumber & Home Repair Specialist',
-    bio: 'With over 15 years of experience in residential and commercial plumbing, I pride myself on delivering top-quality service, clear communication, and transparent pricing. No job is too small, and emergencies are handled with priority.',
+    bio: 'With over 15 years of experience in residential and commercial plumbing, I pride myself on delivering top-quality service, clear communication, and transparent pricing.',
     location: 'Mumbai, Maharashtra',
-    serviceRadiusKm: 50,
-    languages: ['English', 'Spanish'],
+    serviceRadiusKm: 15,
+    languages: ['English', 'Hindi'],
+    coordinates: { lat: 19.0760, lng: 72.8777 },
     services: [
       {
         id: 'srv-1',
         categoryId: 'cat-2',
-        name: 'Emergency Pipe Repair',
-        description: '24/7 emergency service for burst or leaking pipes.',
-        basePrice: 12000,
-        priceUnit: 'hourly',
-        experienceYears: 15,
-      },
-      {
-        id: 'srv-2',
-        categoryId: 'cat-2',
-        name: 'Fixture Installation',
-        description: 'Installation of sinks, toilets, faucets, and showers.',
-        basePrice: 8000,
+        name: 'Plumbing Repair & Fixture Installation',
+        description: 'Comprehensive plumbing inspection and leak rectification.',
+        basePrice: 99,
         priceUnit: 'fixed',
-        experienceYears: 12,
+        experienceYears: 15,
+        subcategories: ['Tap & Faucet Repair', 'Pipe Leakage', 'Bathroom Fittings', 'Kitchen Plumbing']
       }
     ],
     gallery: [
       'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1607472586893-edb57cb3b3e1?auto=format&fit=crop&q=80&w=600'
+      'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&q=80&w=600'
     ],
     certifications: ['Licensed Master Plumber', 'Advanced Water Systems Certified'],
     workingHours: {
@@ -120,10 +371,10 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
       Wednesday: '08:00 - 18:00',
       Thursday: '08:00 - 18:00',
       Friday: '08:00 - 16:00',
-      Saturday: 'Emergency Only',
+      Saturday: 'Closed',
       Sunday: 'Closed'
     },
-    responseTime: 'Usually responds within 1 hour',
+    responseTime: 'Responds within 1 hour',
     availabilityStatus: 'available',
     rating: 4.9,
     reviewCount: 128,
@@ -132,43 +383,44 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   {
     id: 'pro-2',
     name: 'Emma Watson',
-    email: 'emma@photography.com',
+    email: 'emma@goservik.com',
     role: 'professional',
     joinedAt: '2023-05-20T10:00:00Z',
     avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200&h=200',
     verified: true,
-    tagline: 'Professional Event & Portrait Photographer',
-    bio: 'Capturing life\'s most precious moments. Specializing in natural light portraits and candid event photography.',
-    location: 'Manchester, UK',
-    serviceRadiusKm: 30,
-    languages: ['English', 'French'],
+    tagline: 'Senior Electrical Engineer & Smart Solutions',
+    bio: 'Dedicated home automation and electrical wiring service technician covering the complete suburbs with prompt diagnostic checks.',
+    location: 'Mumbai, Maharashtra',
+    serviceRadiusKm: 25,
+    languages: ['English', 'Hindi'],
+    coordinates: { lat: 19.0522, lng: 72.8800 },
     services: [
       {
         id: 'srv-3',
-        categoryId: 'cat-4',
-        name: 'Event Photography',
-        description: 'Full coverage for weddings, parties, and corporate events.',
-        basePrice: 50000,
-        priceUnit: 'starting_at',
+        categoryId: 'cat-1',
+        name: 'Electrical Diagnostics & Smart Installations',
+        description: 'Complete inspection and setups of MCBs, switchboards and lightings.',
+        basePrice: 99,
+        priceUnit: 'fixed',
         experienceYears: 8,
+        subcategories: ['Wiring', 'Switches & Sockets', 'Fan Installation', 'Lighting', 'MCB & Distribution Boards']
       }
     ],
     gallery: [
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&q=80&w=600'
+      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600'
     ],
-    certifications: ['BFA in Photography'],
+    certifications: ['Certified Smart Home Tech'],
     workingHours: {
       Monday: '10:00 - 18:00',
       Tuesday: '10:00 - 18:00',
       Wednesday: '10:00 - 18:00',
       Thursday: '10:00 - 18:00',
       Friday: '10:00 - 18:00',
-      Saturday: 'By Appointment',
-      Sunday: 'By Appointment'
+      Saturday: '10:00 - 14:00',
+      Sunday: 'Closed'
     },
-    responseTime: 'Usually responds within 24 hours',
-    availabilityStatus: 'busy',
+    responseTime: 'Responds within 2 hours',
+    availabilityStatus: 'available',
     rating: 4.8,
     reviewCount: 45,
     jobsCompleted: 90,
@@ -179,34 +431,19 @@ export const MOCK_BOOKINGS: Booking[] = [
   {
     id: 'bk-mock-1',
     customerId: 'cust-neev',
-    professionalId: 'pro-1',
-    serviceId: 'srv-1',
-    date: new Date().toISOString(),
-    time: '10:30 AM',
     status: 'pending',
-    notes: 'Please bring extra high pressure pipes for the garden installation. Sump pump needs a health check too.',
-    totalPrice: 149,
+    notes: 'Need expert checkup for pipe leakage and tap repairs.',
+    totalPrice: 99,
     createdAt: new Date().toISOString(),
     customerName: 'Neev Aggarwal',
     customerMobile: '9876543210',
-    customerAddress: 'Flat 402, Green Avenue, Landmark: Near Central Park, Mumbai, Maharashtra, 400001, India',
-    customerServiceOpted: 'Emergency Leak Repair'
-  },
-  {
-    id: 'bk-mock-2',
-    customerId: 'cust-sarah',
-    professionalId: 'pro-1',
-    serviceId: 'srv-2',
-    date: new Date(Date.now() + 86400000).toISOString(),
-    time: '02:00 PM',
-    status: 'confirmed',
-    notes: 'Need standard kitchen sink and faucet replacement. Already purchased the mixer tap.',
-    totalPrice: 99,
-    createdAt: new Date().toISOString(),
-    customerName: 'Sarah Jenkins',
-    customerMobile: '9123456780',
-    customerAddress: 'Villa 12, Palm Meadows, Landmark: Gate No. 2, Bengaluru, Karnataka, 560066, India',
-    customerServiceOpted: 'Faucet & Sink Installation'
+    customerAddress: 'Flat 402, Green Avenue, Mumbai, Maharashtra, 400001',
+    customerServiceOpted: 'Plumbing Services (Pipe Leakage, Tap & Faucet Repair)',
+    categoryId: 'cat-2',
+    selectedSubcategories: ['Tap & Faucet Repair', 'Pipe Leakage'],
+    coordinates: { lat: 19.0760, lng: 72.8777 },
+    date: new Date().toISOString().split('T')[0],
+    time: '10:30 AM'
   }
 ];
 
@@ -247,7 +484,7 @@ interface AppState {
   logout: () => void;
   bookService: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
   toggleSavedProfessional: (proId: string) => void;
-  updateBookingStatus: (bookingId: string, status: Booking['status']) => void;
+  updateBookingStatus: (bookingId: string, status: Booking['status'], professionalId?: string) => void;
   addProfessionalService: (proId: string, service: any) => void;
   updateUserProfile: (profile: Partial<User & ProfessionalProfile>) => void;
   updateCustomer: (id: string, updated: Partial<User>) => void;
@@ -369,8 +606,9 @@ export const useStore = create<AppState>((set) => ({
         tagline: additionalDetails?.companyName ? `Partner with ${additionalDetails.companyName}` : 'Verified Partner',
         bio: 'Dedicated independent professional registered on GoServik.',
         location: additionalDetails?.city ? `${additionalDetails.city}, ${additionalDetails.state || 'India'}` : 'Mumbai, India',
-        serviceRadiusKm: 25,
+        serviceRadiusKm: additionalDetails?.serviceRadiusKm || 10,
         languages: ['English', 'Hindi'],
+        coordinates: additionalDetails?.coordinates || undefined,
         services: [
           {
             id: `srv-${Date.now()}`,
@@ -379,7 +617,8 @@ export const useStore = create<AppState>((set) => ({
             description: 'Standard high-quality service package.',
             basePrice: 99,
             priceUnit: 'fixed',
-            experienceYears: 5
+            experienceYears: 5,
+            subcategories: catObj ? [catObj.subcategories[0]] : []
           }
         ],
         gallery: [],
@@ -440,7 +679,8 @@ export const useStore = create<AppState>((set) => ({
       city: additionalDetails?.city || '',
       pincode: additionalDetails?.pincode || '',
       addressLine: additionalDetails?.addressLine || '',
-      landmark: additionalDetails?.landmark || ''
+      landmark: additionalDetails?.landmark || '',
+      coordinates: additionalDetails?.coordinates || undefined
     };
 
     setDoc(doc(db, 'customers', mockCustomer.id), mockCustomer).catch(err => 
@@ -541,13 +781,21 @@ export const useStore = create<AppState>((set) => ({
     };
   }),
 
-  updateBookingStatus: async (bookingId, status) => {
+  updateBookingStatus: async (bookingId, status, professionalId) => {
     set((state) => ({
-      bookings: state.bookings.map(b => b.id === bookingId ? { ...b, status } : b)
+      bookings: state.bookings.map(b => 
+        b.id === bookingId 
+          ? { ...b, status, ...(professionalId ? { professionalId } : {}) } 
+          : b
+      )
     }));
 
     try {
-      await setDoc(doc(db, 'bookings', bookingId), { status }, { merge: true });
+      const updateData: any = { status };
+      if (professionalId) {
+        updateData.professionalId = professionalId;
+      }
+      await setDoc(doc(db, 'bookings', bookingId), updateData, { merge: true });
     } catch (err) {
       console.error("Firestore booking status update failed", err);
     }
@@ -600,14 +848,19 @@ export const useStore = create<AppState>((set) => ({
           console.error("Firestore user profile update failed", err)
         );
       } else {
-        setDoc(doc(db, 'active_sessions', state.currentUser.id), updatedUser).catch(err =>
-          console.error("Firestore active session sync failed", err)
+        const updatedCust = {
+          ...state.customers.find(c => c.id === state.currentUser?.id),
+          ...profile
+        } as any;
+        setDoc(doc(db, 'customers', state.currentUser.id), updatedCust).catch(err =>
+          console.error("Firestore customer profile update failed", err)
         );
       }
 
       return {
         currentUser: updatedUser,
-        professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p)
+        professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p),
+        customers: state.customers.map(c => c.id === state.currentUser?.id ? { ...c, ...profile } as any : c)
       };
     });
   },

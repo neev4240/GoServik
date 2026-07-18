@@ -17,6 +17,7 @@ export interface User {
   addressLine?: string;
   landmark?: string;
   companyName?: string;
+  coordinates?: { lat: number; lng: number };
 }
 
 export interface ServiceCategory {
@@ -24,6 +25,7 @@ export interface ServiceCategory {
   name: string;
   description: string;
   icon: string;
+  subcategories: string[];
 }
 
 export interface ProfessionalService {
@@ -34,6 +36,7 @@ export interface ProfessionalService {
   basePrice: number;
   priceUnit: 'hourly' | 'fixed' | 'starting_at';
   experienceYears: number;
+  subcategories: string[];
 }
 
 export interface ProfessionalProfile extends User {
@@ -58,8 +61,11 @@ export interface ProfessionalProfile extends User {
 export interface Booking {
   id: string;
   customerId: string;
-  professionalId: string;
-  serviceId: string;
+  professionalId?: string;
+  serviceId?: string;
+  categoryId?: string;
+  selectedSubcategories?: string[];
+  coordinates?: { lat: number; lng: number };
   date: string;
   time: string;
   status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
