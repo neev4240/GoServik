@@ -29,7 +29,7 @@ export function LoginProfessional() {
   const [forgotSuccess, setForgotSuccess] = useState('');
   const [forgotLoading, setForgotLoading] = useState(false);
 
-  const { login } = useStore();
+  const { login, professionals, customers } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,13 +76,41 @@ export function LoginProfessional() {
     }
     
     try {
+      const cleanId = identifier.toLowerCase();
+      let extractedPhone = '';
+      if (cleanId.endsWith('@goservik.com')) {
+        const prefix = cleanId.split('@')[0];
+        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
+          extractedPhone = prefix;
+        }
+      } else if (/^\+?\d+$/.test(cleanId)) {
+        extractedPhone = cleanId;
+      }
+
+      const matchesEmailOrPhone = (user: any) => {
+        const uEmail = (user.email || '').toLowerCase();
+        const uPhone = (user.mobile || '').replace(/\D/g, '');
+        const searchId = cleanId;
+        const searchPhone = extractedPhone.replace(/\D/g, '');
+        
+        if (uEmail === searchId) return true;
+        if (searchPhone && uPhone === searchPhone) return true;
+        return false;
+      };
+
+      // Check if user already exists
+      const userExists = professionals.some(matchesEmailOrPhone) || customers.some(matchesEmailOrPhone);
+
       try {
         await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
         // If testing user doesn't exist, we auto-create/login for testing flow or check store
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        if (!userExists && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
           await createUserWithEmailAndPassword(auth, identifier, password);
         } else {
+          if (userExists) {
+            throw new Error("Incorrect password. Please verify your password or use the 'Forgot password?' link to reset it.");
+          }
           throw err;
         }
       }

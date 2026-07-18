@@ -112,13 +112,19 @@ export function Login() {
         }
       }
 
+      // Check if user already exists
+      const userExists = professionals.some(matchesEmailOrPhone) || customers.some(matchesEmailOrPhone);
+
       try {
         await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
         // If testing user doesn't exist, auto-create them for seamless workspace testing
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
+        if (!userExists && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
           await createUserWithEmailAndPassword(auth, identifier, password);
         } else {
+          if (userExists) {
+            throw new Error("Incorrect password. Please verify your password or use the 'Forgot password?' link to reset it.");
+          }
           throw err;
         }
       }
