@@ -2,9 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useStore } from '../store';
 import { Button } from '../components/ui/Button';
-import { Briefcase, Mail, Phone, Lock, User as UserIcon, Shield, Building, MapPin, Sparkles, Edit2, ArrowLeft, Key } from 'lucide-react';
+import { Briefcase, Mail, Phone, Lock, User as UserIcon, Shield, Building, MapPin, Sparkles, Edit2 } from 'lucide-react';
 import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 
 const COUNTRY_CODES = [
   { code: '+91', label: '🇮🇳 India (+91)' },
@@ -24,37 +24,9 @@ export function LoginProfessional() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const [isForgotMode, setIsForgotMode] = useState(false);
-  const [forgotEmail, setForgotEmail] = useState('');
-  const [forgotSuccess, setForgotSuccess] = useState('');
-  const [forgotLoading, setForgotLoading] = useState(false);
-
-  const { login, professionals, customers } = useStore();
+  const { login } = useStore();
   const navigate = useNavigate();
   const location = useLocation();
-
-  const handleForgotPassword = async (e: FormEvent) => {
-    e.preventDefault();
-    setForgotLoading(true);
-    setError('');
-    setForgotSuccess('');
-
-    if (!forgotEmail.trim()) {
-      setError('Please enter your email address');
-      setForgotLoading(false);
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, forgotEmail.trim());
-      setForgotSuccess('A secure password reset link has been sent to your email address. Please check your inbox.');
-      setForgotEmail('');
-    } catch (err: any) {
-      setError(err.message || 'Failed to send password reset email. Please verify the address.');
-    } finally {
-      setForgotLoading(false);
-    }
-  };
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,41 +48,13 @@ export function LoginProfessional() {
     }
     
     try {
-      const cleanId = identifier.toLowerCase();
-      let extractedPhone = '';
-      if (cleanId.endsWith('@goservik.com')) {
-        const prefix = cleanId.split('@')[0];
-        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
-          extractedPhone = prefix;
-        }
-      } else if (/^\+?\d+$/.test(cleanId)) {
-        extractedPhone = cleanId;
-      }
-
-      const matchesEmailOrPhone = (user: any) => {
-        const uEmail = (user.email || '').toLowerCase();
-        const uPhone = (user.mobile || '').replace(/\D/g, '');
-        const searchId = cleanId;
-        const searchPhone = extractedPhone.replace(/\D/g, '');
-        
-        if (uEmail === searchId) return true;
-        if (searchPhone && uPhone === searchPhone) return true;
-        return false;
-      };
-
-      // Check if user already exists
-      const userExists = professionals.some(matchesEmailOrPhone) || customers.some(matchesEmailOrPhone);
-
       try {
         await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
         // If testing user doesn't exist, we auto-create/login for testing flow or check store
-        if (!userExists && (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential')) {
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
           await createUserWithEmailAndPassword(auth, identifier, password);
         } else {
-          if (userExists) {
-            throw new Error("Incorrect password. Please verify your password or use the 'Forgot password?' link to reset it.");
-          }
           throw err;
         }
       }
@@ -125,76 +69,6 @@ export function LoginProfessional() {
       setLoading(false);
     }
   };
-
-  if (isForgotMode) {
-    return (
-      <div className="flex min-h-[85vh] items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-transparent">
-        <div className="w-full max-w-md space-y-8 bg-white/60 backdrop-blur-md p-8 rounded-3xl shadow-2xl border border-white/40 animate-in fade-in zoom-in-95 duration-200">
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
-              <Key className="h-6 w-6" />
-            </div>
-            <h2 className="mt-6 text-3xl font-extrabold tracking-tight text-slate-900">Partner Reset Password</h2>
-            <p className="mt-2 text-sm text-slate-600 leading-relaxed">
-              Enter your registered partner email address and we'll send you a secure link to reset your password.
-            </p>
-          </div>
-
-          {error && (
-            <div className="bg-red-50 text-red-600 p-3.5 rounded-xl text-sm border border-red-100 text-center font-medium">
-              {error}
-            </div>
-          )}
-
-          {forgotSuccess && (
-            <div className="bg-emerald-50 text-emerald-700 p-4 rounded-xl text-sm border border-emerald-100 text-center font-medium leading-relaxed">
-              {forgotSuccess}
-            </div>
-          )}
-
-          <form className="mt-6 space-y-5" onSubmit={handleForgotPassword}>
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Email Address</label>
-              <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                  <Mail className="h-4 w-4" />
-                </span>
-                <input
-                  type="email"
-                  required
-                  value={forgotEmail}
-                  onChange={(e) => setForgotEmail(e.target.value)}
-                  className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm transition-all"
-                  placeholder="partner@goservik.com"
-                />
-              </div>
-            </div>
-
-            <Button 
-              type="submit" 
-              className="w-full h-12 text-sm font-bold rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-100 transition-all" 
-              disabled={forgotLoading}
-            >
-              {forgotLoading ? 'Sending link...' : 'Send Reset Link'}
-            </Button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsForgotMode(false);
-                setError('');
-                setForgotSuccess('');
-              }}
-              className="flex items-center justify-center gap-2 w-full text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-all py-1"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back to Sign In
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex min-h-[85vh] items-center justify-center px-4 py-12 sm:px-6 lg:px-8 bg-transparent">
@@ -307,26 +181,6 @@ export function LoginProfessional() {
                 className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-3 text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 sm:text-sm transition-all"
                 placeholder="••••••••"
               />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input id="remember-me" name="remember-me" type="checkbox" className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-slate-700">Remember me</label>
-            </div>
-            <div className="text-sm">
-              <button 
-                type="button"
-                onClick={() => {
-                  setIsForgotMode(true);
-                  setError('');
-                  setForgotSuccess('');
-                }}
-                className="font-semibold text-indigo-600 hover:underline bg-transparent border-0 p-0 cursor-pointer"
-              >
-                Forgot password?
-              </button>
             </div>
           </div>
 
