@@ -7,104 +7,7 @@ import {
   AlertCircle, MapPin, Sparkles, HelpCircle, Map as MapIcon, Compass
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-
-// Interactive Leaflet Map Picker Component
-export function MapPicker({ value, onChange }: { value?: { lat: number, lng: number }, onChange: (coords: { lat: number, lng: number }) => void }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markerRef = useRef<any>(null);
-  const [leafletLoaded, setLeafletLoaded] = useState(false);
-
-  useEffect(() => {
-    // 1. Check if Leaflet CSS is loaded
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
-
-    // 2. Load Leaflet script dynamically
-    if (!(window as any).L) {
-      const script = document.createElement('script');
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-      script.async = true;
-      script.onload = () => setLeafletLoaded(true);
-      document.body.appendChild(script);
-    } else {
-      setLeafletLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!leafletLoaded || !containerRef.current || !(window as any).L) return;
-
-    const L = (window as any).L;
-    // Standard starting coordinates (Mumbai center as map focus, but value remains undefined until user clicks)
-    const initialLat = value?.lat || 19.0760;
-    const initialLng = value?.lng || 72.8777;
-
-    if (!mapRef.current) {
-      mapRef.current = L.map(containerRef.current).setView([initialLat, initialLng], 12);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
-      }).addTo(mapRef.current);
-
-      mapRef.current.on('click', (e: any) => {
-        const { lat, lng } = e.latlng;
-        onChange({ lat, lng });
-
-        if (markerRef.current) {
-          markerRef.current.setLatLng([lat, lng]);
-        } else {
-          markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
-        }
-      });
-    }
-
-    if (value && mapRef.current) {
-      const pos = [value.lat, value.lng] as [number, number];
-      if (markerRef.current) {
-        markerRef.current.setLatLng(pos);
-      } else {
-        markerRef.current = L.marker(pos).addTo(mapRef.current);
-      }
-      mapRef.current.setView(pos, mapRef.current.getZoom());
-    }
-  }, [leafletLoaded, value, onChange]);
-
-  // Clean up map ref on unmount
-  useEffect(() => {
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-    };
-  }, []);
-
-  return (
-    <div className="space-y-2">
-      <div 
-        ref={containerRef} 
-        style={{ height: '280px', width: '100%' }} 
-        className="rounded-2xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative z-0"
-      />
-      {!value ? (
-        <p className="text-rose-600 text-[11px] font-extrabold flex items-center gap-1">
-          ⚠️ Please click on the map to pinpoint your location coordinates (Mandatory).
-        </p>
-      ) : (
-        <p className="text-emerald-600 text-[11px] font-bold flex items-center gap-1">
-          ✅ Pinplaced Coordinates: {value.lat.toFixed(5)} Latitude, {value.lng.toFixed(5)} Longitude
-        </p>
-      )}
-    </div>
-  );
-}
+import { GoogleMapPicker } from '../components/GoogleMapPicker';
 
 export function BookingFlow() {
   const { proId } = useParams<{ proId: string }>();
@@ -665,7 +568,11 @@ export function BookingFlow() {
                   </h3>
                   <p className="text-[10px] text-slate-400">Click on the map to pin your exact location. No preselected or default values set.</p>
                 </div>
-                <MapPicker value={custCoordinates} onChange={setCustCoordinates} />
+                <GoogleMapPicker 
+                  value={custCoordinates} 
+                  onChange={setCustCoordinates} 
+                  addressInput={`${custAddressLine} ${custCity} ${custState}`.trim()}
+                />
               </div>
 
               {/* Date & Time Select */}
