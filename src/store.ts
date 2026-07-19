@@ -337,7 +337,9 @@ export const MOCK_CATEGORIES: ServiceCategory[] = [
 export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   {
     id: 'pro-1',
-    name: 'Rajesh Kumar',
+    name: 'Rajesh Plumbing Solutions',
+    personalName: 'Rajesh Kumar',
+    companyName: 'Rajesh Plumbing Solutions',
     email: 'rajesh.kumar@goservik.com',
     role: 'professional',
     joinedAt: '2023-01-15T10:00:00Z',
@@ -383,7 +385,9 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   },
   {
     id: 'pro-2',
-    name: 'Emma Watson',
+    name: 'Watson Electricals',
+    personalName: 'Emma Watson',
+    companyName: 'Watson Electricals',
     email: 'emma@goservik.com',
     role: 'professional',
     joinedAt: '2023-05-20T10:00:00Z',
@@ -593,7 +597,8 @@ export const useStore = create<AppState>((set) => ({
       const newPro: ProfessionalProfile = {
         id: additionalDetails?.uid || `pro-${Date.now()}`,
         uid: additionalDetails?.uid || undefined,
-        name: name || cleanedIdentifier.split('@')[0],
+        name: additionalDetails?.companyName || name || cleanedIdentifier.split('@')[0],
+        personalName: name || cleanedIdentifier.split('@')[0],
         email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
         role: 'professional',
         joinedAt: new Date().toISOString(),

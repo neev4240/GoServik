@@ -184,6 +184,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                         <p className="font-bold text-slate-800">
                           Service with {pro?.name || 'Service Specialist'}
                         </p>
+                        {pro?.personalName && (
+                          <p className="text-[10px] text-slate-400 font-semibold mb-0.5">Proprietor: {pro.personalName}</p>
+                        )}
                         <p className="text-slate-500">{new Date(booking.date).toLocaleDateString()} at {booking.time}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -242,6 +245,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                       <h3 className="text-slate-900 font-extrabold text-base group-hover:text-indigo-600 transition-colors">
                         Service with {relatedPro?.name || 'Certified Partner'}
                       </h3>
+                      {relatedPro?.personalName && (
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">Contact: {relatedPro.personalName}</p>
+                      )}
                       <p className="text-xs text-slate-500 leading-relaxed max-w-md">
                         {booking.notes || "No special requests mentioned. All standard tools will be supplied by GoServik."}
                       </p>
@@ -291,6 +297,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                        <img src={pro.avatar} alt={pro.name} className="h-11 w-11 rounded-full object-cover border border-slate-200" referrerPolicy="no-referrer" />
                        <div>
                          <h3 className="font-bold text-slate-900 text-sm leading-snug">{pro.name}</h3>
+                          {pro.personalName && (
+                            <p className="text-[10px] text-slate-500 font-medium">Owner: {pro.personalName}</p>
+                          )}
                          <p className="text-xs text-slate-500 flex items-center gap-1"><Star className="h-3 w-3 text-amber-500 fill-amber-500" /> {pro.rating.toFixed(1)} rating</p>
                        </div>
                      </div>

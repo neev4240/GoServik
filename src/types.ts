@@ -18,6 +18,7 @@ export interface User {
   addressLine?: string;
   landmark?: string;
   companyName?: string;
+  personalName?: string;
   coordinates?: { lat: number; lng: number };
 }
 

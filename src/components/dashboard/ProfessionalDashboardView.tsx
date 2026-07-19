@@ -46,6 +46,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
 
   // State for Business settings profile
   const [settingsName, setSettingsName] = useState(proUser?.name || '');
+  const [settingsPersonalName, setSettingsPersonalName] = useState(proUser?.personalName || '');
   const [settingsMobile, setSettingsMobile] = useState(proUser?.mobile || '');
   const [settingsEmail, setSettingsEmail] = useState(proUser?.email || '');
   const [settingsDob, setSettingsDob] = useState(proUser?.dob || '');
@@ -77,6 +78,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
   useEffect(() => {
     if (proUser) {
       setSettingsName(proUser.name || '');
+      setSettingsPersonalName(proUser.personalName || '');
       setSettingsEmail(proUser.email || '');
       setSettingsMobile(proUser.mobile || '');
       setOriginalMobile(proUser.mobile || '');
@@ -193,6 +195,8 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
     e.preventDefault();
     const updatedFields = {
       name: settingsName,
+      personalName: settingsPersonalName,
+      companyName: settingsName,
       email: settingsEmail,
       mobile: settingsMobile,
       dob: settingsDob,
@@ -653,7 +657,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                    Full / Display Name <span className="text-rose-500 font-bold">*</span>
+                    Business / Firm Name <span className="text-rose-500 font-bold">*</span>
                   </label>
                   <input 
                     type="text" 
@@ -661,6 +665,19 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     value={settingsName}
                     onChange={(e) => setSettingsName(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
+                    Owner / Proprietor Name <span className="text-rose-500 font-bold">*</span>
+                  </label>
+                  <input 
+                    type="text" 
+                    required
+                    value={settingsPersonalName}
+                    onChange={(e) => setSettingsPersonalName(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
+                    placeholder="e.g. Rajesh Kumar"
                   />
                 </div>
                 <div>

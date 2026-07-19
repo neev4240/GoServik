@@ -49,6 +49,11 @@ export function Profile() {
                       <ShieldCheck className="h-6 w-6 text-blue-500" title="Verified Professional" />
                     )}
                   </div>
+                  {pro.personalName && (
+                    <p className="text-xs font-semibold text-indigo-600 bg-indigo-50/50 border border-indigo-100/50 rounded-full px-2.5 py-1 inline-block mb-2">
+                      Proprietor: {pro.personalName}
+                    </p>
+                  )}
                   <p className="text-lg text-slate-600">{pro.tagline}</p>
                   
                   <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 text-sm text-slate-600">

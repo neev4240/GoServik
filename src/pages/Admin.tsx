@@ -518,7 +518,10 @@ export function AdminPage() {
                                 {pro.name}
                                 {pro.verified && <CheckCircle className="h-4 w-4 text-indigo-600 fill-indigo-100" />}
                               </h4>
-                              <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 uppercase tracking-wider font-extrabold">{pro.id}</span>
+                              {pro.personalName && (
+                                <p className="text-[10px] text-slate-500 font-medium">Proprietor: {pro.personalName}</p>
+                              )}
+                              <span className="text-[9px] bg-slate-100 px-2 py-0.5 rounded-full text-slate-500 uppercase tracking-wider font-extrabold mt-0.5 inline-block">{pro.id}</span>
                             </div>
                           </div>
 
