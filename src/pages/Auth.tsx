@@ -102,12 +102,13 @@ export function Login() {
       }
 
       // Authenticate with Firebase
+      let userCredential;
       try {
-        await signInWithEmailAndPassword(auth, identifier, password);
+        userCredential = await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
         // Auto-create test account inside sandbox for smooth workspace evaluations
         if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          await createUserWithEmailAndPassword(auth, identifier, password);
+          userCredential = await createUserWithEmailAndPassword(auth, identifier, password);
         } else {
           throw err;
         }
@@ -117,7 +118,10 @@ export function Login() {
         ? identifier.split('@')[0] 
         : `User ${mobileNumber}`;
 
-      login(identifier, finalRole, displayName, { mobile: extractedPhone });
+      login(identifier, finalRole, displayName, { 
+        mobile: extractedPhone, 
+        uid: userCredential?.user?.uid 
+      });
 
       const from = location.state?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
@@ -494,7 +498,8 @@ export function Register() {
         state,
         pincode,
         country,
-        coordinates: proCoordinates
+        coordinates: proCoordinates,
+        uid: userCredential.user.uid
       } : {
         mobile: phoneToCheck,
         dob,
@@ -503,7 +508,8 @@ export function Register() {
         city,
         state,
         pincode,
-        country
+        country,
+        uid: userCredential.user.uid
       };
 
       // Call store login to trigger Firestore synchronization and session load

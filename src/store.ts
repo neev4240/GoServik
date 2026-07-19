@@ -591,7 +591,8 @@ export const useStore = create<AppState>((set) => ({
       const catObj = state.categories.find(c => c.id === proCategory);
       
       const newPro: ProfessionalProfile = {
-        id: `pro-${Date.now()}`,
+        id: additionalDetails?.uid || `pro-${Date.now()}`,
+        uid: additionalDetails?.uid || undefined,
         name: name || cleanedIdentifier.split('@')[0],
         email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
         role: 'professional',
@@ -663,7 +664,8 @@ export const useStore = create<AppState>((set) => ({
     }
 
     const mockCustomer: User = {
-      id: `cust-${Date.now()}`,
+      id: additionalDetails?.uid || `cust-${Date.now()}`,
+      uid: additionalDetails?.uid || undefined,
       name: name || cleanedIdentifier.split('@')[0],
       email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
       role: 'customer',
@@ -786,6 +788,16 @@ export const useStore = create<AppState>((set) => ({
               localStorage.setItem('goservik_user', JSON.stringify(updatedMe));
             }
           }
+        });
+
+        onSnapshot(collection(db, 'categories'), (snapshot) => {
+          const liveCategories = snapshot.docs.map(doc => doc.data() as ServiceCategory);
+          set({ categories: liveCategories });
+        });
+
+        onSnapshot(collection(db, 'reviews'), (snapshot) => {
+          const liveReviews = snapshot.docs.map(doc => doc.data() as Review);
+          set({ reviews: liveReviews });
         });
 
         set({ listenersInitialized: true });

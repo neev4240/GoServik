@@ -141,26 +141,46 @@ export default function App() {
             }
 
             const state = useStore.getState();
+            const uid = authUser.uid;
+
+            // Extract phone if synthetic mobile email was used
+            let phone = '';
+            if (email.endsWith('@goservik.com')) {
+              const prefix = email.split('@')[0];
+              phone = prefix.replace(/\D/g, '');
+            }
+
+            const isMatch = (u: any) => {
+              if (u.id === uid) return true;
+              if (u.uid === uid) return true;
+              if (u.email?.toLowerCase() === email) return true;
+              if (phone) {
+                const uPhone = (u.mobile || '').replace(/\D/g, '');
+                if (uPhone && uPhone === phone) return true;
+              }
+              return false;
+            };
+
             // Try matching in customer collection
-            const foundCust = state.customers.find(c => c.email.toLowerCase() === email);
+            const foundCust = state.customers.find(isMatch);
             if (foundCust) {
               useStore.setState({ currentUser: foundCust });
+              localStorage.setItem('goservik_user', JSON.stringify(foundCust));
               return;
             }
 
             // Try matching in professional collection
-            const foundPro = state.professionals.find(p => p.email.toLowerCase() === email);
+            const foundPro = state.professionals.find(isMatch);
             if (foundPro) {
               useStore.setState({ currentUser: foundPro });
+              localStorage.setItem('goservik_user', JSON.stringify(foundPro));
               return;
             }
           }
         } else {
-          // No user found in Firebase Auth. Check if we have a saved local user
-          const savedUserStr = localStorage.getItem('goservik_user');
-          if (!savedUserStr) {
-            useStore.setState({ currentUser: null });
-          }
+          // No user found in Firebase Auth. Clear any saved local user to remain logged out
+          useStore.setState({ currentUser: null });
+          localStorage.removeItem('goservik_user');
         }
       });
 

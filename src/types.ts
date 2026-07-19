@@ -2,6 +2,7 @@ export type Role = 'customer' | 'professional' | 'admin';
 
 export interface User {
   id: string;
+  uid?: string;
   name: string;
   email: string;
   role: Role;
