@@ -29,7 +29,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
     helpdesk: [
       { sender: 'them', text: 'Namaste! Welcome to GoServik Premium Support. How can we help you today?', time: 'Just now' },
     ],
-    pro_rajesh: [
+    pro_contact: [
       { sender: 'them', text: 'Hello, I am your assigned technician. I am bringing the required spares and tools for your visit.', time: '10 mins ago' }
     ]
   });
@@ -104,7 +104,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
       let replyText = "Thank you for writing. Our customer executive will check and reply shortly.";
       if (activeChatContact === 'helpdesk') {
         replyText = "We have received your request. A GoServik support coordinator is reviewing your order parameters.";
-      } else if (activeChatContact === 'pro_rajesh') {
+      } else if (activeChatContact === 'pro_contact') {
         replyText = "Sure, I have noted down the landmark. I am carrying standard service tools. See you soon!";
       }
 
@@ -335,9 +335,9 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
             </button>
 
             <button 
-              onClick={() => setActiveChatContact('pro_rajesh')}
+              onClick={() => setActiveChatContact('pro_contact')}
               className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${
-                activeChatContact === 'pro_rajesh' ? 'bg-white shadow-sm border border-slate-200/50' : 'hover:bg-slate-100/50'
+                activeChatContact === 'pro_contact' ? 'bg-white shadow-sm border border-slate-200/50' : 'hover:bg-slate-100/50'
               }`}
             >
               <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden">
@@ -425,7 +425,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                     value={settingsName}
                     onChange={(e) => setSettingsName(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="Neev Aggarwal"
+                    placeholder="your name"
                   />
                 </div>
                 <div>
@@ -447,7 +447,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                         }
                       }}
                       className={`w-full rounded-xl border ${!isMobileVerified ? 'border-amber-300 bg-amber-50/20' : 'border-slate-200'} bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none`}
-                      placeholder="e.g. 9876543210"
+                      placeholder="XXXXXXXXXX"
                     />
                     {settingsMobile !== originalMobile && !isMobileVerified && (
                       <button

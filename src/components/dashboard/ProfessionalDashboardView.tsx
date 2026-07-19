@@ -32,10 +32,10 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
   const [serviceSuccess, setServiceSuccess] = useState('');
 
   // State for simulated chat messages
-  const [activeChatContact, setActiveChatContact] = useState('cust_neev');
+  const [activeChatContact, setActiveChatContact] = useState('client_chat');
   const [chatInput, setChatInput] = useState('');
   const [chatThreads, setChatThreads] = useState<Record<string, Array<{ sender: 'me' | 'them'; text: string; time: string }>>>({
-    cust_neev: [
+    client_chat: [
       { sender: 'them', text: 'Hello, I booked a home deep cleaning. Can you carry eco-friendly floor cleaning agents?', time: '20 mins ago' },
       { sender: 'me', text: 'Namaste! Yes, we carry organic sanitizers and biodegradable floor agents as standard equipment.', time: '15 mins ago' }
     ],
@@ -155,7 +155,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
       let replyText = "Understood. I will be ready at the scheduled time.";
       if (activeChatContact === 'helpdesk') {
         replyText = "Thank you. Your request is registered under Ticket ID #GS-9921. Our service manager will reach you.";
-      } else if (activeChatContact === 'cust_neev') {
+      } else if (activeChatContact === 'client_chat') {
         replyText = "Thank you, that would be wonderful! We have some old stains on the floor so organic cleaners help.";
       }
 
@@ -563,16 +563,16 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
           <div className="border-r border-slate-200/60 p-4 space-y-2 bg-slate-50/50">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest px-2 mb-3">Chats</h3>
             <button 
-              onClick={() => setActiveChatContact('cust_neev')}
+              onClick={() => setActiveChatContact('client_chat')}
               className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all ${
-                activeChatContact === 'cust_neev' ? 'bg-white shadow-sm border border-slate-200/50' : 'hover:bg-slate-100/50'
+                activeChatContact === 'client_chat' ? 'bg-white shadow-sm border border-slate-200/50' : 'hover:bg-slate-100/50'
               }`}
             >
               <div className="w-8 h-8 rounded-full bg-slate-200 overflow-hidden">
-                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100&h=100" alt="Neev" className="object-cover h-full w-full" />
+                <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100&h=100" alt="Client" className="object-cover h-full w-full" />
               </div>
               <div className="text-xs">
-                <p className="font-bold text-slate-800">Customer Neev</p>
+                <p className="font-bold text-slate-800">GoServik Client</p>
                 <p className="text-[10px] text-slate-500 truncate max-w-[120px]">Active Booking Client</p>
               </div>
             </button>
@@ -595,7 +595,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
           <div className="md:col-span-2 flex flex-col justify-between h-full bg-white/30">
             <div className="p-4 border-b border-slate-200/60 bg-white/80 font-bold text-xs text-slate-850 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Talking to {activeChatContact === 'helpdesk' ? 'Partner support Desk' : 'Neev Aggarwal (Customer)'}
+              Talking to {activeChatContact === 'helpdesk' ? 'Partner support Desk' : 'GoServik Client'}
             </div>
 
             {/* Messages body */}
@@ -677,7 +677,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     value={settingsPersonalName}
                     onChange={(e) => setSettingsPersonalName(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="e.g. Rajesh Kumar"
+                    placeholder="your name"
                   />
                 </div>
                 <div>
@@ -1061,7 +1061,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Mobile Number</span>
-                      <span className="text-xs font-bold text-slate-850 select-all">{selectedBooking.customerMobile || '+91 9876543210'}</span>
+                      <span className="text-xs font-bold text-slate-850 select-all">{selectedBooking.customerMobile || 'XXXXXXXXXX'}</span>
                     </div>
                   </div>
 

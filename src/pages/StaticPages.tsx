@@ -132,7 +132,7 @@ export function ContactPage() {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder="Neev Aggarwal"
+                  placeholder="Your Name"
                 />
               </div>
               <div>
@@ -143,7 +143,7 @@ export function ContactPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full rounded-xl border border-slate-200 bg-white/50 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder="neev@example.com or 9876543210"
+                  placeholder="your@email.com or XXXXXXXXXX"
                 />
               </div>
               <div>

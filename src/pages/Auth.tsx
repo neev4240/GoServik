@@ -7,7 +7,7 @@ import {
   Building, MapPin, Sparkles, UserCheck, ArrowRight, Eye, EyeOff 
 } from 'lucide-react';
 import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { GoogleMapPicker } from '../components/GoogleMapPicker';
 
 const COUNTRY_CODES = [
@@ -106,9 +106,8 @@ export function Login() {
       try {
         userCredential = await signInWithEmailAndPassword(auth, identifier, password);
       } catch (err: any) {
-        // Auto-create test account inside sandbox for smooth workspace evaluations
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-          userCredential = await createUserWithEmailAndPassword(auth, identifier, password);
+        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+          throw new Error("Incorrect credentials. This account does not exist or the password is wrong. Please register/create an account first.");
         } else {
           throw err;
         }
@@ -256,7 +255,7 @@ export function Login() {
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                    placeholder="9876543210"
+                    placeholder="XXXXXXXXXX"
                   />
                 </div>
               </div>
@@ -484,6 +483,16 @@ export function Register() {
         } catch (pErr) {
           console.error("Profile write error", pErr);
         }
+        
+        // Send a confirmation link/email verification to the account to maintain legitimacy
+        if (registerMethod === 'email') {
+          try {
+            await sendEmailVerification(userCredential.user);
+            console.log("Legitimacy confirmation verification email sent to", identifier);
+          } catch (verifErr) {
+            console.error("Failed to send verification email:", verifErr);
+          }
+        }
       }
 
       // Prepare detailed profile parameters
@@ -623,7 +632,7 @@ export function Register() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                    placeholder="e.g. Neev Aggarwal"
+                    placeholder="e.g. Your Name"
                   />
                 </div>
               </div>
@@ -700,7 +709,7 @@ export function Register() {
                       value={mobileNumber}
                       onChange={(e) => setMobileNumber(e.target.value)}
                       className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      placeholder="9876543210"
+                      placeholder="XXXXXXXXXX"
                     />
                   </div>
                 </div>

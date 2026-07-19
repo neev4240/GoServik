@@ -9,6 +9,8 @@ import {
 import { CustomerDashboardView } from '../components/dashboard/CustomerDashboardView';
 import { ProfessionalDashboardView } from '../components/dashboard/ProfessionalDashboardView';
 import { AdminDashboardView } from '../components/dashboard/AdminDashboardView';
+import { auth } from '../lib/firebase';
+import { sendEmailVerification } from 'firebase/auth';
 
 export function Dashboard() {
   const { currentUser } = useStore();
@@ -16,6 +18,23 @@ export function Dashboard() {
   const navigate = useNavigate();
   
   const currentTab = searchParams.get('tab') || 'overview';
+
+  const [verificationSent, setVerificationSent] = React.useState(false);
+  const [resendLoading, setResendLoading] = React.useState(false);
+
+  const handleResendVerification = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+    setResendLoading(true);
+    try {
+      await sendEmailVerification(user);
+      setVerificationSent(true);
+    } catch (err: any) {
+      console.error("Failed to resend email verification", err);
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentUser) {
@@ -123,6 +142,39 @@ export function Dashboard() {
               </Button>
             </div>
           </div>
+
+          {/* Email Verification Alert Banner to Maintain Legitimacy */}
+          {auth.currentUser && auth.currentUser.email && !auth.currentUser.email.endsWith('@goservik.com') && !auth.currentUser.emailVerified && (
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in backdrop-blur-sm">
+              <div className="flex gap-3">
+                <span className="text-2xl mt-0.5">✉️</span>
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">Please verify your email address</h4>
+                  <p className="text-xs text-slate-600 mt-1">
+                    A legitimacy confirmation link was sent to <strong className="font-bold">{auth.currentUser.email}</strong>. 
+                    Please verify your email to maintain full account authenticity.
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex items-center gap-2">
+                {verificationSent ? (
+                  <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-150 rounded-xl px-3.5 py-2">
+                    ✓ Verification Link Sent!
+                  </span>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={handleResendVerification} 
+                    disabled={resendLoading}
+                    className="text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
+                  >
+                    {resendLoading ? 'Sending...' : 'Resend Verification link'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Conditional Sub-View Rendering depending on user Role */}
           {currentUser.role === 'customer' && (

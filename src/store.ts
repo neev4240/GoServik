@@ -17,59 +17,7 @@ export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: nu
   return R * c;
 }
 
-export const MOCK_CUSTOMERS: User[] = [
-  {
-    id: 'cust-neev',
-    name: 'Neev Aggarwal',
-    email: 'neevaggarwalji@gmail.com',
-    role: 'customer',
-    joinedAt: '2023-05-12T08:30:00Z',
-    mobile: '9876543210',
-    dob: '1995-08-25',
-    country: 'India',
-    state: 'Maharashtra',
-    city: 'Mumbai',
-    pincode: '400001',
-    addressLine: 'Flat 402, Green Avenue',
-    landmark: 'Near Central Park',
-    companyName: '',
-    coordinates: { lat: 19.0760, lng: 72.8777 }
-  },
-  {
-    id: 'cust-sarah',
-    name: 'Sarah Jenkins',
-    email: 'sarah.jenkins@example.com',
-    role: 'customer',
-    joinedAt: '2023-07-20T11:45:00Z',
-    mobile: '9123456780',
-    dob: '1992-03-14',
-    country: 'India',
-    state: 'Karnataka',
-    city: 'Bengaluru',
-    pincode: '560066',
-    addressLine: 'Villa 12, Palm Meadows',
-    landmark: 'Gate No. 2',
-    companyName: '',
-    coordinates: { lat: 12.9716, lng: 77.5946 }
-  },
-  {
-    id: 'cust-michael',
-    name: 'Michael Chen',
-    email: 'michael.chen@example.com',
-    role: 'customer',
-    joinedAt: '2023-09-05T14:15:00Z',
-    mobile: '9876123456',
-    dob: '1988-11-30',
-    country: 'India',
-    state: 'Delhi',
-    city: 'New Delhi',
-    pincode: '110001',
-    addressLine: 'A-45, Connaught Place',
-    landmark: 'Opposite Metro Station',
-    companyName: '',
-    coordinates: { lat: 28.6139, lng: 77.2090 }
-  }
-];
+export const MOCK_CUSTOMERS: User[] = [];
 
 export const MOCK_CATEGORIES: ServiceCategory[] = [
   {
@@ -334,129 +282,11 @@ export const MOCK_CATEGORIES: ServiceCategory[] = [
   }
 ];
 
-export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
-  {
-    id: 'pro-1',
-    name: 'Rajesh Plumbing Solutions',
-    personalName: 'Rajesh Kumar',
-    companyName: 'Rajesh Plumbing Solutions',
-    email: 'rajesh.kumar@goservik.com',
-    role: 'professional',
-    joinedAt: '2023-01-15T10:00:00Z',
-    avatar: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=200&h=200',
-    verified: true,
-    tagline: 'Master Plumber & Home Repair Specialist',
-    bio: 'With over 15 years of experience in residential and commercial plumbing, I pride myself on delivering top-quality service, clear communication, and transparent pricing.',
-    location: 'Mumbai, Maharashtra',
-    serviceRadiusKm: 15,
-    languages: ['English', 'Hindi'],
-    coordinates: { lat: 19.0760, lng: 72.8777 },
-    services: [
-      {
-        id: 'srv-1',
-        categoryId: 'cat-2',
-        name: 'Plumbing Repair & Fixture Installation',
-        description: 'Comprehensive plumbing inspection and leak rectification.',
-        basePrice: 99,
-        priceUnit: 'fixed',
-        experienceYears: 15,
-        subcategories: ['Tap & Faucet Repair', 'Pipe Leakage', 'Bathroom Fittings', 'Kitchen Plumbing']
-      }
-    ],
-    gallery: [
-      'https://images.unsplash.com/photo-1585704032915-c3400ca199e7?auto=format&fit=crop&q=80&w=600',
-      'https://images.unsplash.com/photo-1581094288338-2314dddb7ece?auto=format&fit=crop&q=80&w=600'
-    ],
-    certifications: ['Licensed Master Plumber', 'Advanced Water Systems Certified'],
-    workingHours: {
-      Monday: '08:00 - 18:00',
-      Tuesday: '08:00 - 18:00',
-      Wednesday: '08:00 - 18:00',
-      Thursday: '08:00 - 18:00',
-      Friday: '08:00 - 16:00',
-      Saturday: 'Closed',
-      Sunday: 'Closed'
-    },
-    responseTime: 'Responds within 1 hour',
-    availabilityStatus: 'available',
-    rating: 4.9,
-    reviewCount: 128,
-    jobsCompleted: 350,
-  },
-  {
-    id: 'pro-2',
-    name: 'Watson Electricals',
-    personalName: 'Emma Watson',
-    companyName: 'Watson Electricals',
-    email: 'emma@goservik.com',
-    role: 'professional',
-    joinedAt: '2023-05-20T10:00:00Z',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200&h=200',
-    verified: true,
-    tagline: 'Senior Electrical Engineer & Smart Solutions',
-    bio: 'Dedicated home automation and electrical wiring service technician covering the complete suburbs with prompt diagnostic checks.',
-    location: 'Mumbai, Maharashtra',
-    serviceRadiusKm: 25,
-    languages: ['English', 'Hindi'],
-    coordinates: { lat: 19.0522, lng: 72.8800 },
-    services: [
-      {
-        id: 'srv-3',
-        categoryId: 'cat-1',
-        name: 'Electrical Diagnostics & Smart Installations',
-        description: 'Complete inspection and setups of MCBs, switchboards and lightings.',
-        basePrice: 99,
-        priceUnit: 'fixed',
-        experienceYears: 8,
-        subcategories: ['Wiring', 'Switches & Sockets', 'Fan Installation', 'Lighting', 'MCB & Distribution Boards']
-      }
-    ],
-    gallery: [
-      'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=600'
-    ],
-    certifications: ['Certified Smart Home Tech'],
-    workingHours: {
-      Monday: '10:00 - 18:00',
-      Tuesday: '10:00 - 18:00',
-      Wednesday: '10:00 - 18:00',
-      Thursday: '10:00 - 18:00',
-      Friday: '10:00 - 18:00',
-      Saturday: '10:00 - 14:00',
-      Sunday: 'Closed'
-    },
-    responseTime: 'Responds within 2 hours',
-    availabilityStatus: 'available',
-    rating: 4.8,
-    reviewCount: 45,
-    jobsCompleted: 90,
-  }
-];
+export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [];
 
 export const MOCK_BOOKINGS: Booking[] = [];
 
-export const MOCK_REVIEWS: Review[] = [
-  {
-    id: 'rev-1',
-    bookingId: 'bk-1',
-    customerId: 'cust-1',
-    professionalId: 'pro-1',
-    rating: 5,
-    text: 'Rajesh Kumar was incredibly professional and fixed our emergency leak in record time. Highly recommended!',
-    createdAt: '2023-11-10T14:30:00Z',
-    customerName: 'Sarah Jenkins',
-    customerAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=100&h=100'
-  },
-  {
-    id: 'rev-2',
-    bookingId: 'bk-2',
-    customerId: 'cust-2',
-    professionalId: 'pro-1',
-    rating: 5,
-    text: 'Great service, clear pricing, and left the place cleaner than he found it.',
-    createdAt: '2023-10-05T09:15:00Z',
-    customerName: 'Michael Chen'
-  }
-];
+export const MOCK_REVIEWS: Review[] = [];
 
 interface AppState {
   currentUser: User | ProfessionalProfile | null;
@@ -708,6 +538,23 @@ export const useStore = create<AppState>((set) => ({
   
   initializeFromFirestore: async () => {
     try {
+      // 0. Purge all pre-existing mock/user data once to guarantee clean sync
+      const isPurged = localStorage.getItem('goservik_data_purged_v2');
+      if (!isPurged) {
+        const collectionsToPurge = ['customers', 'professionals', 'bookings', 'reviews'];
+        for (const colName of collectionsToPurge) {
+          try {
+            const snap = await getDocs(collection(db, colName));
+            for (const docObj of snap.docs) {
+              await deleteDoc(doc(db, colName, docObj.id));
+            }
+          } catch (e) {
+            console.warn(`Failed to purge ${colName} during database clear`, e);
+          }
+        }
+        localStorage.setItem('goservik_data_purged_v2', 'true');
+      }
+
       // 1. Fetch Categories
       const catSnap = await getDocs(collection(db, 'categories'));
       let loadedCategories = catSnap.docs.map(doc => doc.data() as ServiceCategory);
@@ -721,7 +568,7 @@ export const useStore = create<AppState>((set) => ({
       // 2. Fetch Professionals
       const proSnap = await getDocs(collection(db, 'professionals'));
       let loadedProfessionals = proSnap.docs.map(doc => doc.data() as ProfessionalProfile);
-      if (loadedProfessionals.length === 0) {
+      if (loadedProfessionals.length === 0 && MOCK_PROFESSIONALS.length > 0) {
         for (const pro of MOCK_PROFESSIONALS) {
           await setDoc(doc(db, 'professionals', pro.id), pro);
         }
@@ -735,7 +582,7 @@ export const useStore = create<AppState>((set) => ({
       // 4. Fetch Reviews
       const revSnap = await getDocs(collection(db, 'reviews'));
       let loadedReviews = revSnap.docs.map(doc => doc.data() as Review);
-      if (loadedReviews.length === 0) {
+      if (loadedReviews.length === 0 && MOCK_REVIEWS.length > 0) {
         for (const rev of MOCK_REVIEWS) {
           await setDoc(doc(db, 'reviews', rev.id), rev);
         }
@@ -745,7 +592,7 @@ export const useStore = create<AppState>((set) => ({
       // 5. Fetch Customers
       const custSnap = await getDocs(collection(db, 'customers'));
       let loadedCustomers = custSnap.docs.map(doc => doc.data() as User);
-      if (loadedCustomers.length === 0) {
+      if (loadedCustomers.length === 0 && MOCK_CUSTOMERS.length > 0) {
         for (const cust of MOCK_CUSTOMERS) {
           await setDoc(doc(db, 'customers', cust.id), cust);
         }
