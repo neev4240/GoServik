@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { User, ProfessionalProfile, ServiceCategory, Booking, Review, Message, Role } from './types';
-import { db } from './lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from './lib/firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { signOut } from 'firebase/auth';
 
 // Mock Data
 export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -427,25 +428,7 @@ export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [
   }
 ];
 
-export const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: 'bk-mock-1',
-    customerId: 'cust-neev',
-    status: 'pending',
-    notes: 'Need expert checkup for pipe leakage and tap repairs.',
-    totalPrice: 99,
-    createdAt: new Date().toISOString(),
-    customerName: 'Neev Aggarwal',
-    customerMobile: '9876543210',
-    customerAddress: 'Flat 402, Green Avenue, Mumbai, Maharashtra, 400001',
-    customerServiceOpted: 'Plumbing Services (Pipe Leakage, Tap & Faucet Repair)',
-    categoryId: 'cat-2',
-    selectedSubcategories: ['Tap & Faucet Repair', 'Pipe Leakage'],
-    coordinates: { lat: 19.0760, lng: 72.8777 },
-    date: new Date().toISOString().split('T')[0],
-    time: '10:30 AM'
-  }
-];
+export const MOCK_BOOKINGS: Booking[] = [];
 
 export const MOCK_REVIEWS: Review[] = [
   {
@@ -479,6 +462,7 @@ interface AppState {
   reviews: Review[];
   savedProfessionals: string[];
   customers: User[];
+  listenersInitialized?: boolean;
   initializeFromFirestore: () => Promise<void>;
   login: (emailOrPhone: string, role?: Role, name?: string, additionalDetails?: any) => void;
   logout: () => void;
@@ -509,6 +493,7 @@ export const useStore = create<AppState>((set) => ({
   reviews: MOCK_REVIEWS,
   savedProfessionals: [],
   customers: MOCK_CUSTOMERS,
+  listenersInitialized: false,
   
   login: (emailOrPhone, role, name, additionalDetails) => set((state) => {
     const isEmail = emailOrPhone.includes('@');
@@ -706,10 +691,13 @@ export const useStore = create<AppState>((set) => ({
     };
   }),
   
-  logout: () => set(() => {
+  logout: () => {
     localStorage.removeItem('goservik_user');
-    return { currentUser: null };
-  }),
+    signOut(auth).catch((err) => {
+      console.warn("Firebase signOut failed", err);
+    });
+    set({ currentUser: null });
+  },
   
   initializeFromFirestore: async () => {
     try {
@@ -764,6 +752,44 @@ export const useStore = create<AppState>((set) => ({
         reviews: loadedReviews,
         customers: loadedCustomers
       });
+
+      // 6. Set up real-time snapshot listeners (avoiding duplicates)
+      const currentState = useStore.getState();
+      if (!currentState.listenersInitialized) {
+        onSnapshot(collection(db, 'bookings'), (snapshot) => {
+          const liveBookings = snapshot.docs.map(doc => doc.data() as Booking);
+          // Sort or update bookings state
+          set({ bookings: liveBookings });
+        });
+
+        onSnapshot(collection(db, 'customers'), (snapshot) => {
+          const liveCustomers = snapshot.docs.map(doc => doc.data() as User);
+          set({ customers: liveCustomers });
+          const current = useStore.getState().currentUser;
+          if (current && current.role === 'customer') {
+            const updatedMe = liveCustomers.find(c => c.id === current.id);
+            if (updatedMe) {
+              set({ currentUser: updatedMe });
+              localStorage.setItem('goservik_user', JSON.stringify(updatedMe));
+            }
+          }
+        });
+
+        onSnapshot(collection(db, 'professionals'), (snapshot) => {
+          const liveProfessionals = snapshot.docs.map(doc => doc.data() as ProfessionalProfile);
+          set({ professionals: liveProfessionals });
+          const current = useStore.getState().currentUser;
+          if (current && current.role === 'professional') {
+            const updatedMe = liveProfessionals.find(p => p.id === current.id);
+            if (updatedMe) {
+              set({ currentUser: updatedMe });
+              localStorage.setItem('goservik_user', JSON.stringify(updatedMe));
+            }
+          }
+        });
+
+        set({ listenersInitialized: true });
+      }
     } catch (err) {
       console.warn("Firestore initialization failed, using mock data fallback", err);
     }
@@ -798,171 +824,210 @@ export const useStore = create<AppState>((set) => ({
   }),
 
   updateBookingStatus: async (bookingId, status, professionalId) => {
-    set((state) => ({
-      bookings: state.bookings.map(b => 
-        b.id === bookingId 
-          ? { ...b, status, ...(professionalId ? { professionalId } : {}) } 
-          : b
-      )
-    }));
+    let updatedBooking: Booking | undefined;
 
-    try {
-      const updateData: any = { status };
-      if (professionalId) {
-        updateData.professionalId = professionalId;
+    set((state) => {
+      const updatedList = state.bookings.map(b => {
+        if (b.id === bookingId) {
+          updatedBooking = { ...b, status, ...(professionalId ? { professionalId } : {}) };
+          return updatedBooking;
+        }
+        return b;
+      });
+      return { bookings: updatedList };
+    });
+
+    if (updatedBooking) {
+      try {
+        await setDoc(doc(db, 'bookings', bookingId), updatedBooking);
+      } catch (err) {
+        console.error("Firestore booking status update failed", err);
       }
-      await setDoc(doc(db, 'bookings', bookingId), updateData, { merge: true });
-    } catch (err) {
-      console.error("Firestore booking status update failed", err);
     }
   },
 
   addProfessionalService: async (proId, service) => {
     const newService = { ...service, id: `srv-${Date.now()}` };
-    
+    let proObj: ProfessionalProfile | undefined;
+    let updatedCurrentUser: any;
+
     set((state) => {
-      const updatedProfessionals = state.professionals.map(p => 
-        p.id === proId 
-          ? { ...p, services: [...p.services, newService] } 
-          : p
-      );
+      const updatedProfessionals = state.professionals.map(p => {
+        if (p.id === proId) {
+          proObj = { ...p, services: [...p.services, newService] };
+          return proObj;
+        }
+        return p;
+      });
       
-      const updatedCurrentUser = state.currentUser && state.currentUser.id === proId && state.currentUser.role === 'professional'
+      updatedCurrentUser = state.currentUser && state.currentUser.id === proId && state.currentUser.role === 'professional'
         ? { 
             ...state.currentUser, 
             services: [...(state.currentUser as ProfessionalProfile).services, newService] 
           }
         : state.currentUser;
 
-      // Sync updated professional profile
-      const proObj = updatedProfessionals.find(p => p.id === proId);
-      if (proObj) {
-        setDoc(doc(db, 'professionals', proId), proObj).catch(err => 
-          console.error("Firestore professional service write failed", err)
-        );
-      }
-
       return {
         professionals: updatedProfessionals,
         currentUser: updatedCurrentUser
       };
     });
+
+    if (proObj) {
+      try {
+        await setDoc(doc(db, 'professionals', proId), proObj);
+      } catch (err) {
+        console.error("Firestore professional service write failed", err);
+      }
+    }
   },
 
   updateUserProfile: async (profile) => {
+    let updatedUser: any;
+    let isPro = false;
+    let updatedPro: any;
+    let updatedCust: any;
+
     set((state) => {
       if (!state.currentUser) return {};
-      const updatedUser = { ...state.currentUser, ...profile } as any;
-      const isPro = state.currentUser.role === 'professional';
+      updatedUser = { ...state.currentUser, ...profile } as any;
+      isPro = state.currentUser.role === 'professional';
 
       if (isPro) {
-        const updatedPro = {
+        updatedPro = {
           ...state.professionals.find(p => p.id === state.currentUser?.id),
           ...profile
         } as any;
-        setDoc(doc(db, 'professionals', state.currentUser.id), updatedPro).catch(err =>
-          console.error("Firestore user profile update failed", err)
-        );
       } else {
-        const updatedCust = {
+        updatedCust = {
           ...state.customers.find(c => c.id === state.currentUser?.id),
           ...profile
         } as any;
-        setDoc(doc(db, 'customers', state.currentUser.id), updatedCust).catch(err =>
-          console.error("Firestore customer profile update failed", err)
-        );
       }
 
-      localStorage.setItem('goservik_user', JSON.stringify(updatedUser));
       return {
         currentUser: updatedUser,
         professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p),
         customers: state.customers.map(c => c.id === state.currentUser?.id ? { ...c, ...profile } as any : c)
       };
     });
+
+    if (updatedUser) {
+      localStorage.setItem('goservik_user', JSON.stringify(updatedUser));
+      try {
+        if (isPro && updatedPro) {
+          await setDoc(doc(db, 'professionals', updatedUser.id), updatedPro);
+        } else if (!isPro && updatedCust) {
+          await setDoc(doc(db, 'customers', updatedUser.id), updatedCust);
+        }
+      } catch (err) {
+        console.error("Firestore user profile update failed", err);
+      }
+    }
   },
 
   updateCustomer: async (id, updated) => {
+    let targetCustomer: User | undefined;
+
     set((state) => {
-      const updatedCustomers = state.customers.map(c => c.id === id ? { ...c, ...updated } : c);
+      const updatedCustomers = state.customers.map(c => {
+        if (c.id === id) {
+          targetCustomer = { ...c, ...updated };
+          return targetCustomer;
+        }
+        return c;
+      });
       const isCurrentUser = state.currentUser?.id === id;
-      
-      const target = updatedCustomers.find(c => c.id === id);
-      if (target) {
-        setDoc(doc(db, 'customers', id), target).catch(err =>
-          console.error("Firestore customer update failed", err)
-        );
-      }
       
       return {
         customers: updatedCustomers,
         currentUser: isCurrentUser ? { ...state.currentUser, ...updated } as any : state.currentUser
       };
     });
+
+    if (targetCustomer) {
+      try {
+        await setDoc(doc(db, 'customers', id), targetCustomer);
+      } catch (err) {
+        console.error("Firestore customer update failed", err);
+      }
+    }
   },
 
   deleteCustomer: async (id) => {
     set((state) => {
       const updatedCustomers = state.customers.filter(c => c.id !== id);
       const isCurrentUser = state.currentUser?.id === id;
-      
-      deleteDoc(doc(db, 'customers', id)).catch(err =>
-        console.error("Firestore customer delete failed", err)
-      );
-      
       return {
         customers: updatedCustomers,
         currentUser: isCurrentUser ? null : state.currentUser
       };
     });
+
+    try {
+      await deleteDoc(doc(db, 'customers', id));
+    } catch (err) {
+      console.error("Firestore customer delete failed", err);
+    }
   },
 
   updateProfessional: async (id, updated) => {
+    let targetPro: ProfessionalProfile | undefined;
+
     set((state) => {
-      const updatedProfessionals = state.professionals.map(p => p.id === id ? { ...p, ...updated } as any : p);
+      const updatedProfessionals = state.professionals.map(p => {
+        if (p.id === id) {
+          targetPro = { ...p, ...updated } as any;
+          return targetPro;
+        }
+        return p;
+      });
       const isCurrentUser = state.currentUser?.id === id;
-      
-      const target = updatedProfessionals.find(p => p.id === id);
-      if (target) {
-        setDoc(doc(db, 'professionals', id), target).catch(err =>
-          console.error("Firestore professional update failed", err)
-        );
-      }
       
       return {
         professionals: updatedProfessionals,
         currentUser: isCurrentUser ? { ...state.currentUser, ...updated } as any : state.currentUser
       };
     });
+
+    if (targetPro) {
+      try {
+        await setDoc(doc(db, 'professionals', id), targetPro);
+      } catch (err) {
+        console.error("Firestore professional update failed", err);
+      }
+    }
   },
 
   deleteProfessional: async (id) => {
     set((state) => {
       const updatedProfessionals = state.professionals.filter(p => p.id !== id);
       const isCurrentUser = state.currentUser?.id === id;
-      
-      deleteDoc(doc(db, 'professionals', id)).catch(err =>
-        console.error("Firestore professional delete failed", err)
-      );
-      
       return {
         professionals: updatedProfessionals,
         currentUser: isCurrentUser ? null : state.currentUser
       };
     });
+
+    try {
+      await deleteDoc(doc(db, 'professionals', id));
+    } catch (err) {
+      console.error("Firestore professional delete failed", err);
+    }
   },
 
   deleteBooking: async (id) => {
     set((state) => {
       const updatedBookings = state.bookings.filter(b => b.id !== id);
-      
-      deleteDoc(doc(db, 'bookings', id)).catch(err =>
-        console.error("Firestore booking delete failed", err)
-      );
-      
       return {
         bookings: updatedBookings
       };
     });
+
+    try {
+      await deleteDoc(doc(db, 'bookings', id));
+    } catch (err) {
+      console.error("Firestore booking delete failed", err);
+    }
   }
 }));

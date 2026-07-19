@@ -483,11 +483,10 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">
-                    Date of Birth (DoB) <span className="text-rose-500 font-bold">*</span>
+                    Date of Birth (DoB) (Optional)
                   </label>
                   <input 
                     type="date" 
-                    required
                     value={settingsDob}
                     onChange={(e) => setSettingsDob(e.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"

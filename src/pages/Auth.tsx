@@ -623,11 +623,10 @@ export function Register() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date of Birth <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date of Birth (Optional)</label>
                 <div className="relative">
                   <input
                     type="date"
-                    required
                     value={dob}
                     onChange={(e) => setDob(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800"

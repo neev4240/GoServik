@@ -73,10 +73,17 @@ function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerPr
   const initialLat = value?.lat || 19.0760;
   const initialLng = value?.lng || 72.8777;
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearchSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (searchVal.trim()) {
       setTriggeredSearch(searchVal.trim());
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSubmit();
     }
   };
 
@@ -89,7 +96,7 @@ function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerPr
   return (
     <div className="space-y-4">
       {/* Search Input */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2">
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
             <Search className="h-4 w-4" />
@@ -98,17 +105,19 @@ function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerPr
             type="text"
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder="Search address or landmark to center map..."
             className="w-full rounded-xl border border-slate-250 bg-white pl-9 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none transition-all"
           />
         </div>
         <button
-          type="submit"
+          type="button"
+          onClick={() => handleSearchSubmit()}
           className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5"
         >
           Relocate Map
         </button>
-      </form>
+      </div>
 
       {searchError && (
         <p className="text-rose-500 text-[11px] font-bold mt-1">⚠️ {searchError}</p>
@@ -189,6 +198,13 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
     }
   }, []);
 
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleSearchSubmit();
+    }
+  };
+
   useEffect(() => {
     if (!leafletLoaded || !containerRef.current || !(window as any).L) return;
 
@@ -238,8 +254,8 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
   }, []);
 
   // Search Address using Free Nominatim OpenStreetMap API
-  const handleSearchSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearchSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!searchVal.trim()) return;
 
     setSearchLoading(true);
@@ -287,7 +303,7 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
       </div>
 
       {/* Search Input */}
-      <form onSubmit={handleSearchSubmit} className="flex gap-2">
+      <div className="flex gap-2">
         <div className="relative flex-1">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
             <Search className="h-4 w-4" />
@@ -296,18 +312,20 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
             type="text"
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
+            onKeyDown={handleInputKeyDown}
             placeholder="Type city or area to locate map (e.g., Dadar Mumbai)..."
             className="w-full rounded-xl border border-slate-250 bg-white pl-9 pr-4 py-2.5 text-xs focus:border-indigo-500 focus:outline-none transition-all"
           />
         </div>
         <button
-          type="submit"
+          type="button"
           disabled={searchLoading}
+          onClick={() => handleSearchSubmit()}
           className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1"
         >
           {searchLoading ? 'Locating...' : 'Relocate'}
         </button>
-      </form>
+      </div>
 
       {searchError && (
         <p className="text-rose-600 text-[11px] font-bold mt-1">⚠️ {searchError}</p>
