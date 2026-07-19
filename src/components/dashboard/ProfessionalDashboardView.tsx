@@ -6,7 +6,7 @@ import {
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
   FileText, Bell, MapPin, Activity, CheckCircle, 
   XCircle, Send, Star, UserCheck, Plus, Trash2, ShieldAlert, Sparkles, Languages,
-  X, Phone, Mail, Clock, Compass
+  X, Phone, Mail, Clock, Compass, Shield
 } from 'lucide-react';
 
 interface ProfessionalDashboardViewProps {

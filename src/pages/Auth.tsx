@@ -336,15 +336,18 @@ export function Register() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // Professional fields
-  const [companyName, setCompanyName] = useState('');
-  const [category, setCategory] = useState('cat-1');
+  // Profile fields (shared)
+  const [dob, setDob] = useState('');
   const [addressLine, setAddressLine] = useState('');
   const [landmark, setLandmark] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
-  const [country, setCountry] = useState('India');
+  const [country, setCountry] = useState('');
+
+  // Professional fields
+  const [companyName, setCompanyName] = useState('');
+  const [category, setCategory] = useState('cat-1');
   const [proCoordinates, setProCoordinates] = useState<{ lat: number; lng: number } | undefined>(undefined);
 
   const [loading, setLoading] = useState(false);
@@ -483,6 +486,7 @@ export function Register() {
       const additionalDetails = role === 'professional' ? {
         companyName,
         mobile: phoneToCheck,
+        dob,
         category,
         addressLine,
         landmark,
@@ -492,7 +496,14 @@ export function Register() {
         country,
         coordinates: proCoordinates
       } : {
-        mobile: phoneToCheck
+        mobile: phoneToCheck,
+        dob,
+        addressLine,
+        landmark,
+        city,
+        state,
+        pincode,
+        country
       };
 
       // Call store login to trigger Firestore synchronization and session load
@@ -595,7 +606,7 @@ export function Register() {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Your Full Name</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Your Full Name <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <UserIcon className="h-4 w-4" />
@@ -611,9 +622,22 @@ export function Register() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Date of Birth <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    value={dob}
+                    onChange={(e) => setDob(e.target.value)}
+                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all text-slate-800"
+                  />
+                </div>
+              </div>
+
               {role === 'professional' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Company / Business Name</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Company / Business Name <span className="text-rose-500">*</span></label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                       <Building className="h-4 w-4" />
@@ -630,60 +654,38 @@ export function Register() {
                 </div>
               )}
 
-              {registerMethod === 'email' ? (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Email Address</label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                      <Mail className="h-4 w-4" />
-                    </span>
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      placeholder="you@example.com"
-                    />
-                  </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Email Address <span className="text-rose-500">*</span></label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+                    <Mail className="h-4 w-4" />
+                  </span>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                    placeholder="you@example.com"
+                  />
                 </div>
-              ) : (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Number</label>
-                  <div className="flex gap-2">
-                    <select
-                      value={countryCode}
-                      onChange={(e) => setCountryCode(e.target.value)}
-                      className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                    >
-                      {COUNTRY_CODES.map((c) => (
-                        <option key={c.code} value={c.code}>
-                          {c.code || 'Direct'}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="relative flex-1">
-                      <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-                        <Phone className="h-4 w-4" />
-                      </span>
-                      <input
-                        type="tel"
-                        required
-                        value={mobileNumber}
-                        onChange={(e) => setMobileNumber(e.target.value)}
-                        className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                        placeholder="9876543210"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+              </div>
 
-              {/* Duplicate mobile support for professionals registering via email */}
-              {role === 'professional' && registerMethod === 'email' && (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Number</label>
-                  <div className="relative">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Mobile Number <span className="text-rose-500">*</span></label>
+                <div className="flex gap-2">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-white px-2 py-2 text-xs text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.code || 'Direct'}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="relative flex-1">
                     <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                       <Phone className="h-4 w-4" />
                     </span>
@@ -693,14 +695,14 @@ export function Register() {
                       value={mobileNumber}
                       onChange={(e) => setMobileNumber(e.target.value)}
                       className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      placeholder="e.g. 9876543210"
+                      placeholder="9876543210"
                     />
                   </div>
                 </div>
-              )}
+              </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Create Password</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Create Password <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                     <Lock className="h-4 w-4" />
@@ -725,7 +727,7 @@ export function Register() {
 
               {role === 'professional' && (
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Major Specialization</label>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Major Specialization <span className="text-rose-500">*</span></label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
@@ -740,88 +742,97 @@ export function Register() {
             </div>
           </div>
 
-          {/* Section 2: Address & Coordinates (Only for Professionals) */}
-          {role === 'professional' && (
-            <div className="space-y-4 pt-1">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b pb-1 flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-indigo-600" /> 2. Partner Address Details
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Address Line (Plot, Street)</label>
-                  <input
-                    type="text"
-                    required
-                    value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="e.g. Flat 402, Green Avenue"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Landmark</label>
-                  <input
-                    type="text"
-                    required
-                    value={landmark}
-                    onChange={(e) => setLandmark(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="Near Central Park"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">City</label>
-                  <input
-                    type="text"
-                    required
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="Mumbai"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">State</label>
-                  <input
-                    type="text"
-                    required
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="Maharashtra"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pincode</label>
-                  <input
-                    type="text"
-                    required
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value)}
-                    className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    placeholder="400001"
-                  />
-                </div>
+          {/* Section 2: Address & Coordinates (For Customers and Professionals) */}
+          <div className="space-y-4 pt-1">
+            <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider border-b pb-1 flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-indigo-600" /> 2. Address & Location Details
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Address Line (Plot, Street) <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={addressLine}
+                  onChange={(e) => setAddressLine(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. Flat 402, Green Avenue"
+                />
               </div>
 
-              {/* Professional Coordinate Pinpoint Map */}
-              <div className="space-y-2.5 pt-3">
-                <label className="block text-[10px] font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4 text-indigo-600 animate-bounce" /> Pinpoint Your Business Epicenter on Map <span className="text-rose-500">*</span>
-                </label>
-                <p className="text-[10px] text-slate-400">Search for your city or click on the map to pinpoint your coordinate center for local diagnostic matches.</p>
-                <GoogleMapPicker 
-                  value={proCoordinates} 
-                  onChange={setProCoordinates} 
-                  addressInput={`${addressLine} ${city} ${state}`.trim()}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Landmark</label>
+                <input
+                  type="text"
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. Near Central Park"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">City <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. Mumbai"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">State <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. Maharashtra"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pincode <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={pincode}
+                  onChange={(e) => setPincode(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. 400001"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Country <span className="text-rose-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  value={country}
+                  onChange={(e) => setCountry(e.target.value)}
+                  className="block w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
+                  placeholder="e.g. India"
                 />
               </div>
             </div>
-          )}
+
+            {/* Coordinate Pinpoint Map */}
+            <div className="space-y-2.5 pt-3">
+              <label className="block text-[10px] font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-indigo-600 animate-bounce" /> Pinpoint Location on Map {role === 'professional' && <span className="text-rose-500">*</span>}
+              </label>
+              <p className="text-[10px] text-slate-400">Search for your area/city or click on the map to pinpoint your location coordinates.</p>
+              <GoogleMapPicker 
+                value={proCoordinates} 
+                onChange={setProCoordinates} 
+                addressInput={`${addressLine} ${city} ${state}`.trim()}
+              />
+            </div>
+          </div>
 
           {/* Profile notice text */}
           <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 flex items-start gap-3">

@@ -495,7 +495,14 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  currentUser: null,
+  currentUser: (() => {
+    try {
+      const saved = localStorage.getItem('goservik_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  })(),
   categories: MOCK_CATEGORIES,
   professionals: MOCK_PROFESSIONALS,
   bookings: MOCK_BOOKINGS,
@@ -509,14 +516,16 @@ export const useStore = create<AppState>((set) => ({
 
     // Admin login
     if (cleanedIdentifier.toLowerCase() === 'admin@goservik.com' || cleanedIdentifier.toLowerCase() === 'admin') {
+      const adminUser = {
+        id: 'admin-1',
+        name: name || 'Platform Admin',
+        email: 'admin@goservik.com',
+        role: 'admin' as const,
+        joinedAt: new Date().toISOString()
+      };
+      localStorage.setItem('goservik_user', JSON.stringify(adminUser));
       return {
-        currentUser: {
-          id: 'admin-1',
-          name: name || 'Platform Admin',
-          email: 'admin@goservik.com',
-          role: 'admin',
-          joinedAt: new Date().toISOString()
-        }
+        currentUser: adminUser
       };
     }
 
@@ -589,6 +598,7 @@ export const useStore = create<AppState>((set) => ({
     if (finalRole === 'professional') {
       const existingPro = state.professionals.find(matchesEmailOrPhone);
       if (existingPro) {
+        localStorage.setItem('goservik_user', JSON.stringify(existingPro));
         return { currentUser: existingPro };
       }
 
@@ -653,6 +663,7 @@ export const useStore = create<AppState>((set) => ({
         console.warn("Firestore professional login write failed", err)
       );
 
+      localStorage.setItem('goservik_user', JSON.stringify(newPro));
       return {
         professionals: [...state.professionals, newPro],
         currentUser: newPro
@@ -662,6 +673,7 @@ export const useStore = create<AppState>((set) => ({
     // 4. Default to Customer Login/Registration
     const existingCustomer = state.customers.find(matchesEmailOrPhone);
     if (existingCustomer) {
+      localStorage.setItem('goservik_user', JSON.stringify(existingCustomer));
       return { currentUser: existingCustomer };
     }
 
@@ -687,13 +699,17 @@ export const useStore = create<AppState>((set) => ({
       console.warn("Firestore customer login write failed", err)
     );
 
+    localStorage.setItem('goservik_user', JSON.stringify(mockCustomer));
     return { 
       customers: [...state.customers, mockCustomer],
       currentUser: mockCustomer 
     };
   }),
   
-  logout: () => set({ currentUser: null }),
+  logout: () => {
+    localStorage.removeItem('goservik_user');
+    return { currentUser: null };
+  },
   
   initializeFromFirestore: async () => {
     try {
@@ -857,6 +873,7 @@ export const useStore = create<AppState>((set) => ({
         );
       }
 
+      localStorage.setItem('goservik_user', JSON.stringify(updatedUser));
       return {
         currentUser: updatedUser,
         professionals: state.professionals.map(p => p.id === state.currentUser?.id ? { ...p, ...profile } as any : p),

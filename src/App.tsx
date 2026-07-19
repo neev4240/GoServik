@@ -156,8 +156,11 @@ export default function App() {
             }
           }
         } else {
-          // No user found, reset state
-          useStore.setState({ currentUser: null });
+          // No user found in Firebase Auth. Check if we have a saved local user
+          const savedUserStr = localStorage.getItem('goservik_user');
+          if (!savedUserStr) {
+            useStore.setState({ currentUser: null });
+          }
         }
       });
 
