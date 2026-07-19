@@ -706,10 +706,10 @@ export const useStore = create<AppState>((set) => ({
     };
   }),
   
-  logout: () => {
+  logout: () => set(() => {
     localStorage.removeItem('goservik_user');
     return { currentUser: null };
-  },
+  }),
   
   initializeFromFirestore: async () => {
     try {
