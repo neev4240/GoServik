@@ -77,27 +77,71 @@ export function Login() {
         }
       }
 
-      const matchesEmailOrPhone = (user: any) => {
+      // Check if mobile login was used, and if so, make sure the mobile number is exactly 10 digits
+      if (loginMethod === 'mobile') {
+        const cleanMobInput = mobileNumber.replace(/\D/g, '');
+        if (cleanMobInput.length !== 10) {
+          setError('Please enter a valid 10-digit mobile number (e.g. 9876543210).');
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Normalize entered search items
+      const searchId = cleanId;
+      const searchPhone = extractedPhone.replace(/\D/g, '');
+
+      // Helper to match user based on login inputs
+      const matchesInput = (user: any) => {
         const uEmail = (user.email || '').toLowerCase();
         const uPhone = (user.mobile || '').replace(/\D/g, '');
-        const searchId = cleanId;
-        const searchPhone = extractedPhone.replace(/\D/g, '');
-        
         if (uEmail === searchId) return true;
-        if (searchPhone && uPhone === searchPhone) return true;
+        if (searchPhone && uPhone.slice(-10) === searchPhone.slice(-10)) return true;
         return false;
       };
 
-      // Strict account separation
+      // Strict account separation and cross-role check
       if (finalRole === 'customer') {
-        const isPro = professionals.find(matchesEmailOrPhone);
-        if (isPro) {
-          throw new Error("This email/mobile is registered as a Professional Partner. Please switch to the 'Professional' tab above to log in.");
+        const conflictPro = professionals.find(p => {
+          const pEmail = (p.email || '').toLowerCase();
+          const pPhone = (p.mobile || '').replace(/\D/g, '');
+          
+          if (pEmail === searchId) return true;
+          if (searchPhone && pPhone.slice(-10) === searchPhone.slice(-10)) return true;
+          
+          const candidateCust = customers.find(matchesInput);
+          if (candidateCust) {
+            const candEmail = (candidateCust.email || '').toLowerCase();
+            const candPhone = (candidateCust.mobile || '').replace(/\D/g, '');
+            if (pEmail === candEmail) return true;
+            if (candPhone && pPhone && candPhone.slice(-10) === pPhone.slice(-10)) return true;
+          }
+          return false;
+        });
+
+        if (conflictPro) {
+          throw new Error("This email/mobile is registered as a Partner (Professional). A Partner cannot log in as a Customer. Please select 'Partner' above.");
         }
       } else if (finalRole === 'professional') {
-        const isCust = customers.find(matchesEmailOrPhone);
-        if (isCust) {
-          throw new Error("This email/mobile is registered as a Customer. Please switch to the 'Customer' tab above to log in.");
+        const conflictCust = customers.find(c => {
+          const cEmail = (c.email || '').toLowerCase();
+          const cPhone = (c.mobile || '').replace(/\D/g, '');
+          
+          if (cEmail === searchId) return true;
+          if (searchPhone && cPhone.slice(-10) === searchPhone.slice(-10)) return true;
+          
+          const candidatePro = professionals.find(matchesInput);
+          if (candidatePro) {
+            const candEmail = (candidatePro.email || '').toLowerCase();
+            const candPhone = (candidatePro.mobile || '').replace(/\D/g, '');
+            if (cEmail === candEmail) return true;
+            if (candPhone && cPhone && candPhone.slice(-10) === cPhone.slice(-10)) return true;
+          }
+          return false;
+        });
+
+        if (conflictCust) {
+          throw new Error("This email/mobile is registered as a Customer. A Customer cannot log in as a Partner. Please select 'Customer' above.");
         }
       }
 
@@ -377,63 +421,76 @@ export function Register() {
     setLoading(true);
     setError('');
 
+    // Validate the mobile number entered in the form (must be exactly 10 digits)
+    const cleanPhone = mobileNumber.replace(/\D/g, '');
+    if (cleanPhone.length !== 10) {
+      setError('Please enter a valid 10-digit mobile number (e.g. 9876543210).');
+      setLoading(false);
+      return;
+    }
+
     let identifier = '';
     if (registerMethod === 'email') {
       identifier = email.trim();
     } else {
-      const cleanPhone = mobileNumber.replace(/\D/g, '');
-      if (!cleanPhone) {
-        setError('Please enter a valid mobile number');
-        setLoading(false);
-        return;
-      }
       identifier = `${countryCode}${cleanPhone}@goservik.com`;
     }
     setRegisteredIdentifier(identifier);
 
     try {
       const cleanId = identifier.toLowerCase();
-      let extractedPhone = '';
-      if (cleanId.endsWith('@goservik.com')) {
-        const prefix = cleanId.split('@')[0];
-        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
-          extractedPhone = prefix;
-        }
-      }
+      const formEmail = email.trim().toLowerCase();
+      const formPhoneClean = cleanPhone;
 
-      const matchesEmailOrPhone = (user: any) => {
-        const uEmail = (user.email || '').toLowerCase();
-        const uPhone = (user.mobile || '').replace(/\D/g, '');
-        const searchId = cleanId;
-        const searchPhone = extractedPhone.replace(/\D/g, '');
-        
-        if (uEmail === searchId) return true;
-        if (searchPhone && uPhone === searchPhone) return true;
-        return false;
-      };
-
-      // Role check validation
+      // 1. Cross-role validation: Check if this new user conflicts with ANY existing account of the OTHER role
       if (role === 'customer') {
-        const isPro = professionals.find(matchesEmailOrPhone);
-        if (isPro) {
-          throw new Error("This email/mobile is already registered as a Professional. A Professional cannot register as a Customer.");
+        const conflictPro = professionals.find(p => {
+          const pEmail = (p.email || '').toLowerCase();
+          const pPhone = (p.mobile || '').replace(/\D/g, '');
+          
+          if (pEmail === cleanId) return true;
+          if (pEmail === formEmail) return true;
+          if (pPhone && pPhone.slice(-10) === formPhoneClean.slice(-10)) return true;
+          return false;
+        });
+
+        if (conflictPro) {
+          throw new Error("This email or mobile number is already registered as a Partner (Professional). Customers cannot register using Professional credentials.");
         }
       } else if (role === 'professional') {
-        const isCust = customers.find(matchesEmailOrPhone);
-        if (isCust) {
-          throw new Error("This email/mobile is already registered as a Customer. A Customer cannot register as a Professional.");
+        const conflictCust = customers.find(c => {
+          const cEmail = (c.email || '').toLowerCase();
+          const cPhone = (c.mobile || '').replace(/\D/g, '');
+          
+          if (cEmail === cleanId) return true;
+          if (cEmail === formEmail) return true;
+          if (cPhone && cPhone.slice(-10) === formPhoneClean.slice(-10)) return true;
+          return false;
+        });
+
+        if (conflictCust) {
+          throw new Error("This email or mobile number is already registered as a Customer. Partners cannot register using Customer credentials.");
         }
       }
 
-      // Unique phone checking across all users
-      const phoneToCheck = extractedPhone || mobileNumber;
-      const cleanPhoneToCheck = phoneToCheck.replace(/\D/g, '');
-      if (cleanPhoneToCheck) {
-        const dupPro = professionals.find(p => (p.mobile || '').replace(/\D/g, '') === cleanPhoneToCheck);
-        const dupCust = customers.find(c => (c.mobile || '').replace(/\D/g, '') === cleanPhoneToCheck);
-        if (dupPro || dupCust) {
-          throw new Error("This mobile number is already linked to another registered account. One login per unique phone number is allowed.");
-        }
+      // 2. Unique phone and email checking within the SAME role or overall
+      const dupProPhone = professionals.find(p => {
+        const pPhone = (p.mobile || '').replace(/\D/g, '');
+        return pPhone.slice(-10) === formPhoneClean.slice(-10);
+      });
+      const dupCustPhone = customers.find(c => {
+        const cPhone = (c.mobile || '').replace(/\D/g, '');
+        return cPhone.slice(-10) === formPhoneClean.slice(-10);
+      });
+
+      if (dupProPhone || dupCustPhone) {
+        throw new Error("This mobile number is already registered. One account per unique phone number is allowed.");
+      }
+
+      const dupProEmail = professionals.find(p => (p.email || '').toLowerCase() === formEmail);
+      const dupCustEmail = customers.find(c => (c.email || '').toLowerCase() === formEmail);
+      if (dupProEmail || dupCustEmail) {
+        throw new Error("This email address is already registered. One account per unique email address is allowed.");
       }
 
       // Pro coordinates check
@@ -465,14 +522,8 @@ export function Register() {
 
     try {
       const identifier = registeredIdentifier;
-      let extractedPhone = '';
-      if (identifier.endsWith('@goservik.com')) {
-        const prefix = identifier.split('@')[0];
-        if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
-          extractedPhone = prefix;
-        }
-      }
-      const phoneToCheck = extractedPhone || mobileNumber;
+      const cleanPhoneDigits = mobileNumber.replace(/\D/g, '');
+      const phoneToCheck = `${countryCode}${cleanPhoneDigits}`;
 
       // Register account in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, identifier, password);

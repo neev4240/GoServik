@@ -10,7 +10,7 @@ import {
   User, Globe, Building2, Activity, Clock, LayoutDashboard
 } from 'lucide-react';
 import { db } from '../lib/firebase';
-import { setDoc, doc } from 'firebase/firestore';
+import { setDoc, doc, getDocs, collection, deleteDoc } from 'firebase/firestore';
 import { Role, ProfessionalProfile, Booking } from '../types';
 
 export function AdminPage() {
@@ -110,6 +110,43 @@ export function AdminPage() {
       setSyncMessage(`Error syncing: ${e.message}`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // State and function for deleting all users
+  const [purging, setPurging] = useState(false);
+
+  const handleDeleteAllUsers = async () => {
+    if (!window.confirm("Are you absolutely sure you want to delete ALL customers and professional partners from the database? This action is permanent and irreversible.")) {
+      return;
+    }
+    setPurging(true);
+    setSyncMessage('');
+    try {
+      // 1. Delete all customers from Firestore
+      const custSnap = await getDocs(collection(db, 'customers'));
+      for (const d of custSnap.docs) {
+        await deleteDoc(doc(db, 'customers', d.id));
+      }
+
+      // 2. Delete all professionals from Firestore
+      const proSnap = await getDocs(collection(db, 'professionals'));
+      for (const d of proSnap.docs) {
+        await deleteDoc(doc(db, 'professionals', d.id));
+      }
+
+      // 3. Clear store state
+      useStore.setState({
+        customers: [],
+        professionals: []
+      });
+
+      setSyncMessage('Successfully deleted ALL registered users (Customers & Professionals) from Firestore!');
+      setTimeout(() => setSyncMessage(''), 4000);
+    } catch (e: any) {
+      setSyncMessage(`Purge failed: ${e.message}`);
+    } finally {
+      setPurging(false);
     }
   };
 
@@ -399,16 +436,18 @@ export function AdminPage() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
-                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Manual Database Sync</p>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Write all current local state variables, categories, expert technicians, registered clients, and reviews directly to the Firestore collection.
-                    </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Manual Database Sync</p>
+                      <p className="text-[11px] text-slate-500 leading-normal mt-1">
+                        Write all current local state variables, categories, expert technicians, registered clients, and reviews directly to the Firestore collection.
+                      </p>
+                    </div>
                     <button
                       onClick={handleSyncToFirebase}
                       disabled={syncing}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
                     >
                       {syncing ? (
                         <>
@@ -424,11 +463,13 @@ export function AdminPage() {
                     </button>
                   </div>
 
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
-                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Local Cache Refresh</p>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      Re-fetch the entire schema (Categories, Bookings, Customers, Technicians) fresh from Firestore, replacing any outdated local states.
-                    </p>
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Local Cache Refresh</p>
+                      <p className="text-[11px] text-slate-500 leading-normal mt-1">
+                        Re-fetch the entire schema (Categories, Bookings, Customers, Technicians) fresh from Firestore, replacing any outdated local states.
+                      </p>
+                    </div>
                     <button
                       onClick={async () => {
                         setSyncing(true);
@@ -443,15 +484,35 @@ export function AdminPage() {
                         }
                       }}
                       disabled={syncing}
-                      className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                      className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
                       Fetch Latest from Cloud
                     </button>
                   </div>
 
-                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3">
-                    <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Cloud Data Statistics</p>
+                  <div className="p-5 bg-rose-50 border border-rose-100 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-black text-rose-800 uppercase tracking-wider">Reset Users (Purge DB)</p>
+                      <p className="text-[11px] text-rose-600 leading-normal mt-1">
+                        Permanently delete ALL registered customer accounts and professional partners from Firestore to start with a fresh blank slate.
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleDeleteAllUsers}
+                      disabled={purging}
+                      className="w-full py-2.5 bg-rose-600 hover:bg-rose-750 text-white font-extrabold text-xs rounded-xl shadow-md shadow-rose-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {purging ? "Purging Users..." : "Delete All Registered Users"}
+                    </button>
+                  </div>
+
+                  <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Cloud Data Statistics</p>
+                      <p className="text-[11px] text-slate-400 font-semibold mb-2">Live count of collections stored on Google Cloud Firestore:</p>
+                    </div>
                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-600">
                       <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
                         <span className="text-slate-400 block">Bookings</span>

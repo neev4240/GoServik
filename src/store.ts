@@ -368,10 +368,10 @@ export const useStore = create<AppState>((set) => ({
       const searchPhone = extractedPhone.replace(/\D/g, '');
       
       if (uEmail === searchId) return true;
-      if (searchPhone && uPhone === searchPhone) return true;
+      if (searchPhone && uPhone.slice(-10) === searchPhone.slice(-10)) return true;
       if (additionalDetails?.mobile) {
         const inputPhone = additionalDetails.mobile.replace(/\D/g, '');
-        if (inputPhone && uPhone === inputPhone) return true;
+        if (inputPhone && uPhone.slice(-10) === inputPhone.slice(-10)) return true;
       }
       return false;
     };
@@ -399,13 +399,13 @@ export const useStore = create<AppState>((set) => ({
       const duplicateProPhone = state.professionals.find(p => {
         const pPhone = (p.mobile || '').replace(/\D/g, '');
         const pEmail = (p.email || '').toLowerCase();
-        return pPhone === cleanPhoneToCheck && pEmail !== emailToIgnore;
+        return pPhone.slice(-10) === cleanPhoneToCheck.slice(-10) && pEmail !== emailToIgnore;
       });
 
       const duplicateCustPhone = state.customers.find(c => {
         const cPhone = (c.mobile || '').replace(/\D/g, '');
         const cEmail = (c.email || '').toLowerCase();
-        return cPhone === cleanPhoneToCheck && cEmail !== emailToIgnore;
+        return cPhone.slice(-10) === cleanPhoneToCheck.slice(-10) && cEmail !== emailToIgnore;
       });
 
       if (duplicateProPhone || duplicateCustPhone) {
@@ -538,23 +538,6 @@ export const useStore = create<AppState>((set) => ({
   
   initializeFromFirestore: async () => {
     try {
-      // 0. Purge all pre-existing mock/user data once to guarantee clean sync
-      const isPurged = localStorage.getItem('goservik_data_purged_v2');
-      if (!isPurged) {
-        const collectionsToPurge = ['customers', 'professionals', 'bookings', 'reviews'];
-        for (const colName of collectionsToPurge) {
-          try {
-            const snap = await getDocs(collection(db, colName));
-            for (const docObj of snap.docs) {
-              await deleteDoc(doc(db, colName, docObj.id));
-            }
-          } catch (e) {
-            console.warn(`Failed to purge ${colName} during database clear`, e);
-          }
-        }
-        localStorage.setItem('goservik_data_purged_v2', 'true');
-      }
-
       // 1. Fetch Categories
       const catSnap = await getDocs(collection(db, 'categories'));
       let loadedCategories = catSnap.docs.map(doc => doc.data() as ServiceCategory);
