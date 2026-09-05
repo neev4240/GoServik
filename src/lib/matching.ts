@@ -62,13 +62,15 @@ export function matchProfessionals(
 
     // 2. Category and sub-services overlap
     let matchedSubcategories: string[] = [];
+    const requestedSubs = (req.subcategories || []).filter(Boolean);
     
     // Check in professional's registered skills
-    if (pro.skills && pro.skills.length > 0) {
+    if (pro.skills && Array.isArray(pro.skills) && pro.skills.length > 0) {
       for (const skillGroup of pro.skills) {
-        if (skillGroup.categoryId === req.categoryId) {
-          const matched = req.subcategories.filter(sub =>
-            skillGroup.subcategories.some(ps => ps.toLowerCase().trim() === sub.toLowerCase().trim())
+        if (skillGroup && skillGroup.categoryId === req.categoryId) {
+          const subs = Array.isArray(skillGroup.subcategories) ? skillGroup.subcategories : [];
+          const matched = requestedSubs.filter(sub =>
+            subs.some(ps => ps && String(ps).toLowerCase().trim() === String(sub).toLowerCase().trim())
           );
           matchedSubcategories = Array.from(new Set([...matchedSubcategories, ...matched]));
         }
@@ -76,11 +78,12 @@ export function matchProfessionals(
     }
 
     // Also check in pro.services if present
-    if (pro.services && pro.services.length > 0) {
+    if (pro.services && Array.isArray(pro.services) && pro.services.length > 0) {
       for (const srv of pro.services) {
-        if (srv.categoryId === req.categoryId && srv.subcategories) {
-          const matched = req.subcategories.filter(sub =>
-            srv.subcategories.some(ps => ps.toLowerCase().trim() === sub.toLowerCase().trim())
+        if (srv && srv.categoryId === req.categoryId) {
+          const subs = Array.isArray(srv.subcategories) ? srv.subcategories : [];
+          const matched = requestedSubs.filter(sub =>
+            subs.some(ps => ps && String(ps).toLowerCase().trim() === String(sub).toLowerCase().trim())
           );
           matchedSubcategories = Array.from(new Set([...matchedSubcategories, ...matched]));
         }
@@ -88,15 +91,16 @@ export function matchProfessionals(
     }
 
     // Pro must match either the category or at least 1 sub-service, or if no subcategories specified, category match
-    const categoryMatched = pro.skills?.some(s => s.categoryId === req.categoryId) ||
-      pro.services?.some(s => s.categoryId === req.categoryId);
+    const categoryMatched = (Array.isArray(pro.skills) && pro.skills.some(s => s && s.categoryId === req.categoryId)) ||
+      (Array.isArray(pro.services) && pro.services.some(s => s && s.categoryId === req.categoryId)) ||
+      (pro as any).categoryId === req.categoryId;
 
     if (!categoryMatched && matchedSubcategories.length === 0) {
       continue;
     }
 
     // Points calculation
-    const totalReq = Math.max(req.subcategories.length, 1);
+    const totalReq = Math.max(requestedSubs.length, 1);
     const overlapRatio = matchedSubcategories.length / totalReq;
     const skillsMatchPoints = Math.round(overlapRatio * 35); // max 35 pts
 

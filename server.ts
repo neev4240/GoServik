@@ -15,6 +15,11 @@ async function startServer() {
 
   app.use(express.json());
 
+  // API Route: Health check for Cloud Run and monitoring probes
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // API Route: Expose Razorpay Configuration Status and Public Key
   app.get("/api/razorpay-config", (req, res) => {
     const keyId = process.env.RAZORPAY_KEY_ID;

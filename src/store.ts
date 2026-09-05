@@ -12,9 +12,8 @@ import {
   PlatformConfig,
   ServiceAddress
 } from './types';
-import { db, auth } from './lib/firebase';
-import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { supabase, supabaseDb, supabaseStorage } from './lib/supabase';
+import { firebaseDb } from './lib/firebase';
 import { KAAMNOW_CATEGORIES } from './lib/categories';
 import { 
   DEMO_SAMPLE_TESTING_PRO, 
@@ -66,6 +65,8 @@ interface AppState {
   listenersInitialized?: boolean;
   
   initializeFromFirestore: () => Promise<void>;
+  initializeFromSupabase: () => Promise<void>;
+  syncToSupabase: () => Promise<{ success: boolean; message: string }>;
   migrateToKaamNow: (purgeUsers?: boolean) => Promise<{ success: boolean; message: string }>;
   login: (emailOrPhone: string, role?: Role, name?: string, additionalDetails?: any) => void;
   logout: () => void;
@@ -273,8 +274,11 @@ export const useStore = create<AppState>((set, get) => ({
         calculatedMonthlySubscription: 100
       };
 
-      setDoc(doc(db, 'professionals', newPro.id), newPro).catch(err => 
-        console.warn("Firestore professional login write failed", err)
+      supabaseDb.upsertProfessional(newPro).catch(err => 
+        console.warn("Supabase professional login write failed", err)
+      );
+      firebaseDb.saveProfile(newPro).catch(err =>
+        console.warn("Firebase professional profile save warning", err)
       );
 
       localStorage.setItem('kaamnow_user', JSON.stringify(newPro));
@@ -288,6 +292,7 @@ export const useStore = create<AppState>((set, get) => ({
     const existingCustomer = state.customers.find(matchesEmailOrPhone);
     if (existingCustomer) {
       localStorage.setItem('kaamnow_user', JSON.stringify(existingCustomer));
+      firebaseDb.saveProfile(existingCustomer).catch(() => {});
       return { currentUser: existingCustomer };
     }
 
@@ -314,8 +319,11 @@ export const useStore = create<AppState>((set, get) => ({
       isProfileComplete: isComplete
     };
 
-    setDoc(doc(db, 'customers', mockCustomer.id), mockCustomer).catch(err => 
-      console.warn("Firestore customer login write failed", err)
+    supabaseDb.upsertCustomer(mockCustomer).catch(err => 
+      console.warn("Supabase customer login write failed", err)
+    );
+    firebaseDb.saveProfile(mockCustomer).catch(err =>
+      console.warn("Firebase customer profile save warning", err)
     );
 
     localStorage.setItem('kaamnow_user', JSON.stringify(mockCustomer));
@@ -328,162 +336,257 @@ export const useStore = create<AppState>((set, get) => ({
   logout: () => {
     localStorage.removeItem('kaamnow_user');
     localStorage.removeItem('goservik_user');
-    signOut(auth).catch((err) => {
-      console.warn("Firebase signOut failed", err);
+    supabase.auth.signOut().catch((err) => {
+      console.warn("Supabase signOut failed", err);
     });
     set({ currentUser: null });
   },
 
-  initializeFromFirestore: async () => {
+  syncToSupabase: async () => {
     try {
-      // 1. Fetch Categories
-      const catSnap = await getDocs(collection(db, 'categories'));
-      let loadedCategories = catSnap.docs.map(doc => doc.data() as ServiceCategory);
-      
-      // Auto-migrate if categories don't match 16 KaamNow categories
-      const isOutdated = loadedCategories.length !== 16 || !loadedCategories.some(c => c.id === 'cat-electrical');
-      if (isOutdated) {
-        console.log("KaamNow: Refreshing 16 categories in Firestore...");
+      const state = get();
+      // Sync categories to Supabase and Firebase
+      for (const cat of state.categories) {
+        await supabaseDb.upsertCategory(cat);
+        await firebaseDb.saveCategory(cat);
+      }
+      // Sync professionals to Supabase and Firebase
+      for (const pro of state.professionals) {
+        await supabaseDb.upsertProfessional(pro);
+        await firebaseDb.saveProfile(pro);
+      }
+      // Sync bookings to Supabase and Firebase
+      for (const bk of state.bookings) {
+        await supabaseDb.upsertBooking(bk);
+        await firebaseDb.saveBooking(bk);
+      }
+      // Sync reviews to Supabase and Firebase
+      for (const rev of state.reviews) {
+        await supabaseDb.upsertReview(rev);
+        await firebaseDb.saveReview(rev);
+      }
+      // Sync customers to Supabase and Firebase
+      for (const cust of state.customers) {
+        await supabaseDb.upsertCustomer(cust);
+        await firebaseDb.saveProfile(cust);
+      }
+      return {
+        success: true,
+        message: 'Successfully synchronized all categories, professionals, bookings, reviews, and customers to both Supabase & Firebase!'
+      };
+    } catch (err: any) {
+      console.error('Failed to sync to Supabase/Firebase:', err);
+      return {
+        success: false,
+        message: `Cloud sync error: ${err.message || err}`
+      };
+    }
+  },
+
+  initializeFromSupabase: async () => {
+    try {
+      // 1. Fetch Categories from Supabase & Firebase
+      let loadedCategories = await supabaseDb.getCategories();
+      if (!loadedCategories || loadedCategories.length === 0) {
+        loadedCategories = await firebaseDb.getAllCategories();
+      }
+      if (!loadedCategories || loadedCategories.length === 0) {
+        console.log("KaamNow: Initializing 16 categories in Supabase & Firebase...");
         for (const cat of KAAMNOW_CATEGORIES) {
-          await setDoc(doc(db, 'categories', cat.id), cat);
+          supabaseDb.upsertCategory(cat).catch(() => {});
+          firebaseDb.saveCategory(cat).catch(() => {});
         }
         loadedCategories = KAAMNOW_CATEGORIES;
       }
 
-      // 2. Fetch Professionals
-      const proSnap = await getDocs(collection(db, 'professionals'));
-      let loadedProfessionals = proSnap.docs.map(doc => doc.data() as ProfessionalProfile);
-      
-      // Ensure Sample Testing pro and all 80 demo pros are available
-      if (loadedProfessionals.length < 80) {
+      // 2. Fetch Professionals from Supabase & Firebase
+      let loadedProfessionals = await supabaseDb.getProfessionals();
+      const fbProfessionals = await firebaseDb.getAllProfessionals();
+      if (fbProfessionals && fbProfessionals.length > 0) {
+        for (const fp of fbProfessionals) {
+          if (!loadedProfessionals.some(p => p.id === fp.id)) {
+            loadedProfessionals.push(fp);
+          }
+        }
+      }
+
+      if (!loadedProfessionals || loadedProfessionals.length < 80) {
         const allProsToSeed = [DEMO_SAMPLE_TESTING_PRO, ...ALL_DEMO_80_PROFESSIONALS];
         for (const pro of allProsToSeed) {
           if (!loadedProfessionals.some(p => p.id === pro.id)) {
-            setDoc(doc(db, 'professionals', pro.id), pro).catch(() => {});
+            supabaseDb.upsertProfessional(pro).catch(() => {});
+            firebaseDb.saveProfile(pro).catch(() => {});
           }
         }
         loadedProfessionals = allProsToSeed;
       }
 
-      // 3. Fetch Bookings
-      const bkSnap = await getDocs(collection(db, 'bookings'));
-      let loadedBookings = bkSnap.docs.map(doc => doc.data() as Booking);
-      if (loadedBookings.length === 0) {
+      // 3. Fetch Bookings from Supabase & Firebase
+      let loadedBookings = await supabaseDb.getBookings();
+      const fbBookings = await firebaseDb.getAllBookings();
+      if (fbBookings && fbBookings.length > 0) {
+        for (const fb of fbBookings) {
+          if (!loadedBookings.some(b => b.id === fb.id)) {
+            loadedBookings.push(fb);
+          }
+        }
+      }
+
+      if (!loadedBookings || loadedBookings.length === 0) {
         for (const bk of DEMO_SAMPLE_TESTING_BOOKINGS) {
-          await setDoc(doc(db, 'bookings', bk.id), bk);
+          supabaseDb.upsertBooking(bk).catch(() => {});
+          firebaseDb.saveBooking(bk).catch(() => {});
         }
         loadedBookings = DEMO_SAMPLE_TESTING_BOOKINGS;
       }
 
-      // 4. Fetch Reviews
-      const revSnap = await getDocs(collection(db, 'reviews'));
-      let loadedReviews = revSnap.docs.map(doc => doc.data() as Review);
-      if (loadedReviews.length === 0) {
+      // 4. Fetch Reviews from Supabase & Firebase
+      let loadedReviews = await supabaseDb.getReviews();
+      const fbReviews = await firebaseDb.getAllReviews();
+      if (fbReviews && fbReviews.length > 0) {
+        for (const fr of fbReviews) {
+          if (!loadedReviews.some(r => r.id === fr.id)) {
+            loadedReviews.push(fr);
+          }
+        }
+      }
+
+      if (!loadedReviews || loadedReviews.length === 0) {
         for (const rev of DEMO_SAMPLE_TESTING_REVIEWS) {
-          await setDoc(doc(db, 'reviews', rev.id), rev);
+          supabaseDb.upsertReview(rev).catch(() => {});
+          firebaseDb.saveReview(rev).catch(() => {});
         }
         loadedReviews = DEMO_SAMPLE_TESTING_REVIEWS;
       }
 
-      // 5. Fetch Customers
-      const custSnap = await getDocs(collection(db, 'customers'));
-      const loadedCustomers = custSnap.docs.map(doc => doc.data() as User);
+      // 5. Fetch Customers from Supabase & Firebase
+      let loadedCustomers = await supabaseDb.getCustomers();
+      const fbCustomers = await firebaseDb.getAllCustomers();
+      if (fbCustomers && fbCustomers.length > 0) {
+        for (const fc of fbCustomers) {
+          if (!loadedCustomers.some(c => c.id === fc.id)) {
+            loadedCustomers.push(fc);
+          }
+        }
+      }
+
+      // 6. Restore Profile on Login & Session Check
+      const cachedUserStr = localStorage.getItem('kaamnow_user') || localStorage.getItem('goservik_user');
+      let restoredUser = get().currentUser;
+      if (cachedUserStr) {
+        try {
+          const parsed = JSON.parse(cachedUserStr);
+          // Check Firebase profiles collection
+          const fbProfile = await firebaseDb.getProfile(parsed.id);
+          const sbProfile = parsed.role === 'professional' 
+            ? loadedProfessionals.find(p => p.id === parsed.id)
+            : loadedCustomers.find(c => c.id === parsed.id);
+          
+          restoredUser = fbProfile || sbProfile || parsed;
+          localStorage.setItem('kaamnow_user', JSON.stringify(restoredUser));
+        } catch {}
+      }
 
       set({
         categories: loadedCategories,
         professionals: loadedProfessionals,
         bookings: loadedBookings,
         reviews: loadedReviews,
-        customers: loadedCustomers
+        customers: loadedCustomers,
+        currentUser: restoredUser
       });
 
-      // 6. Set up real-time snapshot listeners
+      // 7. Set up real-time postgres_changes listeners
       const currentState = get();
       if (!currentState.listenersInitialized) {
-        onSnapshot(collection(db, 'bookings'), (snapshot) => {
-          const liveBookings = snapshot.docs.map(doc => doc.data() as Booking);
-          set({ bookings: liveBookings });
-        });
-
-        onSnapshot(collection(db, 'customers'), (snapshot) => {
-          const liveCustomers = snapshot.docs.map(doc => doc.data() as User);
-          set({ customers: liveCustomers });
-          const current = get().currentUser;
-          if (current && current.role === 'customer') {
-            const updatedMe = liveCustomers.find(c => c.id === current.id);
-            if (updatedMe) {
-              set({ currentUser: updatedMe });
-              localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
+        supabase
+          .channel('schema-db-changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, async () => {
+            const liveBookings = await supabaseDb.getBookings();
+            if (liveBookings.length > 0) set({ bookings: liveBookings });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, async () => {
+            const liveCustomers = await supabaseDb.getCustomers();
+            set({ customers: liveCustomers });
+            const current = get().currentUser;
+            if (current && current.role === 'customer') {
+              const updatedMe = liveCustomers.find(c => c.id === current.id);
+              if (updatedMe) {
+                set({ currentUser: updatedMe });
+                localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
+              }
             }
-          }
-        });
-
-        onSnapshot(collection(db, 'professionals'), (snapshot) => {
-          const liveProfessionals = snapshot.docs.map(doc => doc.data() as ProfessionalProfile);
-          set({ professionals: liveProfessionals });
-          const current = get().currentUser;
-          if (current && current.role === 'professional') {
-            const updatedMe = liveProfessionals.find(p => p.id === current.id);
-            if (updatedMe) {
-              set({ currentUser: updatedMe });
-              localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'professionals' }, async () => {
+            const liveProfessionals = await supabaseDb.getProfessionals();
+            set({ professionals: liveProfessionals });
+            const current = get().currentUser;
+            if (current && current.role === 'professional') {
+              const updatedMe = liveProfessionals.find(p => p.id === current.id);
+              if (updatedMe) {
+                set({ currentUser: updatedMe });
+                localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
+              }
             }
-          }
-        });
-
-        onSnapshot(collection(db, 'categories'), (snapshot) => {
-          const liveCategories = snapshot.docs.map(doc => doc.data() as ServiceCategory);
-          if (liveCategories.length > 0) set({ categories: liveCategories });
-        });
-
-        onSnapshot(collection(db, 'reviews'), (snapshot) => {
-          const liveReviews = snapshot.docs.map(doc => doc.data() as Review);
-          set({ reviews: liveReviews });
-        });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, async () => {
+            const liveCategories = await supabaseDb.getCategories();
+            if (liveCategories.length > 0) set({ categories: liveCategories });
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews' }, async () => {
+            const liveReviews = await supabaseDb.getReviews();
+            if (liveReviews.length > 0) set({ reviews: liveReviews });
+          })
+          .subscribe();
 
         set({ listenersInitialized: true });
       }
     } catch (err) {
-      console.warn("Firestore initialization fallback to KaamNow local models", err);
+      console.warn("Supabase/Firebase initialization fallback to KaamNow local models", err);
     }
+  },
+
+  // Backward-compatibility alias
+  initializeFromFirestore: async () => {
+    return get().initializeFromSupabase();
   },
 
   migrateToKaamNow: async (purgeUsers = false) => {
     try {
       // 1. Clean old categories
-      const oldCatSnap = await getDocs(collection(db, 'categories'));
-      for (const docSnap of oldCatSnap.docs) {
-        await deleteDoc(doc(db, 'categories', docSnap.id));
+      const oldCategories = await supabaseDb.getCategories();
+      for (const cat of oldCategories) {
+        await supabaseDb.deleteCategory(cat.id);
       }
       // Seed 16 KaamNow categories
       for (const cat of KAAMNOW_CATEGORIES) {
-        await setDoc(doc(db, 'categories', cat.id), cat);
+        await supabaseDb.upsertCategory(cat);
       }
 
-      // 2. Clean and re-seed professionals if requested
+      // 2. Clean and re-seed professionals/customers if requested
       if (purgeUsers) {
-        const proSnap = await getDocs(collection(db, 'professionals'));
-        for (const pDoc of proSnap.docs) {
-          await deleteDoc(doc(db, 'professionals', pDoc.id));
+        const pros = await supabaseDb.getProfessionals();
+        for (const p of pros) {
+          await supabaseDb.deleteProfessional(p.id);
         }
-        const custSnap = await getDocs(collection(db, 'customers'));
-        for (const cDoc of custSnap.docs) {
-          await deleteDoc(doc(db, 'customers', cDoc.id));
+        const custs = await supabaseDb.getCustomers();
+        for (const c of custs) {
+          await supabaseDb.deleteCustomer(c.id);
         }
       }
 
-      // Re-seed Sample Testing pro
-      await setDoc(doc(db, 'professionals', DEMO_SAMPLE_TESTING_PRO.id), DEMO_SAMPLE_TESTING_PRO);
+      // Re-seed Sample Testing pro and secondary demo pros
+      await supabaseDb.upsertProfessional(DEMO_SAMPLE_TESTING_PRO);
       for (const pro of DEMO_SECONDARY_PROS) {
-        await setDoc(doc(db, 'professionals', pro.id), pro);
+        await supabaseDb.upsertProfessional(pro);
       }
 
       // Re-seed bookings and reviews
       for (const bk of DEMO_SAMPLE_TESTING_BOOKINGS) {
-        await setDoc(doc(db, 'bookings', bk.id), bk);
+        await supabaseDb.upsertBooking(bk);
       }
       for (const rev of DEMO_SAMPLE_TESTING_REVIEWS) {
-        await setDoc(doc(db, 'reviews', rev.id), rev);
+        await supabaseDb.upsertReview(rev);
       }
 
       set({
@@ -496,7 +599,7 @@ export const useStore = create<AppState>((set, get) => ({
 
       return {
         success: true,
-        message: "KaamNow database migration successful! 16 service categories & 'Sample Testing' verified pro seeded."
+        message: "KaamNow database migration successful! 16 service categories & 'Sample Testing' verified pro seeded to Supabase."
       };
     } catch (err: any) {
       console.error("Migration error:", err);
@@ -539,9 +642,15 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     try {
-      await setDoc(doc(db, 'bookings', newBooking.id), newBooking);
+      await supabaseDb.upsertBooking(newBooking);
     } catch (err) {
-      console.error("Firestore booking write failed", err);
+      console.error("Supabase booking write failed", err);
+    }
+
+    try {
+      await firebaseDb.saveBooking(newBooking);
+    } catch (err) {
+      console.warn("Firebase booking write warning", err);
     }
 
     return bookingId;
@@ -574,9 +683,14 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (updatedBooking) {
       try {
-        await setDoc(doc(db, 'bookings', bookingId), updatedBooking);
+        await supabaseDb.upsertBooking(updatedBooking);
       } catch (err) {
-        console.error("Firestore booking status update failed", err);
+        console.error("Supabase booking status update failed", err);
+      }
+      try {
+        await firebaseDb.saveBooking(updatedBooking);
+      } catch (err) {
+        console.warn("Firebase booking status update warning", err);
       }
     }
   },
@@ -619,9 +733,9 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (proObj) {
       try {
-        await setDoc(doc(db, 'professionals', proId), proObj);
+        await supabaseDb.upsertProfessional(proObj);
       } catch (err) {
-        console.error("Firestore professional service write failed", err);
+        console.error("Supabase professional service write failed", err);
       }
     }
   },
@@ -660,12 +774,14 @@ export const useStore = create<AppState>((set, get) => ({
       localStorage.setItem('kaamnow_user', JSON.stringify(updatedUser));
       try {
         if (isPro && updatedPro) {
-          await setDoc(doc(db, 'professionals', updatedUser.id), updatedPro);
+          await supabaseDb.upsertProfessional(updatedPro);
+          await firebaseDb.saveProfile(updatedPro);
         } else if (!isPro && updatedCust) {
-          await setDoc(doc(db, 'customers', updatedUser.id), updatedCust);
+          await supabaseDb.upsertCustomer(updatedCust);
+          await firebaseDb.saveProfile(updatedCust);
         }
       } catch (err) {
-        console.error("Firestore user profile update failed", err);
+        console.error("Cloud user profile update failed", err);
       }
     }
   },
@@ -704,9 +820,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (targetCustomer) {
       try {
-        await setDoc(doc(db, 'customers', id), targetCustomer);
+        await supabaseDb.upsertCustomer(targetCustomer);
+        await firebaseDb.saveProfile(targetCustomer);
       } catch (err) {
-        console.error("Firestore customer update failed", err);
+        console.error("Cloud customer update failed", err);
       }
     }
   },
@@ -722,9 +839,9 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     try {
-      await deleteDoc(doc(db, 'customers', id));
+      await supabaseDb.deleteCustomer(id);
     } catch (err) {
-      console.error("Firestore customer delete failed", err);
+      console.error("Supabase customer delete failed", err);
     }
   },
 
@@ -749,9 +866,10 @@ export const useStore = create<AppState>((set, get) => ({
 
     if (targetPro) {
       try {
-        await setDoc(doc(db, 'professionals', id), targetPro);
+        await supabaseDb.upsertProfessional(targetPro);
+        await firebaseDb.saveProfile(targetPro);
       } catch (err) {
-        console.error("Firestore professional update failed", err);
+        console.error("Cloud professional update failed", err);
       }
     }
   },
@@ -767,9 +885,10 @@ export const useStore = create<AppState>((set, get) => ({
     });
 
     try {
-      await deleteDoc(doc(db, 'professionals', id));
+      await supabaseDb.deleteProfessional(id);
+      await firebaseDb.deleteProfile(id);
     } catch (err) {
-      console.error("Firestore professional delete failed", err);
+      console.error("Cloud professional delete failed", err);
     }
   },
 
@@ -779,9 +898,10 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     try {
-      await deleteDoc(doc(db, 'bookings', id));
+      await supabaseDb.deleteBooking(id);
+      await firebaseDb.deleteBooking(id);
     } catch (err) {
-      console.error("Firestore booking delete failed", err);
+      console.error("Cloud booking delete failed", err);
     }
   },
 
@@ -821,9 +941,10 @@ export const useStore = create<AppState>((set, get) => ({
     await get().updateBookingStatus(reviewData.bookingId, 'reviewed', 'Customer submitted review');
 
     try {
-      await setDoc(doc(db, 'reviews', newReview.id), newReview);
+      await supabaseDb.upsertReview(newReview);
+      await firebaseDb.saveReview(newReview);
     } catch (err) {
-      console.error("Firestore review write failed", err);
+      console.error("Cloud review write failed", err);
     }
   },
 
@@ -840,9 +961,9 @@ export const useStore = create<AppState>((set, get) => ({
     }));
 
     try {
-      await setDoc(doc(db, 'protection_claims', newClaim.id), newClaim);
+      await supabaseDb.upsertClaim(newClaim);
     } catch (err) {
-      console.error("Firestore claim write failed", err);
+      console.error("Supabase claim write failed", err);
     }
   },
 

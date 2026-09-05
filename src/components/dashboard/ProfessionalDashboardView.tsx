@@ -6,8 +6,9 @@ import {
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
   FileText, Bell, MapPin, Activity, CheckCircle, 
   XCircle, Send, Star, UserCheck, Plus, Trash2, ShieldAlert, Sparkles, Languages,
-  X, Phone, Mail, Clock, Compass, Shield
+  X, Phone, Mail, Clock, Compass, Shield, UploadCloud, Image as ImageIcon, Loader2, FileCheck
 } from 'lucide-react';
+import { supabaseStorage } from '../../lib/supabase';
 
 interface ProfessionalDashboardViewProps {
   currentTab: string;
@@ -62,6 +63,57 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
   const [settingsStatus, setSettingsStatus] = useState<'available' | 'busy' | 'offline'>(proUser?.availabilityStatus || 'available');
   const [settingsRadius, setSettingsRadius] = useState<number>(proUser?.serviceRadiusKm || 10);
   const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  // Media & Supabase Storage state
+  const [settingsAvatar, setSettingsAvatar] = useState(proUser?.avatar || '');
+  const [settingsGovtIdUrl, setSettingsGovtIdUrl] = useState(proUser?.certifications?.[0] || '');
+  const [settingsGallery, setSettingsGallery] = useState<string[]>(proUser?.gallery || []);
+  const [uploadingTarget, setUploadingTarget] = useState<'avatar' | 'cert' | 'gallery' | null>(null);
+  const [storageMessage, setStorageMessage] = useState('');
+
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'avatar' | 'cert' | 'gallery') => {
+    const file = e.target.files?.[0];
+    if (!file || !proUser) return;
+
+    setUploadingTarget(target);
+    setStorageMessage(`Uploading to Supabase Storage (${target})...`);
+
+    const ext = file.name.split('.').pop() || 'jpg';
+    const bucket = target === 'gallery' ? supabaseStorage.BUCKET_MEDIA : supabaseStorage.BUCKET_PROFILES;
+    const cleanFileName = `${proUser.id}_${target}_${Date.now()}.${ext}`;
+
+    const { url, error } = await supabaseStorage.uploadFile(bucket, cleanFileName, file);
+    if (error || !url) {
+      setStorageMessage(`Note: Stored locally for immediate preview (${error || 'Public URL pending bucket setup'}).`);
+      const localUrl = URL.createObjectURL(file);
+      if (target === 'avatar') {
+        setSettingsAvatar(localUrl);
+        updateUserProfile({ avatar: localUrl });
+      } else if (target === 'cert') {
+        setSettingsGovtIdUrl(localUrl);
+        updateUserProfile({ certifications: [localUrl, ...(proUser.certifications || []).slice(1)] });
+      } else if (target === 'gallery') {
+        const updatedG = [...settingsGallery, localUrl];
+        setSettingsGallery(updatedG);
+        updateUserProfile({ gallery: updatedG });
+      }
+    } else {
+      setStorageMessage(`✓ File uploaded successfully to Supabase Storage (${bucket})!`);
+      if (target === 'avatar') {
+        setSettingsAvatar(url);
+        updateUserProfile({ avatar: url });
+      } else if (target === 'cert') {
+        setSettingsGovtIdUrl(url);
+        updateUserProfile({ certifications: [url, ...(proUser.certifications || []).slice(1)] });
+      } else if (target === 'gallery') {
+        const updatedG = [...settingsGallery, url];
+        setSettingsGallery(updatedG);
+        updateUserProfile({ gallery: updatedG });
+      }
+    }
+    setUploadingTarget(null);
+    setTimeout(() => setStorageMessage(''), 4000);
+  };
 
   // Phone OTP Verification State
   const [originalMobile, setOriginalMobile] = useState(proUser?.mobile || '');
@@ -1005,6 +1057,121 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                       </button>
                     ))}
                   </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 4: SUPABASE STORAGE MEDIA & VERIFICATION DOCUMENTS */}
+            <div className="space-y-4 pt-2">
+              <div className="flex items-center justify-between border-b pb-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                    <UploadCloud className="h-4 w-4 text-indigo-600" />
+                    4. Supabase Storage Media & Verification Documents
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    Files uploaded here are stored in Supabase Storage and synced with your profile and Admin inspection panel.
+                  </p>
+                </div>
+                {uploadingTarget && (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-full animate-pulse">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading {uploadingTarget}...
+                  </span>
+                )}
+              </div>
+
+              {storageMessage && (
+                <div className="p-2.5 rounded-xl bg-slate-900 text-white text-[11px] font-medium flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-400 shrink-0" />
+                  <span>{storageMessage}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* 1. Profile Avatar */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center text-center space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Profile Photo / Avatar</span>
+                  <div className="h-20 w-20 rounded-full border-2 border-indigo-500/30 overflow-hidden bg-white shadow-inner flex items-center justify-center relative">
+                    {settingsAvatar ? (
+                      <img src={settingsAvatar} alt="Profile Avatar" className="h-full w-full object-cover" />
+                    ) : (
+                      <UserIcon className="h-8 w-8 text-slate-300" />
+                    )}
+                  </div>
+                  <label className="cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={uploadingTarget !== null}
+                      onChange={(e) => handleMediaUpload(e, 'avatar')}
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold shadow-sm cursor-pointer transition">
+                      <UploadCloud className="h-3 w-3" /> Change Avatar
+                    </span>
+                  </label>
+                  <span className="text-[9px] text-slate-400">Bucket: profiles</span>
+                </div>
+
+                {/* 2. Trade Certification / Govt ID */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center text-center space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Govt ID / Trade Certificate</span>
+                  <div className="h-20 w-full rounded-xl border border-dashed border-slate-300 bg-white flex items-center justify-center p-2 overflow-hidden">
+                    {settingsGovtIdUrl ? (
+                      <div className="flex items-center gap-2 text-emerald-600">
+                        <FileCheck className="h-6 w-6 shrink-0" />
+                        <span className="text-[10px] font-bold text-left truncate max-w-[120px]">ID Proof Attached</span>
+                      </div>
+                    ) : (
+                      <div className="text-[10px] text-slate-400 flex flex-col items-center">
+                        <Shield className="h-5 w-5 mb-1 text-slate-300" />
+                        <span>No ID proof yet</span>
+                      </div>
+                    )}
+                  </div>
+                  <label className="cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept="image/*,.pdf" 
+                      className="hidden" 
+                      disabled={uploadingTarget !== null}
+                      onChange={(e) => handleMediaUpload(e, 'cert')}
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold shadow-sm cursor-pointer transition">
+                      <UploadCloud className="h-3 w-3" /> Upload ID Document
+                    </span>
+                  </label>
+                  <span className="text-[9px] text-slate-400">Bucket: profiles</span>
+                </div>
+
+                {/* 3. Work Showcase Sample */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col items-center text-center space-y-3">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600">Work Showcase Media</span>
+                  <div className="h-20 w-full rounded-xl border border-dashed border-slate-300 bg-white flex items-center justify-center p-1.5 overflow-x-auto gap-1.5">
+                    {settingsGallery && settingsGallery.length > 0 ? (
+                      settingsGallery.slice(0, 3).map((img, idx) => (
+                        <img key={idx} src={img} alt="Work sample" className="h-16 w-16 object-cover rounded-lg border border-slate-200 shadow-sm shrink-0" />
+                      ))
+                    ) : (
+                      <div className="text-[10px] text-slate-400 flex flex-col items-center">
+                        <ImageIcon className="h-5 w-5 mb-1 text-slate-300" />
+                        <span>No photos added</span>
+                      </div>
+                    )}
+                  </div>
+                  <label className="cursor-pointer">
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      disabled={uploadingTarget !== null}
+                      onChange={(e) => handleMediaUpload(e, 'gallery')}
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold shadow-sm cursor-pointer transition">
+                      <Plus className="h-3 w-3" /> Add Work Photo
+                    </span>
+                  </label>
+                  <span className="text-[9px] text-slate-400">Bucket: kaamnow-media</span>
                 </div>
               </div>
             </div>

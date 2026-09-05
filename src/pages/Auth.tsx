@@ -6,8 +6,7 @@ import {
   Briefcase, Mail, Phone, Lock, User as UserIcon, Shield, 
   Building, MapPin, Sparkles, UserCheck, ArrowRight, Eye, EyeOff 
 } from 'lucide-react';
-import { auth } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
 import { GoogleMapPicker } from '../components/GoogleMapPicker';
 
 const COUNTRY_CODES = [
@@ -154,17 +153,23 @@ export function Login() {
         return;
       }
 
-      // Authenticate with Firebase
-      let userCredential;
-      try {
-        userCredential = await signInWithEmailAndPassword(auth, identifier, password);
-      } catch (err: any) {
-        if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password') {
+      // Authenticate with Supabase
+      let uid: string | undefined;
+      const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+        email: identifier,
+        password: password
+      });
+
+      if (authErr) {
+        const msg = authErr.message.toLowerCase();
+        if (msg.includes('invalid login credentials') || msg.includes('user not found')) {
           throw new Error("Incorrect credentials. This account does not exist or the password is wrong. Please register/create an account first.");
         } else {
-          throw err;
+          throw new Error(authErr.message);
         }
       }
+
+      uid = authData.user?.id;
 
       const displayName = loginMethod === 'email' 
         ? identifier.split('@')[0] 
@@ -172,7 +177,7 @@ export function Login() {
 
       login(identifier, finalRole, displayName, { 
         mobile: extractedPhone, 
-        uid: userCredential?.user?.uid 
+        uid: uid 
       });
 
       const from = location.state?.from?.pathname || "/dashboard";
@@ -534,26 +539,23 @@ export function Register() {
       const cleanPhoneDigits = mobileNumber.replace(/\D/g, '');
       const phoneToCheck = `${countryCode}${cleanPhoneDigits}`;
 
-      // Register account in Firebase Authentication
-      const userCredential = await createUserWithEmailAndPassword(auth, identifier, password);
-      
-      if (userCredential.user) {
-        try {
-          await updateProfile(userCredential.user, { displayName: name });
-        } catch (pErr) {
-          console.error("Profile write error", pErr);
-        }
-        
-        // Send a confirmation link/email verification to the account to maintain legitimacy
-        if (registerMethod === 'email') {
-          try {
-            await sendEmailVerification(userCredential.user);
-            console.log("Legitimacy confirmation verification email sent to", identifier);
-          } catch (verifErr) {
-            console.error("Failed to send verification email:", verifErr);
+      // Register account in Supabase Authentication
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+        email: identifier,
+        password: password,
+        options: {
+          data: {
+            display_name: name,
+            role: role
           }
         }
+      });
+
+      if (signUpErr) {
+        throw new Error(signUpErr.message);
       }
+
+      const uid = signUpData.user?.id || `user-${Date.now()}`;
 
       // Prepare detailed profile parameters
       const additionalDetails = role === 'professional' ? {
@@ -568,7 +570,7 @@ export function Register() {
         pincode,
         country,
         coordinates: proCoordinates,
-        uid: userCredential.user.uid
+        uid: uid
       } : {
         mobile: phoneToCheck,
         dob,
@@ -578,10 +580,10 @@ export function Register() {
         state,
         pincode,
         country,
-        uid: userCredential.user.uid
+        uid: uid
       };
 
-      // Call store login to trigger Firestore synchronization and session load
+      // Call store login to trigger Supabase synchronization and session load
       login(identifier, role, name, additionalDetails);
       setShowRegisterOtpModal(false);
       navigate('/dashboard');

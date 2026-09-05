@@ -9,8 +9,7 @@ import {
 import { CustomerDashboardView } from '../components/dashboard/CustomerDashboardView';
 import { ProfessionalDashboardView } from '../components/dashboard/ProfessionalDashboardView';
 import { AdminDashboardView } from '../components/dashboard/AdminDashboardView';
-import { auth } from '../lib/firebase';
-import { sendEmailVerification } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
 
 export function Dashboard() {
   const { currentUser } = useStore();
@@ -19,15 +18,21 @@ export function Dashboard() {
   
   const currentTab = searchParams.get('tab') || 'overview';
 
+  const [supabaseUser, setSupabaseUser] = React.useState<any>(null);
   const [verificationSent, setVerificationSent] = React.useState(false);
   const [resendLoading, setResendLoading] = React.useState(false);
 
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setSupabaseUser(data?.user || null);
+    });
+  }, []);
+
   const handleResendVerification = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    if (!supabaseUser?.email) return;
     setResendLoading(true);
     try {
-      await sendEmailVerification(user);
+      await supabase.auth.resend({ type: 'signup', email: supabaseUser.email });
       setVerificationSent(true);
     } catch (err: any) {
       console.error("Failed to resend email verification", err);
@@ -144,14 +149,14 @@ export function Dashboard() {
           </div>
 
           {/* Email Verification Alert Banner to Maintain Legitimacy */}
-          {auth.currentUser && auth.currentUser.email && !auth.currentUser.email.endsWith('@kaamnow.com') && !auth.currentUser.email.endsWith('@goservik.com') && !auth.currentUser.emailVerified && (
+          {supabaseUser && supabaseUser.email && !supabaseUser.email.endsWith('@kaamnow.com') && !supabaseUser.email.endsWith('@goservik.com') && !supabaseUser.email_confirmed_at && (
             <div className="bg-amber-50/80 border border-amber-200/80 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in backdrop-blur-sm">
               <div className="flex gap-3">
                 <span className="text-2xl mt-0.5">✉️</span>
                 <div>
                   <h4 className="font-bold text-slate-900 text-sm">Please verify your email address</h4>
                   <p className="text-xs text-slate-600 mt-1">
-                    A legitimacy confirmation link was sent to <strong className="font-bold">{auth.currentUser.email}</strong>. 
+                    A legitimacy confirmation link was sent to <strong className="font-bold">{supabaseUser.email}</strong>. 
                     Please verify your email to maintain full account authenticity.
                   </p>
                 </div>

@@ -6,8 +6,7 @@
 import { useEffect } from 'react';
 import { RouterProvider, createBrowserRouter } from 'react-router-dom';
 import { useStore } from './store';
-import { auth } from './lib/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+import { supabase } from './lib/supabase';
 import { Layout } from './components/layout/Layout';
 import { Home } from './pages/Home';
 import { Explore } from './pages/Explore';
@@ -120,10 +119,11 @@ const router = createBrowserRouter([
 
 export default function App() {
   useEffect(() => {
-    // 1. Initialize from firestore first
-    useStore.getState().initializeFromFirestore().then(() => {
+    // 1. Initialize from Supabase first
+    useStore.getState().initializeFromSupabase().then(() => {
       // 2. Set up listener to auto-resume active sessions on browser reload
-      const unsubscribe = onAuthStateChanged(auth, (authUser) => {
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        const authUser = session?.user;
         if (authUser) {
           const email = authUser.email?.toLowerCase();
           if (email) {
@@ -141,7 +141,7 @@ export default function App() {
             }
 
             const state = useStore.getState();
-            const uid = authUser.uid;
+            const uid = authUser.id;
 
             // Extract phone if synthetic mobile email was used
             let phone = '';
@@ -178,14 +178,20 @@ export default function App() {
             }
           }
         } else {
-          // No user found in Firebase Auth. Clear any saved local user to remain logged out
-          useStore.setState({ currentUser: null });
-          localStorage.removeItem('kaamnow_user');
-          localStorage.removeItem('goservik_user');
+          // If local user is admin, allow session persistence
+          const saved = localStorage.getItem('kaamnow_user');
+          if (saved) {
+            try {
+              const parsed = JSON.parse(saved);
+              if (parsed.role === 'admin') return;
+            } catch {}
+          }
         }
       });
 
-      return () => unsubscribe();
+      return () => {
+        authListener.subscription.unsubscribe();
+      };
     });
   }, []);
 

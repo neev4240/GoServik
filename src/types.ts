@@ -137,6 +137,7 @@ export interface Booking {
   serviceId?: string;
   categoryId?: string;
   categoryName?: string;
+  serviceTitle?: string;
   selectedSubcategories: string[];
   coordinates?: { lat: number; lng: number };
   date: string;

@@ -7,10 +7,11 @@ import {
   ShieldAlert, Sparkles, UserCheck, Calendar, LogOut, 
   AlertCircle, ArrowLeft, Shield, Wrench, Eye, Users,
   Edit2, Trash2, Search, X, Phone, Mail, MapPin, 
-  User, Globe, Building2, Activity, Clock, LayoutDashboard
+  User, Globe, Building2, Activity, Clock, LayoutDashboard, Copy, Check,
+  UploadCloud, Folder, FileCheck, ExternalLink, Image as ImageIcon, Loader2, Download, FileText
 } from 'lucide-react';
-import { db } from '../lib/firebase';
-import { setDoc, doc, getDocs, collection, deleteDoc } from 'firebase/firestore';
+import { supabase, supabaseDb, supabaseStorage } from '../lib/supabase';
+import { SUPABASE_SCHEMA_SQL, SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_KEY } from '../lib/supabaseSchemaCode';
 import { Role, ProfessionalProfile, Booking } from '../types';
 
 export function AdminPage() {
@@ -39,7 +40,65 @@ export function AdminPage() {
   const [loginError, setLoginError] = useState('');
 
   // Navigation page/tab state
-  const [activeTab, setActiveTab] = useState<'overview' | 'professionals' | 'customers' | 'bookings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'professionals' | 'customers' | 'bookings' | 'supabase' | 'storage'>('overview');
+
+  // Supabase Storage state
+  const [selectedBucket, setSelectedBucket] = useState<'profiles' | 'kaamnow-media'>('profiles');
+  const [storageFiles, setStorageFiles] = useState<any[]>([]);
+  const [storageLoading, setStorageLoading] = useState(false);
+  const [storageError, setStorageError] = useState('');
+  const [storageActionMsg, setStorageActionMsg] = useState('');
+  const [uploadingAdminFile, setUploadingAdminFile] = useState(false);
+
+  const fetchStorageFiles = async (bucket = selectedBucket) => {
+    setStorageLoading(true);
+    setStorageError('');
+    try {
+      const files = await supabaseStorage.listFiles(bucket);
+      setStorageFiles(files);
+    } catch (err: any) {
+      setStorageError(err.message || 'Failed to list files');
+    } finally {
+      setStorageLoading(false);
+    }
+  };
+
+  const handleAdminStorageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAdminFile(true);
+    setStorageActionMsg('Uploading file to Supabase Storage...');
+    try {
+      const cleanName = `admin_upload_${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+      const { url, error } = await supabaseStorage.uploadFile(selectedBucket, cleanName, file);
+      if (error) {
+        setStorageActionMsg(`Upload note: ${error}`);
+      } else {
+        setStorageActionMsg(`✓ File uploaded successfully to ${selectedBucket}!`);
+        await fetchStorageFiles(selectedBucket);
+      }
+    } catch (err: any) {
+      setStorageActionMsg(`Upload failed: ${err.message}`);
+    } finally {
+      setUploadingAdminFile(false);
+      setTimeout(() => setStorageActionMsg(''), 4000);
+    }
+  };
+
+  const handleDeleteStorageFile = async (filePath: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${filePath}" from bucket "${selectedBucket}"?`)) {
+      return;
+    }
+    const ok = await supabaseStorage.deleteFile(selectedBucket, filePath);
+    if (ok) {
+      setStorageActionMsg(`✓ File deleted from bucket.`);
+      setStorageFiles(prev => prev.filter(f => f.path !== filePath && f.name !== filePath));
+    } else {
+      setStorageActionMsg(`Failed to delete file.`);
+    }
+    setTimeout(() => setStorageActionMsg(''), 3000);
+  };
 
   // Search/Filter states
   const [searchPro, setSearchPro] = useState('');
@@ -84,33 +143,25 @@ export function AdminPage() {
     setIsLoggedIn(false);
   };
 
-  const handleSyncToFirebase = async () => {
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const handleCopySql = () => {
+    navigator.clipboard.writeText(SUPABASE_SCHEMA_SQL);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 3000);
+  };
+
+  const handleSyncToSupabase = async () => {
     setSyncing(true);
     setSyncMessage('');
     try {
-      // Sync categories collection
-      for (const cat of categories) {
-        await setDoc(doc(db, "categories", cat.id), cat);
+      const res = await useStore.getState().syncToSupabase();
+      if (res.success) {
+        setSyncMessage(res.message);
+      } else {
+        setSyncMessage(`Error: ${res.message}`);
       }
-      // Sync professionals collection
-      for (const pro of professionals) {
-        await setDoc(doc(db, "professionals", pro.id), pro);
-      }
-      // Sync bookings
-      for (const bk of bookings) {
-        await setDoc(doc(db, "bookings", bk.id), bk);
-      }
-      // Sync reviews
-      for (const rev of reviews) {
-        await setDoc(doc(db, "reviews", rev.id), rev);
-      }
-      // Sync customers
-      for (const cust of customers) {
-        await setDoc(doc(db, "customers", cust.id), cust);
-      }
-
-      setSyncMessage('Successfully synced all live data and mocks into Firebase Firestore!');
-      setTimeout(() => setSyncMessage(''), 4000);
+      setTimeout(() => setSyncMessage(''), 5000);
     } catch (e: any) {
       setSyncMessage(`Error syncing: ${e.message}`);
     } finally {
@@ -122,22 +173,22 @@ export function AdminPage() {
   const [purging, setPurging] = useState(false);
 
   const handleDeleteAllUsers = async () => {
-    if (!window.confirm("Are you absolutely sure you want to delete ALL customers and professional partners from the database? This action is permanent and irreversible.")) {
+    if (!window.confirm("Are you absolutely sure you want to delete ALL customers and professional partners from Supabase? This action is permanent and irreversible.")) {
       return;
     }
     setPurging(true);
     setSyncMessage('');
     try {
-      // 1. Delete all customers from Firestore
-      const custSnap = await getDocs(collection(db, 'customers'));
-      for (const d of custSnap.docs) {
-        await deleteDoc(doc(db, 'customers', d.id));
+      // 1. Delete all customers from Supabase
+      const custs = await supabaseDb.getCustomers();
+      for (const c of custs) {
+        await supabaseDb.deleteCustomer(c.id);
       }
 
-      // 2. Delete all professionals from Firestore
-      const proSnap = await getDocs(collection(db, 'professionals'));
-      for (const d of proSnap.docs) {
-        await deleteDoc(doc(db, 'professionals', d.id));
+      // 2. Delete all professionals from Supabase
+      const pros = await supabaseDb.getProfessionals();
+      for (const p of pros) {
+        await supabaseDb.deleteProfessional(p.id);
       }
 
       // 3. Clear store state
@@ -146,7 +197,7 @@ export function AdminPage() {
         professionals: []
       });
 
-      setSyncMessage('Successfully deleted ALL registered users (Customers & Professionals) from Firestore!');
+      setSyncMessage('Successfully deleted ALL registered users (Customers & Professionals) from Supabase!');
       setTimeout(() => setSyncMessage(''), 4000);
     } catch (e: any) {
       setSyncMessage(`Purge failed: ${e.message}`);
@@ -393,6 +444,33 @@ export function AdminPage() {
             <Calendar className="h-4 w-4" />
             Bookings & Cancellations ({bookings.length})
           </button>
+
+          <button
+            onClick={() => setActiveTab('supabase')}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'supabase' 
+                ? 'bg-emerald-700 text-white shadow-md' 
+                : 'text-emerald-700 hover:bg-emerald-50'
+            }`}
+          >
+            <Database className="h-4 w-4" />
+            Supabase Schema & SQL
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab('storage');
+              fetchStorageFiles(selectedBucket);
+            }}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl text-xs font-extrabold transition-all ${
+              activeTab === 'storage' 
+                ? 'bg-indigo-600 text-white shadow-md' 
+                : 'text-indigo-700 hover:bg-indigo-50'
+            }`}
+          >
+            <UploadCloud className="h-4 w-4" />
+            Supabase Storage & Media
+          </button>
         </div>
 
         {/* Active Workspace Container */}
@@ -502,23 +580,23 @@ export function AdminPage() {
                     <div>
                       <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Manual Database Sync</p>
                       <p className="text-[11px] text-slate-500 leading-normal mt-1">
-                        Write all current local state variables, categories, expert technicians, registered clients, and reviews directly to the Firestore collection.
+                        Write all current local state variables, categories, expert technicians, registered clients, and reviews directly to Supabase tables.
                       </p>
                     </div>
                     <button
-                      onClick={handleSyncToFirebase}
+                      onClick={handleSyncToSupabase}
                       disabled={syncing}
-                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
+                      className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs rounded-xl shadow-md shadow-emerald-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
                     >
                       {syncing ? (
                         <>
                           <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                          Syncing with Firestore...
+                          Syncing with Supabase...
                         </>
                       ) : (
                         <>
                           <RefreshCw className="h-3.5 w-3.5" />
-                          Sync All Live Data to Cloud
+                          Sync All Live Data to Supabase
                         </>
                       )}
                     </button>
@@ -528,15 +606,15 @@ export function AdminPage() {
                     <div>
                       <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Local Cache Refresh</p>
                       <p className="text-[11px] text-slate-500 leading-normal mt-1">
-                        Re-fetch the entire schema (Categories, Bookings, Customers, Technicians) fresh from Firestore, replacing any outdated local states.
+                        Re-fetch the entire schema (Categories, Bookings, Customers, Technicians) fresh from Supabase, replacing any outdated local states.
                       </p>
                     </div>
                     <button
                       onClick={async () => {
                         setSyncing(true);
                         try {
-                          await useStore.getState().initializeFromFirestore();
-                          setSyncMessage("Successfully refreshed all local memory from Cloud Firestore!");
+                          await useStore.getState().initializeFromSupabase();
+                          setSyncMessage("Successfully refreshed all local memory from Supabase Database!");
                           setTimeout(() => setSyncMessage(''), 3000);
                         } catch (err: any) {
                           setSyncMessage(`Refresh failed: ${err.message}`);
@@ -548,7 +626,7 @@ export function AdminPage() {
                       className="w-full py-2.5 bg-slate-950 hover:bg-slate-850 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
                     >
                       <RefreshCw className="h-3.5 w-3.5" />
-                      Fetch Latest from Cloud
+                      Fetch Latest from Supabase
                     </button>
                   </div>
 
@@ -556,7 +634,7 @@ export function AdminPage() {
                     <div>
                       <p className="text-xs font-black text-rose-800 uppercase tracking-wider">Reset Users (Purge DB)</p>
                       <p className="text-[11px] text-rose-600 leading-normal mt-1">
-                        Permanently delete ALL registered customer accounts and professional partners from Firestore to start with a fresh blank slate.
+                        Permanently delete ALL registered customer accounts and professional partners from Supabase to start with a fresh blank slate.
                       </p>
                     </div>
                     <button
@@ -571,8 +649,8 @@ export function AdminPage() {
 
                   <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 flex flex-col justify-between">
                     <div>
-                      <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Cloud Data Statistics</p>
-                      <p className="text-[11px] text-slate-400 font-semibold mb-2">Live count of collections stored on Google Cloud Firestore:</p>
+                      <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Supabase Data Statistics</p>
+                      <p className="text-[11px] text-slate-400 font-semibold mb-2">Live count of records stored in Supabase (Project: {SUPABASE_PROJECT_ID}):</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-slate-600">
                       <div className="bg-white px-3 py-2 rounded-xl border border-slate-100">
@@ -1008,6 +1086,442 @@ export function AdminPage() {
                   })}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ======================================= */}
+          {/* SUPABASE SQL & SCHEMA MANAGER           */}
+          {/* ======================================= */}
+          {activeTab === 'supabase' && (
+            <div className="space-y-8 animate-fade-in">
+              {/* Header card with Project Details */}
+              <div className="bg-white border border-emerald-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-[10px] bg-emerald-50 text-emerald-700 font-extrabold border border-emerald-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                        Active Supabase Backend
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 mt-2">Supabase PostgreSQL Schema & Table Generation</h2>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      Full relational database schema, indexes, real-time publications, and Row Level Security (RLS) policies for Project: <code className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{SUPABASE_PROJECT_ID}</code>.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <button
+                      onClick={handleCopySql}
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200 transition-all cursor-pointer"
+                    >
+                      {copiedSql ? (
+                        <>
+                          <Check className="h-4 w-4" />
+                          SQL Script Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4" />
+                          Copy Complete SQL Code
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={`https://supabase.com/dashboard/project/${SUPABASE_PROJECT_ID}/sql/new`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all"
+                    >
+                      <Globe className="h-3.5 w-3.5" />
+                      Open Supabase SQL Editor
+                    </a>
+                  </div>
+                </div>
+
+                {/* Connection Credentials Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-1">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project ID</p>
+                    <p className="text-xs font-mono font-bold text-slate-900">{SUPABASE_PROJECT_ID}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-1 overflow-hidden">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Project URL</p>
+                    <p className="text-xs font-mono font-bold text-slate-900 truncate">{SUPABASE_URL}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/60 space-y-1 overflow-hidden">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Publishable API Key</p>
+                    <p className="text-xs font-mono font-bold text-slate-900 truncate">{SUPABASE_KEY}</p>
+                  </div>
+                </div>
+
+                {/* Execution Guide */}
+                <div className="bg-emerald-50/60 border border-emerald-200/70 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-xs font-black text-emerald-950 uppercase tracking-wider flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-600" />
+                    How to Run in Supabase Dashboard:
+                  </h3>
+                  <ol className="list-decimal list-inside text-xs text-emerald-900 space-y-1.5 font-medium">
+                    <li>Click the <b>"Copy Complete SQL Code"</b> button above.</li>
+                    <li>Open your Supabase project: <a href={`https://supabase.com/dashboard/project/${SUPABASE_PROJECT_ID}/sql/new`} target="_blank" rel="noopener noreferrer" className="underline font-bold text-emerald-800">Supabase SQL Editor (New Query)</a>.</li>
+                    <li>Paste the code into the editor query box and click the green <b>"Run"</b> button.</li>
+                    <li>Once tables are created, click <b>"Sync All Live Data to Supabase"</b> below to seed all initial categories, technician partners, and mock data into the database!</li>
+                  </ol>
+                </div>
+
+                {/* Live Action Sync Controls */}
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button
+                    onClick={handleSyncToSupabase}
+                    disabled={syncing}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-100 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? "Syncing..." : "Sync All Live Data to Supabase"}
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setSyncing(true);
+                      try {
+                        await useStore.getState().initializeFromSupabase();
+                        setSyncMessage("Successfully refreshed data from Supabase!");
+                        setTimeout(() => setSyncMessage(''), 3000);
+                      } catch (e: any) {
+                        setSyncMessage(`Error: ${e.message}`);
+                      } finally {
+                        setSyncing(false);
+                      }
+                    }}
+                    disabled={syncing}
+                    className="flex items-center gap-2 px-5 py-3 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                    Fetch Latest from Supabase
+                  </button>
+                </div>
+              </div>
+
+              {/* SQL Code Block Display */}
+              <div className="bg-slate-950 rounded-3xl border border-slate-800 overflow-hidden shadow-2xl">
+                <div className="flex items-center justify-between px-6 py-4 bg-slate-900/90 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                    <span className="text-xs font-mono font-bold text-slate-400 ml-2">supabase-schema.sql</span>
+                  </div>
+                  <button
+                    onClick={handleCopySql}
+                    className="flex items-center gap-1.5 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+                  >
+                    {copiedSql ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                    {copiedSql ? "Copied!" : "Copy SQL"}
+                  </button>
+                </div>
+
+                <div className="p-6 overflow-x-auto max-h-[550px] overflow-y-auto font-mono text-[11px] text-slate-200 leading-relaxed whitespace-pre select-all bg-slate-950">
+                  {SUPABASE_SCHEMA_SQL}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================= */}
+          {/* SUPABASE STORAGE & MEDIA BUCKETS TAB    */}
+          {/* ======================================= */}
+          {activeTab === 'storage' && (
+            <div className="space-y-8 animate-fade-in">
+              {/* Header card with Storage Details */}
+              <div className="bg-white border border-indigo-100 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-6">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="px-3 py-1 rounded-full text-[10px] bg-indigo-50 text-indigo-700 font-extrabold border border-indigo-200 uppercase tracking-wider flex items-center gap-1.5">
+                        <UploadCloud className="h-3.5 w-3.5" />
+                        Supabase Object Storage
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                        Synchronized with Professionals
+                      </span>
+                    </div>
+                    <h2 className="text-2xl font-black text-slate-900 mt-2">Supabase Media & Document Storage</h2>
+                    <p className="text-xs text-slate-500 font-medium mt-1">
+                      Inspect, verify, and manage all profile avatars, trade certificates, government IDs, and service gallery media stored in Supabase Storage.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => fetchStorageFiles(selectedBucket)}
+                      disabled={storageLoading}
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-850 text-white shadow-sm transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCw className={`h-4 w-4 ${storageLoading ? 'animate-spin' : ''}`} />
+                      Refresh Bucket Files
+                    </button>
+                  </div>
+                </div>
+
+                {storageActionMsg && (
+                  <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-900 text-xs font-bold flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-indigo-600 shrink-0" />
+                    <span>{storageActionMsg}</span>
+                  </div>
+                )}
+
+                {/* Bucket Selection and Stats */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div 
+                    onClick={() => {
+                      setSelectedBucket('profiles');
+                      fetchStorageFiles('profiles');
+                    }}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                      selectedBucket === 'profiles'
+                        ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Bucket: profiles</h4>
+                        <p className="text-[11px] text-slate-500">Avatars, Gov IDs, Trade Verification Documents</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                      {selectedBucket === 'profiles' ? storageFiles.length : 'Select'}
+                    </span>
+                  </div>
+
+                  <div 
+                    onClick={() => {
+                      setSelectedBucket('kaamnow-media');
+                      fetchStorageFiles('kaamnow-media');
+                    }}
+                    className={`p-5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                      selectedBucket === 'kaamnow-media'
+                        ? 'border-indigo-600 bg-indigo-50/50 shadow-sm ring-2 ring-indigo-500/20'
+                        : 'border-slate-200 bg-white hover:border-indigo-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-700">
+                        <ImageIcon className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Bucket: kaamnow-media</h4>
+                        <p className="text-[11px] text-slate-500">Service showcase images, customer uploads, work samples</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-black px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700">
+                      {selectedBucket === 'kaamnow-media' ? storageFiles.length : 'Select'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Admin Direct Upload to Current Bucket */}
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h5 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <UploadCloud className="h-4 w-4 text-indigo-600" />
+                      Direct Upload to "{selectedBucket}"
+                    </h5>
+                    <p className="text-[11px] text-slate-500">Admin can upload assets directly to test or sync storage.</p>
+                  </div>
+                  <label className="cursor-pointer">
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      disabled={uploadingAdminFile}
+                      onChange={handleAdminStorageUpload}
+                    />
+                    <span className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow transition cursor-pointer">
+                      {uploadingAdminFile ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                      Upload File to {selectedBucket}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Professional Media Verification Sync Table */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <Shield className="h-4 w-4 text-indigo-600" />
+                      Professional Media & Verification Document Status
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Shows each professional's synchronized profile avatar, trade certification document, and gallery photos.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500">
+                    {professionals.filter(p => p.avatar || (p.certifications && p.certifications.length > 0)).length} / {professionals.length} Pros with uploaded media
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-slate-200 text-slate-400 font-extrabold uppercase text-[10px]">
+                        <th className="py-3 px-3">Professional</th>
+                        <th className="py-3 px-3">Category</th>
+                        <th className="py-3 px-3">Avatar Photo</th>
+                        <th className="py-3 px-3">Gov ID / Trade Doc</th>
+                        <th className="py-3 px-3">Gallery Samples</th>
+                        <th className="py-3 px-3">Verification Badge</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {professionals.slice(0, 10).map((pro) => (
+                        <tr key={pro.id} className="hover:bg-slate-50 transition">
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="h-8 w-8 rounded-full bg-slate-100 overflow-hidden flex items-center justify-center border shrink-0">
+                                {pro.avatar ? (
+                                  <img src={pro.avatar} alt={pro.name} className="h-full w-full object-cover" />
+                                ) : (
+                                  <User className="h-4 w-4 text-slate-400" />
+                                )}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block">{pro.name}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{pro.mobile || pro.email}</span>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-slate-700">
+                            {categories.find(c => c.id === (pro as any).categoryId || c.id === pro.services?.[0]?.categoryId)?.name || 'Home Trades'}
+                          </td>
+                          <td className="py-3 px-3">
+                            {pro.avatar ? (
+                              <a 
+                                href={pro.avatar} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800"
+                              >
+                                View Avatar <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">Default</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {pro.certifications && pro.certifications.length > 0 ? (
+                              <a 
+                                href={pro.certifications[0]} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-800"
+                              >
+                                <FileCheck className="h-3.5 w-3.5" /> ID Proof <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-amber-600 font-medium">Pending upload</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-slate-600">
+                            {pro.gallery?.length || 0} photos
+                          </td>
+                          <td className="py-3 px-3">
+                            {pro.verified ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <CheckCircle className="h-3 w-3" /> Verified
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">
+                                Unverified
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Bucket File Explorer */}
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 border-b pb-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                      <Folder className="h-4 w-4 text-indigo-600" />
+                      Live Files in Bucket: "{selectedBucket}"
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Querying Supabase Storage API directly.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-slate-500">
+                    {storageFiles.length} files listed
+                  </span>
+                </div>
+
+                {storageLoading ? (
+                  <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600" />
+                    <span className="text-xs font-semibold">Loading Supabase Storage files...</span>
+                  </div>
+                ) : storageFiles.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 space-y-2">
+                    <Folder className="h-10 w-10 mx-auto text-slate-300" />
+                    <p className="text-xs font-bold text-slate-600">No files found in bucket "{selectedBucket}" yet.</p>
+                    <p className="text-[11px] text-slate-400">
+                      When professionals upload their avatars or IDs, or when you use the upload button above, files appear here in real-time.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {storageFiles.map((file, idx) => (
+                      <div key={idx} className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-3">
+                        <div className="space-y-2">
+                          <div className="h-28 w-full rounded-xl bg-white border border-slate-200 overflow-hidden flex items-center justify-center">
+                            {file.publicUrl && (file.name.endsWith('.jpg') || file.name.endsWith('.png') || file.name.endsWith('.jpeg') || file.name.endsWith('.webp')) ? (
+                              <img src={file.publicUrl} alt={file.name} className="h-full w-full object-cover" />
+                            ) : (
+                              <FileText className="h-10 w-10 text-slate-300" />
+                            )}
+                          </div>
+                          <div className="truncate">
+                            <span className="text-xs font-bold text-slate-800 block truncate" title={file.name}>
+                              {file.name}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {file.metadata?.size ? `${Math.round(file.metadata.size / 1024)} KB` : 'Object'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-200">
+                          {file.publicUrl && (
+                            <a
+                              href={file.publicUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" /> View
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleDeleteStorageFile(file.path || file.name)}
+                            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 p-1 transition"
+                            title="Delete file"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

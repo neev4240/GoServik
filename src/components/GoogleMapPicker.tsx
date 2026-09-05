@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { APIProvider, Map, AdvancedMarker, Pin, useMap } from '@vis.gl/react-google-maps';
-import { MapPin, Search, Sparkles, AlertCircle, HelpCircle } from 'lucide-react';
+import { 
+  APIProvider, 
+  Map, 
+  AdvancedMarker, 
+  Pin, 
+  useMap, 
+  useApiLoadingStatus, 
+  APILoadingStatus 
+} from '@vis.gl/react-google-maps';
+import { Search, Sparkles, AlertCircle, RefreshCw, Layers } from 'lucide-react';
 
-// Extract Google Maps Platform Key from variables
+// Extract Google Maps Platform Key from environment variables
 const API_KEY =
   process.env.GOOGLE_MAPS_PLATFORM_KEY ||
   (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
@@ -10,6 +18,9 @@ const API_KEY =
   '';
 
 const hasValidKey = Boolean(API_KEY) && API_KEY !== 'YOUR_API_KEY' && API_KEY.trim().length > 10;
+
+// Delhi NCR coordinates default for KaamNow
+const DEFAULT_COORDS = { lat: 28.6139, lng: 77.2090 };
 
 interface MapPickerProps {
   value?: { lat: number; lng: number };
@@ -19,7 +30,7 @@ interface MapPickerProps {
 }
 
 // ----------------------------------------------------
-// GOOGLE MAPS IMPLEMENTATION
+// GOOGLE MAPS CONTROLLER (SAFE GEOCODING)
 // ----------------------------------------------------
 function GoogleMapController({ 
   value, 
@@ -34,27 +45,30 @@ function GoogleMapController({
 }) {
   const map = useMap();
 
-  // Handle Geocoding of search text
   useEffect(() => {
     if (!map || !searchQuery) return;
 
     const geocodeAddress = async () => {
+      setSearchError('');
       try {
-        setSearchError('');
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ address: searchQuery }, (results, status) => {
-          if (status === 'OK' && results && results[0]) {
-            const loc = results[0].geometry.location;
-            const newCoords = { lat: loc.lat(), lng: loc.lng() };
+        // First try standard Geocoding REST / Open Nominatim for maximum reliability
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=1`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.length > 0) {
+            const loc = data[0];
+            const newCoords = { lat: parseFloat(loc.lat), lng: parseFloat(loc.lon) };
             onChange(newCoords);
             map.setCenter(newCoords);
             map.setZoom(15);
-          } else {
-            setSearchError(`Address search failed: ${status}`);
+            return;
           }
-        });
+        }
+        setSearchError('Address not found. Please click location directly on map.');
       } catch (err: any) {
-        setSearchError(err.message || 'Geocoding failed');
+        setSearchError(err.message || 'Geocoding failed. Please click location on map.');
       }
     };
 
@@ -64,14 +78,16 @@ function GoogleMapController({
   return null;
 }
 
+// ----------------------------------------------------
+// GOOGLE MAPS COMPONENT
+// ----------------------------------------------------
 function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerProps) {
   const [searchVal, setSearchVal] = useState(addressInput || '');
   const [triggeredSearch, setTriggeredSearch] = useState('');
   const [searchError, setSearchError] = useState('');
 
-  // Starting location focus: Mumbai (defaults)
-  const initialLat = value?.lat || 19.0760;
-  const initialLng = value?.lng || 72.8777;
+  const initialLat = value?.lat || DEFAULT_COORDS.lat;
+  const initialLng = value?.lng || DEFAULT_COORDS.lng;
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -106,7 +122,7 @@ function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerPr
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="Search address or landmark to center map..."
+            placeholder="Search address or landmark in Delhi NCR..."
             className="w-full rounded-xl border border-slate-250 bg-white pl-9 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none transition-all"
           />
         </div>
@@ -157,17 +173,53 @@ function GoogleMapPickerComponent({ value, onChange, addressInput }: MapPickerPr
           <Sparkles className="h-3.5 w-3.5 text-indigo-600 animate-pulse" />
           Google Maps Precision Mode Active
         </div>
-        <p className="text-slate-500">Click on map to customize coordinates</p>
+        <p className="text-slate-500">Click on map to customize pin coordinates</p>
       </div>
     </div>
   );
 }
 
+// ----------------------------------------------------
+// GOOGLE MAP GUARD (Detects Billing & Auth Failures)
+// ----------------------------------------------------
+function GoogleMapGuard({ 
+  children, 
+  fallback,
+  onAuthFailure
+}: { 
+  children: React.ReactNode; 
+  fallback: React.ReactNode;
+  onAuthFailure: () => void;
+}) {
+  const status = useApiLoadingStatus();
+
+  useEffect(() => {
+    if (status === APILoadingStatus.AUTH_FAILURE || status === APILoadingStatus.FAILED) {
+      console.warn("Google Maps API auth/billing status error detected:", status);
+      onAuthFailure();
+    }
+  }, [status, onAuthFailure]);
+
+  if (status === APILoadingStatus.AUTH_FAILURE || status === APILoadingStatus.FAILED) {
+    return <>{fallback}</>;
+  }
+
+  return <>{children}</>;
+}
 
 // ----------------------------------------------------
-// LEAFLET FALLBACK IMPLEMENTATION (NO API KEY SETUP)
+// LEAFLET OPENSTREETMAP FALLBACK IMPLEMENTATION
 // ----------------------------------------------------
-function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerProps) {
+function LeafletMapPickerComponent({ 
+  value, 
+  onChange, 
+  addressInput,
+  isFallbackNotice,
+  onRetryGoogleMaps
+}: MapPickerProps & { 
+  isFallbackNotice?: boolean;
+  onRetryGoogleMaps?: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markerRef = useRef<any>(null);
@@ -209,14 +261,42 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
     if (!leafletLoaded || !containerRef.current || !(window as any).L) return;
 
     const L = (window as any).L;
-    const initialLat = value?.lat || 19.0760;
-    const initialLng = value?.lng || 72.8777;
+    const initialLat = value?.lat || DEFAULT_COORDS.lat;
+    const initialLng = value?.lng || DEFAULT_COORDS.lng;
+
+    // Custom pure SVG marker pin that does not depend on CDN image files
+    const customPinIcon = L.divIcon({
+      className: 'kaamnow-map-pin',
+      html: `<div style="
+        background-color: #4f46e5;
+        width: 30px;
+        height: 30px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        border: 2px solid #ffffff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <div style="
+          width: 10px;
+          height: 10px;
+          background-color: #ffffff;
+          border-radius: 50%;
+          transform: rotate(45deg);
+        "></div>
+      </div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 30]
+    });
 
     if (!mapRef.current) {
       mapRef.current = L.map(containerRef.current).setView([initialLat, initialLng], value ? 15 : 12);
       
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap contributors'
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19
       }).addTo(mapRef.current);
 
       mapRef.current.on('click', (e: any) => {
@@ -226,7 +306,7 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
         if (markerRef.current) {
           markerRef.current.setLatLng([lat, lng]);
         } else {
-          markerRef.current = L.marker([lat, lng]).addTo(mapRef.current);
+          markerRef.current = L.marker([lat, lng], { icon: customPinIcon }).addTo(mapRef.current);
         }
       });
     }
@@ -236,13 +316,13 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
       if (markerRef.current) {
         markerRef.current.setLatLng(pos);
       } else {
-        markerRef.current = L.marker(pos).addTo(mapRef.current);
+        markerRef.current = L.marker(pos, { icon: customPinIcon }).addTo(mapRef.current);
       }
       mapRef.current.setView(pos, mapRef.current.getZoom());
     }
   }, [leafletLoaded, value, onChange]);
 
-  // Clean up Leaflet Map Ref
+  // Clean up Leaflet Map Ref on unmount
   useEffect(() => {
     return () => {
       if (mapRef.current) {
@@ -253,7 +333,7 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
     };
   }, []);
 
-  // Search Address using Free Nominatim OpenStreetMap API
+  // Search Address using Nominatim OpenStreetMap API
   const handleSearchSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!searchVal.trim()) return;
@@ -262,7 +342,9 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
     setSearchError('');
 
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchVal.trim())}&limit=1`);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchVal.trim())}&limit=1`
+      );
       if (!res.ok) throw new Error('Search failed');
       const data = await res.json();
       
@@ -276,31 +358,64 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
           if (markerRef.current) {
             markerRef.current.setLatLng([newCoords.lat, newCoords.lng]);
           } else {
-            markerRef.current = (window as any).L.marker([newCoords.lat, newCoords.lng]).addTo(mapRef.current);
+            const L = (window as any).L;
+            const customPinIcon = L.divIcon({
+              className: 'kaamnow-map-pin',
+              html: `<div style="
+                background-color: #4f46e5;
+                width: 30px;
+                height: 30px;
+                border-radius: 50% 50% 50% 0;
+                transform: rotate(-45deg);
+                border: 2px solid #ffffff;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              "><div style="width: 10px; height: 10px; background-color: #ffffff; border-radius: 50%;"></div></div>`,
+              iconSize: [30, 30],
+              iconAnchor: [15, 30]
+            });
+            markerRef.current = L.marker([newCoords.lat, newCoords.lng], { icon: customPinIcon }).addTo(mapRef.current);
           }
         }
       } else {
-        setSearchError('No matching places found. Try a broader search (e.g. Mumbai, Bandra West).');
+        setSearchError('No matching places found. Try a broader search (e.g. Connaught Place, Saket, Noida Sector 18).');
       }
     } catch (err) {
-      setSearchError('Search request failed. Please click coordinates manually.');
+      setSearchError('Search request could not be completed. Please click coordinates directly on the map.');
     } finally {
       setSearchLoading(false);
     }
   };
 
   return (
-    <div className="space-y-4">
-      {/* Fallback Instruction Bar */}
-      <div className="bg-amber-50 border border-amber-200/80 p-3.5 rounded-2xl flex gap-3 text-xs text-amber-800">
-        <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-        <div>
-          <span className="font-extrabold block mb-0.5">Google Maps Setup Pending</span>
-          <span className="leading-relaxed text-[11px] block text-amber-700">
-            For professional Google Maps search autocomplete and pinning, register a Maps API key in Settings → Secrets with key <code>GOOGLE_MAPS_PLATFORM_KEY</code>. Utilizing open-source fallback engine for this session.
-          </span>
+    <div className="space-y-3">
+      {/* Notice bar if Google Maps billing is pending */}
+      {isFallbackNotice && (
+        <div className="bg-amber-50/90 border border-amber-250 p-3 rounded-2xl flex items-start justify-between gap-3 text-xs text-amber-900 shadow-sm">
+          <div className="flex gap-2.5 items-start">
+            <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <span className="font-bold block text-amber-900 text-xs">
+                Interactive OpenStreetMap Active
+              </span>
+              <p className="text-[11px] text-amber-700 leading-relaxed">
+                Google Cloud billing is not enabled for the current Maps key (<code>BillingNotEnabledMapError</code>). Location search, pinning, and coordinate capture continue to work seamlessly via OpenStreetMap.
+              </p>
+            </div>
+          </div>
+          {onRetryGoogleMaps && (
+            <button
+              type="button"
+              onClick={onRetryGoogleMaps}
+              className="px-2.5 py-1 text-[10px] font-bold bg-white text-amber-800 border border-amber-300 rounded-lg hover:bg-amber-100 transition-all shrink-0 flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry Key
+            </button>
+          )}
         </div>
-      </div>
+      )}
 
       {/* Search Input */}
       <div className="flex gap-2">
@@ -313,15 +428,15 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
             value={searchVal}
             onChange={(e) => setSearchVal(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="Type city or area to locate map (e.g., Dadar Mumbai)..."
-            className="w-full rounded-xl border border-slate-250 bg-white pl-9 pr-4 py-2.5 text-xs focus:border-indigo-500 focus:outline-none transition-all"
+            placeholder="Type locality or landmark (e.g., Saket, Hauz Khas, Noida)..."
+            className="w-full rounded-xl border border-slate-250 bg-white pl-9 pr-4 py-2 text-xs focus:border-indigo-500 focus:outline-none transition-all"
           />
         </div>
         <button
           type="button"
           disabled={searchLoading}
           onClick={() => handleSearchSubmit()}
-          className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1"
+          className="bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5"
         >
           {searchLoading ? 'Locating...' : 'Relocate'}
         </button>
@@ -338,27 +453,82 @@ function LeafletMapPickerComponent({ value, onChange, addressInput }: MapPickerP
         className="rounded-2xl border border-slate-200 overflow-hidden shadow-inner bg-slate-100 relative z-0"
       />
       
-      <p className="text-slate-500 text-[11px] font-semibold text-center mt-1">
-        💡 You can also click anywhere inside the map above to pinpoint the location.
-      </p>
+      <div className="flex justify-between items-center text-[11px] text-slate-500 px-1 font-medium">
+        <div className="flex items-center gap-1.5">
+          <Layers className="h-3.5 w-3.5 text-indigo-600" />
+          <span>Click anywhere inside the map to pin service location</span>
+        </div>
+        {value && (
+          <span className="font-mono text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+            {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-
 // ----------------------------------------------------
-// CONTAINER / API WRAPPER
+// CONTAINER / RESILIENT PROVIDER WRAPPER
 // ----------------------------------------------------
 export function GoogleMapPicker({ value, onChange, addressInput, onAddressSelected }: MapPickerProps) {
-  if (hasValidKey) {
+  const [billingError, setBillingError] = useState(() => {
+    return typeof window !== 'undefined' && sessionStorage.getItem('gmp_billing_error') === 'true';
+  });
+
+  // Intercept Google Maps gm_authFailure callback globally to catch BillingNotEnabledMapError
+  useEffect(() => {
+    const prevAuthFailure = (window as any).gm_authFailure;
+    (window as any).gm_authFailure = () => {
+      console.warn("Google Maps Platform auth failure detected. Activating fallback interactive map engine.");
+      sessionStorage.setItem('gmp_billing_error', 'true');
+      setBillingError(true);
+      if (typeof prevAuthFailure === 'function') {
+        try { prevAuthFailure(); } catch {}
+      }
+    };
+    return () => {
+      (window as any).gm_authFailure = prevAuthFailure;
+    };
+  }, []);
+
+  const handleRetryGoogleMaps = () => {
+    sessionStorage.removeItem('gmp_billing_error');
+    setBillingError(false);
+  };
+
+  const handleAuthFailure = () => {
+    sessionStorage.setItem('gmp_billing_error', 'true');
+    setBillingError(true);
+  };
+
+  if (hasValidKey && !billingError) {
     return (
-      <APIProvider apiKey={API_KEY} version="weekly">
-        <GoogleMapPickerComponent 
-          value={value} 
-          onChange={onChange} 
-          addressInput={addressInput} 
-          onAddressSelected={onAddressSelected} 
-        />
+      <APIProvider 
+        apiKey={API_KEY} 
+        version="weekly"
+        onError={() => handleAuthFailure()}
+      >
+        <GoogleMapGuard 
+          onAuthFailure={handleAuthFailure}
+          fallback={
+            <LeafletMapPickerComponent 
+              value={value} 
+              onChange={onChange} 
+              addressInput={addressInput} 
+              onAddressSelected={onAddressSelected}
+              isFallbackNotice={true}
+              onRetryGoogleMaps={handleRetryGoogleMaps}
+            />
+          }
+        >
+          <GoogleMapPickerComponent 
+            value={value} 
+            onChange={onChange} 
+            addressInput={addressInput} 
+            onAddressSelected={onAddressSelected} 
+          />
+        </GoogleMapGuard>
       </APIProvider>
     );
   }
@@ -368,7 +538,9 @@ export function GoogleMapPicker({ value, onChange, addressInput, onAddressSelect
       value={value} 
       onChange={onChange} 
       addressInput={addressInput} 
-      onAddressSelected={onAddressSelected} 
+      onAddressSelected={onAddressSelected}
+      isFallbackNotice={Boolean(hasValidKey && billingError)}
+      onRetryGoogleMaps={handleRetryGoogleMaps}
     />
   );
 }

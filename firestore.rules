@@ -31,5 +31,10 @@ service cloud.firestore {
     match /customers/{customerId} {
       allow read, write: if true;
     }
+
+    // Profiles Collection - Universal User & Professional Profiles
+    match /profiles/{profileId} {
+      allow read, write: if true;
+    }
   }
 }
