@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
+import { useLanguage } from '../lib/i18n';
+import { LanguageSwitcher } from '../components/LanguageSelector';
 import { Button } from '../components/ui/Button';
 import { 
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
@@ -13,6 +15,7 @@ import { supabase } from '../lib/supabase';
 
 export function Dashboard() {
   const { currentUser } = useStore();
+  const { t, lang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   
@@ -58,24 +61,24 @@ export function Dashboard() {
   // Dedicated Nav items for each role
   const navItemsByRole = {
     customer: [
-      { id: 'overview', label: 'Overview', icon: UserIcon },
-      { id: 'bookings', label: 'My Bookings', icon: Calendar },
-      { id: 'favorites', label: 'Saved Experts', icon: Heart },
-      { id: 'messages', label: 'Helpline & Chat', icon: MessageSquare },
-      { id: 'settings', label: 'Profile Settings', icon: Settings },
+      { id: 'overview', label: lang === 'hi' ? 'अवलोकन' : 'Overview', icon: UserIcon },
+      { id: 'bookings', label: lang === 'hi' ? 'मेरी बुकिंग्स' : 'My Bookings', icon: Calendar },
+      { id: 'favorites', label: lang === 'hi' ? 'पसंदीदा एक्सपर्ट्स' : 'Saved Experts', icon: Heart },
+      { id: 'messages', label: lang === 'hi' ? 'हेल्पलाइन व चैट' : 'Helpline & Chat', icon: MessageSquare },
+      { id: 'settings', label: lang === 'hi' ? 'प्रोफ़ाइल सेटिंग्स' : 'Profile Settings', icon: Settings },
     ],
     professional: [
-      { id: 'overview', label: 'Overview', icon: Briefcase },
-      { id: 'bookings', label: 'Booking Requests', icon: Calendar },
-      { id: 'services', label: 'Manage Services', icon: FileText },
-      { id: 'messages', label: 'Customer Chat', icon: MessageSquare },
-      { id: 'settings', label: 'Business Profile', icon: Settings },
+      { id: 'overview', label: lang === 'hi' ? 'अवलोकन' : 'Overview', icon: Briefcase },
+      { id: 'bookings', label: lang === 'hi' ? 'बुकिंग अनुरोध' : 'Booking Requests', icon: Calendar },
+      { id: 'services', label: lang === 'hi' ? 'सेवाएं प्रबंधित करें' : 'Manage Services', icon: FileText },
+      { id: 'messages', label: lang === 'hi' ? 'ग्राहक चैट' : 'Customer Chat', icon: MessageSquare },
+      { id: 'settings', label: lang === 'hi' ? 'बिजनेस प्रोफ़ाइल' : 'Business Profile', icon: Settings },
     ],
     admin: [
-      { id: 'overview', label: 'Platform Summary', icon: Briefcase },
-      { id: 'users', label: 'Verify Professionals', icon: UserCheck },
-      { id: 'messages', label: 'Support Chat', icon: MessageSquare },
-      { id: 'settings', label: 'Admin Preferences', icon: Settings },
+      { id: 'overview', label: lang === 'hi' ? 'प्लेटफ़ॉर्म सारांश' : 'Platform Summary', icon: Briefcase },
+      { id: 'users', label: lang === 'hi' ? 'पार्टनर सत्यापन' : 'Verify Professionals', icon: UserCheck },
+      { id: 'messages', label: lang === 'hi' ? 'सपोर्ट चैट' : 'Support Chat', icon: MessageSquare },
+      { id: 'settings', label: lang === 'hi' ? 'एडमिन सेटिंग्स' : 'Admin Preferences', icon: Settings },
     ]
   };
 
@@ -88,8 +91,15 @@ export function Dashboard() {
         
         {/* Sidebar Navigation */}
         <aside className="w-full md:w-64 shrink-0">
-          <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-lg p-5 sticky top-24">
-            <div className="flex items-center gap-3 mb-6 p-2">
+          <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-lg p-5 sticky top-24 space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {lang === 'hi' ? 'भाषा बदलें' : 'Language'}
+              </span>
+              <LanguageSwitcher />
+            </div>
+
+            <div className="flex items-center gap-3 p-2">
               <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center overflow-hidden border border-slate-200">
                 {currentUser.avatar ? (
                   <img src={currentUser.avatar} alt={currentUser.name} className="h-full w-full object-cover animate-fade-in" referrerPolicy="no-referrer" />
@@ -139,11 +149,11 @@ export function Dashboard() {
               {currentUser.role === 'professional' && (
                 <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 flex items-center gap-1.5 border border-emerald-100">
                   <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                  Active Provider
+                  {lang === 'hi' ? 'सक्रिय पार्टनर' : 'Active Provider'}
                 </span>
               )}
               <Button variant="outline" size="sm" className="gap-2 text-xs font-bold border-slate-200/80 bg-white/40">
-                <Bell className="h-3.5 w-3.5" /> Updates
+                <Bell className="h-3.5 w-3.5" /> {lang === 'hi' ? 'अपडेट्स' : 'Updates'}
               </Button>
             </div>
           </div>
@@ -154,17 +164,20 @@ export function Dashboard() {
               <div className="flex gap-3">
                 <span className="text-2xl mt-0.5">✉️</span>
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">Please verify your email address</h4>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    {lang === 'hi' ? 'कृपया अपना ईमेल पता सत्यापित करें' : 'Please verify your email address'}
+                  </h4>
                   <p className="text-xs text-slate-600 mt-1">
-                    A legitimacy confirmation link was sent to <strong className="font-bold">{supabaseUser.email}</strong>. 
-                    Please verify your email to maintain full account authenticity.
+                    {lang === 'hi' 
+                      ? <>सत्यापन लिंक <strong className="font-bold">{supabaseUser.email}</strong> पर भेजा गया है।</> 
+                      : <>A confirmation code or link was sent to <strong className="font-bold">{supabaseUser.email}</strong>.</>}
                   </p>
                 </div>
               </div>
               <div className="shrink-0 flex items-center gap-2">
                 {verificationSent ? (
                   <span className="text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-150 rounded-xl px-3.5 py-2">
-                    ✓ Verification Link Sent!
+                    ✓ {lang === 'hi' ? 'सत्यापन लिंक भेजा गया!' : 'Verification Link Sent!'}
                   </span>
                 ) : (
                   <Button 
@@ -174,7 +187,9 @@ export function Dashboard() {
                     disabled={resendLoading}
                     className="text-xs font-bold bg-white text-slate-700 hover:bg-slate-50 border-slate-200"
                   >
-                    {resendLoading ? 'Sending...' : 'Resend Verification link'}
+                    {resendLoading 
+                      ? (lang === 'hi' ? 'भेज रहे हैं...' : 'Sending...') 
+                      : (lang === 'hi' ? 'पुनः भेजें' : 'Resend Verification link')}
                   </Button>
                 )}
               </div>
@@ -199,3 +214,4 @@ export function Dashboard() {
     </div>
   );
 }
+

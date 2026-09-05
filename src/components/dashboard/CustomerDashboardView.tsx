@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { useStore } from '../../store';
+import { useLanguage } from '../../lib/i18n';
 import { Button } from '../../components/ui/Button';
 import { 
   Calendar, User as UserIcon, Settings, Heart, MessageSquare, Briefcase, 
@@ -19,6 +20,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
     currentUser, bookings, professionals, savedProfessionals,
     updateBookingStatus, updateUserProfile 
   } = useStore();
+  const { t, lang } = useLanguage();
   
   const navigate = useNavigate();
 
@@ -27,10 +29,10 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
   const [chatInput, setChatInput] = useState('');
   const [chatThreads, setChatThreads] = useState<Record<string, Array<{ sender: 'me' | 'them'; text: string; time: string }>>>({
     helpdesk: [
-      { sender: 'them', text: 'Namaste! Welcome to KaamNow Premium Support. How can we help you today?', time: 'Just now' },
+      { sender: 'them', text: lang === 'hi' ? 'नमस्ते! KaamNow प्रीमियम सपोर्ट में आपका स्वागत है। हम आपकी कैसे मदद कर सकते हैं?' : 'Namaste! Welcome to KaamNow Premium Support. How can we help you today?', time: 'Just now' },
     ],
     pro_contact: [
-      { sender: 'them', text: 'Hello, I am your assigned technician. I am bringing the required spares and tools for your visit.', time: '10 mins ago' }
+      { sender: 'them', text: lang === 'hi' ? 'नमस्ते, मैं आपका निर्धारित तकनीशियन हूँ। मैं आवश्यक उपकरण साथ ला रहा हूँ।' : 'Hello, I am your assigned technician. I am bringing the required spares and tools for your visit.', time: '10 mins ago' }
     ]
   });
 
@@ -148,15 +150,21 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Bookings</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
+                {lang === 'hi' ? 'सक्रिय बुकिंग्स' : 'Active Bookings'}
+              </div>
               <div className="text-3xl font-extrabold text-slate-900">{activeBookingsCount}</div>
             </div>
             <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Saved Experts</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
+                {lang === 'hi' ? 'सेव किए गए एक्सपर्ट्स' : 'Saved Experts'}
+              </div>
               <div className="text-3xl font-extrabold text-slate-900">{savedProfessionals.length}</div>
             </div>
             <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Total Spent</div>
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">
+                {lang === 'hi' ? 'कुल खर्च' : 'Total Spent'}
+              </div>
               <div className="text-3xl font-extrabold text-slate-900">₹{totalSpent}</div>
             </div>
           </div>
@@ -164,11 +172,13 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
           {/* Action Board */}
           <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-md">
             <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2 text-sm uppercase tracking-wider">
-              <Activity className="h-4 w-4 text-indigo-600" /> Recent Service Activity
+              <Activity className="h-4 w-4 text-indigo-600" /> {lang === 'hi' ? 'हालिया सेवा गतिविधियाँ' : 'Recent Service Activity'}
             </h3>
             {userBookings.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">
-                No active job requests. Browse our catalog in <Link to="/explore" className="text-indigo-600 hover:underline">Explore Services</Link> to start booking.
+                {lang === 'hi' 
+                  ? <>कोई सक्रिय जॉब अनुरोध नहीं है। बुकिंग शुरू करने के लिए <Link to="/explore" className="text-indigo-600 hover:underline">सेवाएं देखें</Link>।</>
+                  : <>No active job requests. Browse our catalog in <Link to="/explore" className="text-indigo-600 hover:underline">Explore Services</Link> to start booking.</>}
               </div>
             ) : (
               <div className="space-y-3">
@@ -182,15 +192,17 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                     >
                       <div>
                         <p className="font-bold text-slate-800">
-                          Service with {pro?.name || 'Service Specialist'}
+                          {lang === 'hi' ? 'सेवा पार्टनर:' : 'Service with'} {pro?.name || 'Service Specialist'}
                         </p>
                         {pro?.personalName && (
-                          <p className="text-[10px] text-slate-400 font-semibold mb-0.5">Proprietor: {pro.personalName}</p>
+                          <p className="text-[10px] text-slate-400 font-semibold mb-0.5">{lang === 'hi' ? 'संचालक:' : 'Proprietor:'} {pro.personalName}</p>
                         )}
                         <p className="text-slate-500">{new Date(booking.date).toLocaleDateString()} at {booking.time}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-[10px] text-indigo-600 font-bold hover:underline hidden sm:inline">View Order Details</span>
+                        <span className="text-[10px] text-indigo-600 font-bold hover:underline hidden sm:inline">
+                          {lang === 'hi' ? 'विवरण देखें' : 'View Order Details'}
+                        </span>
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
                           booking.status === 'confirmed' ? 'bg-green-50 text-green-700 border border-green-100' :
                           booking.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
@@ -215,8 +227,10 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
           {userBookings.length === 0 ? (
             <div className="p-12 text-center text-slate-500">
               <Calendar className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="font-bold">No bookings recorded.</p>
-              <p className="text-xs text-slate-400 mt-1">Book services with India's best verified partners on our homepage catalog.</p>
+              <p className="font-bold">{lang === 'hi' ? 'कोई बुकिंग दर्ज नहीं है।' : 'No bookings recorded.'}</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {lang === 'hi' ? 'भारत के सर्वश्रेष्ठ सत्यापित पार्टनर्स से सेवाएं बुक करें।' : "Book services with India's best verified partners on our homepage catalog."}
+              </p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -243,17 +257,19 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                         </span>
                       </div>
                       <h3 className="text-slate-900 font-extrabold text-base group-hover:text-indigo-600 transition-colors">
-                        Service with {relatedPro?.name || 'Certified Partner'}
+                        {lang === 'hi' ? 'सेवा पार्टनर:' : 'Service with'} {relatedPro?.name || 'Certified Partner'}
                       </h3>
                       {relatedPro?.personalName && (
-                        <p className="text-xs text-slate-500 font-semibold mt-0.5">Contact: {relatedPro.personalName}</p>
+                        <p className="text-xs text-slate-500 font-semibold mt-0.5">{lang === 'hi' ? 'संपर्क:' : 'Contact:'} {relatedPro.personalName}</p>
                       )}
                       <p className="text-xs text-slate-500 leading-relaxed max-w-md">
-                        {booking.notes || "No special requests mentioned. Diagnostic visiting fee ₹99 applies."}
+                        {booking.notes || (lang === 'hi' ? 'कोई विशेष अनुरोध नहीं। ₹99 डायग्नोस्टिक विज़िट शुल्क लागू।' : 'No special requests mentioned. Diagnostic visiting fee ₹99 applies.')}
                       </p>
                       <div className="flex items-center gap-4 mt-2">
-                        <p className="text-sm font-bold text-indigo-600">Price: ₹{booking.totalPrice} INR</p>
-                        <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline">Click to view booking parameters &rarr;</span>
+                        <p className="text-sm font-bold text-indigo-600">{lang === 'hi' ? 'शुल्क:' : 'Price:'} ₹{booking.totalPrice} INR</p>
+                        <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline">
+                          {lang === 'hi' ? 'बुकिंग विवरण देखें →' : 'Click to view booking parameters →'}
+                        </span>
                       </div>
                     </div>
                     
@@ -265,7 +281,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                           onClick={() => updateBookingStatus(booking.id, 'cancelled')}
                           className="text-red-600 hover:bg-red-50 border-red-200 text-xs font-bold"
                         >
-                          Cancel Booking
+                          {lang === 'hi' ? 'बुकिंग रद्द करें' : 'Cancel Booking'}
                         </Button>
                       )}
                     </div>
@@ -283,8 +299,10 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
            {savedProfessionals.length === 0 ? (
              <div className="p-12 text-center text-slate-500">
                <Heart className="h-12 w-12 mx-auto mb-4 opacity-20 text-indigo-600" />
-               <p className="font-bold">No saved professionals.</p>
-               <p className="text-xs text-slate-400 mt-1">Bookmark top rating partners on our exploration screen to call them instantly.</p>
+               <p className="font-bold">{lang === 'hi' ? 'कोई पसंदीदा एक्सपर्ट सुरक्षित नहीं है।' : 'No saved professionals.'}</p>
+               <p className="text-xs text-slate-400 mt-1">
+                 {lang === 'hi' ? 'सेवा खोज पृष्ठ पर टॉप रेटिंग एक्सपर्ट्स को बुकमार्क करें।' : 'Bookmark top rating partners on our exploration screen to call them instantly.'}
+               </p>
              </div>
            ) : (
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -298,13 +316,13 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                        <div>
                          <h3 className="font-bold text-slate-900 text-sm leading-snug">{pro.name}</h3>
                           {pro.personalName && (
-                            <p className="text-[10px] text-slate-500 font-medium">Owner: {pro.personalName}</p>
+                            <p className="text-[10px] text-slate-500 font-medium">{lang === 'hi' ? 'संचालक:' : 'Owner:'} {pro.personalName}</p>
                           )}
-                         <p className="text-xs text-slate-500 flex items-center gap-1"><Star className="h-3 w-3 text-amber-500 fill-amber-500" /> {pro.rating.toFixed(1)} rating</p>
+                         <p className="text-xs text-slate-500 flex items-center gap-1"><Star className="h-3 w-3 text-amber-500 fill-amber-500" /> {pro.rating.toFixed(1)} {lang === 'hi' ? 'रेटिंग' : 'rating'}</p>
                        </div>
                      </div>
                      <Button asChild variant="outline" size="sm" className="text-xs font-bold">
-                       <Link to={`/pro/${pro.id}`}>View</Link>
+                       <Link to={`/pro/${pro.id}`}>{lang === 'hi' ? 'देखें' : 'View'}</Link>
                      </Button>
                    </div>
                  )

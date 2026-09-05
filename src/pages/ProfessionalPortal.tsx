@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom';
 import { 
-  Briefcase, ShieldCheck, CreditCard, Sparkles, AlertTriangle, 
-  MessageSquare, Settings, ArrowRight, UserX, BookOpen, Clock,
-  Award, Zap, CheckCircle2, Gift, HeartHandshake, TrendingUp
+  ShieldCheck, AlertTriangle, UserX, BookOpen, Clock,
+  Award, Zap, CheckCircle2, HeartHandshake, TrendingUp
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { useStore } from '../store';
+import { useLanguage } from '../lib/i18n';
+import { LanguageSwitcher } from '../components/LanguageSelector';
 
 export function ProfessionalPortal() {
   const { currentUser } = useStore();
+  const { t, lang } = useLanguage();
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50">
@@ -17,29 +19,35 @@ export function ProfessionalPortal() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-indigo-900/40 via-slate-900 to-slate-900 z-0"></div>
         <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="max-w-3xl">
-            <span className="px-3.5 py-1 text-[10px] uppercase tracking-widest font-bold text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20 inline-block mb-6">
-              KaamNow Partner Network
-            </span>
+            <div className="flex items-center gap-3 mb-6">
+              <span className="px-3.5 py-1 text-[10px] uppercase tracking-widest font-bold text-indigo-400 bg-indigo-500/10 rounded-full border border-indigo-500/20 inline-block">
+                {t('proPartnerNetwork')}
+              </span>
+              <LanguageSwitcher />
+            </div>
+
             <h1 className="text-4xl font-black leading-[1.1] sm:text-5xl lg:text-6xl mb-6 tracking-tight">
-              Grow Your Trade Business <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">with KaamNow.</span>
+              {t('proHeroTitle')} <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+                {t('proHeroTitleSpan')}
+              </span>
             </h1>
             <p className="text-base sm:text-lg text-slate-300 mb-8 leading-relaxed">
-              Connect directly with customers near you. Free registration, zero monthly subscriptions for the first 3 quarters, and milestone rewards for top performers.
+              {t('proHeroSubtitle')}
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4">
               {currentUser?.role === 'professional' ? (
                 <Button asChild size="lg" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-12 shadow-lg shadow-indigo-500/20">
-                  <Link to="/dashboard">Go to Your Professional Dashboard</Link>
+                  <Link to="/dashboard">{t('proGoToDashboard')}</Link>
                 </Button>
               ) : (
                 <>
                   <Button asChild size="lg" className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs h-12 shadow-lg shadow-indigo-500/20">
-                    <Link to="/register-professional">Apply as an Independent Professional</Link>
+                    <Link to="/register-professional">{t('proApplyBtn')}</Link>
                   </Button>
                   <Button asChild variant="outline" size="lg" className="border-slate-700 hover:bg-slate-800 text-white rounded-xl font-bold text-xs h-12">
-                    <Link to="/login-professional">Professional Login</Link>
+                    <Link to="/login-professional">{t('proLoginBtn')}</Link>
                   </Button>
                 </>
               )}
@@ -56,33 +64,33 @@ export function ProfessionalPortal() {
               <AlertTriangle className="h-6 w-6" />
             </div>
             <div className="space-y-3">
-              <h3 className="text-base font-black text-slate-900 tracking-tight">Account Separation & Security Policy</h3>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">{t('proPolicyTitle')}</h3>
               <p className="text-xs text-slate-600 leading-relaxed">
-                KaamNow enforces strict separation between Customers and Independent Professionals to protect marketplace integrity, avoid booking conflicts, and ensure transparent verification:
+                {t('proPolicySubtitle')}
               </p>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
                 <li className="flex gap-2.5 text-xs text-slate-700 font-medium">
                   <UserX className="h-4 w-4 text-rose-500 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-900">Separate Accounts:</span> Customer and Professional accounts cannot share the same mobile number or email.
+                    <span className="font-bold text-slate-900">{t('proSeparateAccounts')}:</span> {t('proSeparateAccountsDesc')}
                   </div>
                 </li>
                 <li className="flex gap-2.5 text-xs text-slate-700 font-medium">
                   <ShieldCheck className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-900">Direct Contractor:</span> Professionals are independent contractors, not employees of KaamNow.
+                    <span className="font-bold text-slate-900">{t('proDirectContractor')}:</span> {t('proDirectContractorDesc')}
                   </div>
                 </li>
                 <li className="flex gap-2.5 text-xs text-slate-700 font-medium">
                   <Clock className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-900">Real-Time Job Workflow:</span> Update status live from 'En Route' to 'Arrived' and 'Completed'.
+                    <span className="font-bold text-slate-900">{t('proRealtimeWorkflow')}:</span> {t('proRealtimeWorkflowDesc')}
                   </div>
                 </li>
                 <li className="flex gap-2.5 text-xs text-slate-700 font-medium">
                   <BookOpen className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-900">ID Verification:</span> Aadhaar / Gov ID and safety badge compliance for enhanced trust.
+                    <span className="font-bold text-slate-900">{t('proIdVerification')}:</span> {t('proIdVerificationDesc')}
                   </div>
                 </li>
               </ul>
@@ -96,13 +104,13 @@ export function ProfessionalPortal() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="px-3 py-1 text-[10px] uppercase font-bold tracking-widest text-emerald-700 bg-emerald-50 rounded-full border border-emerald-200">
-              Fair & Transparent Economics
+              {t('proFairEconomics')}
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-3 tracking-tight">
-              Simple, Predictable Revenue Model
+              {t('proRevenueTitle')}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-2">
-              No hidden listing fees or predatory charges. Designed to maximize earnings for independent technicians.
+              {t('proRevenueSubtitle')}
             </p>
           </div>
 
@@ -113,15 +121,15 @@ export function ProfessionalPortal() {
                 <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4">
                   <Zap className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Phase 1 (Q1 - Q3)</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">₹0 Free Registration</h3>
+                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">{t('proPhase1Badge')}</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">{t('proPhase1Title')}</h3>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  Zero monthly subscription fees for all verified professionals during our launch phase. Keep your business running with full independence.
+                  {t('proPhase1Desc')}
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-slate-200/60">
                 <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> 100% Free Onboarding Active
+                  <CheckCircle2 className="w-3.5 h-3.5" /> {t('proPhase1Active')}
                 </span>
               </div>
             </div>
@@ -132,15 +140,15 @@ export function ProfessionalPortal() {
                 <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mb-4 shadow-sm">
                   <TrendingUp className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">Platform Commission</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">5% Service Fee</h3>
+                <span className="text-[10px] font-bold text-indigo-700 uppercase tracking-widest">{t('proCommissionBadge')}</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">{t('proCommissionTitle')}</h3>
                 <p className="text-xs text-slate-600 mt-2 leading-relaxed">
-                  Only a modest 5% convenience fee is deducted on completed customer bookings. This funds payment processing, safety verification, and KaamNow Work Protection.
+                  {t('proCommissionDesc')}
                 </p>
               </div>
               <div className="mt-6 pt-4 border-t border-indigo-200">
                 <span className="text-xs font-bold text-indigo-700">
-                  You keep 95% of every job billed
+                  {t('proCommissionKeep')}
                 </span>
               </div>
             </div>
@@ -151,29 +159,29 @@ export function ProfessionalPortal() {
                 <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4">
                   <Award className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">Starting Q4</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">Rating-Linked Tiers</h3>
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">{t('proRatingTierBadge')}</span>
+                <h3 className="text-lg font-black text-slate-900 mt-1">{t('proRatingTierTitle')}</h3>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                  The better your customer reviews, the lower your subscription cost:
+                  {t('proRatingTierDesc')}
                 </p>
                 <div className="mt-2 space-y-1 text-xs">
                   <div className="flex justify-between font-bold text-slate-700">
-                    <span>⭐ 4.8 – 5.0 stars:</span>
-                    <span className="text-emerald-600">₹100/mo (Max Discount)</span>
+                    <span>⭐ {lang === 'hi' ? '4.8 – 5.0 स्टार्स:' : '4.8 – 5.0 stars:'}</span>
+                    <span className="text-emerald-600">{lang === 'hi' ? '₹100/माह (मैक्स डिस्काउंट)' : '₹100/mo (Max Discount)'}</span>
                   </div>
                   <div className="flex justify-between text-slate-600">
-                    <span>⭐ 4.5 – 4.79 stars:</span>
-                    <span>₹250/mo (Standard)</span>
+                    <span>⭐ {lang === 'hi' ? '4.5 – 4.79 स्टार्स:' : '4.5 – 4.79 stars:'}</span>
+                    <span>{lang === 'hi' ? '₹250/माह (स्टैंडर्ड)' : '₹250/mo (Standard)'}</span>
                   </div>
                   <div className="flex justify-between text-slate-500">
-                    <span>⭐ Below 4.5 stars:</span>
-                    <span>₹500/mo (Review Tier)</span>
+                    <span>⭐ {lang === 'hi' ? '4.5 से कम स्टार्स:' : 'Below 4.5 stars:'}</span>
+                    <span>{lang === 'hi' ? '₹500/माह (समीक्षा टियर)' : '₹500/mo (Review Tier)'}</span>
                   </div>
                 </div>
               </div>
               <div className="mt-6 pt-4 border-t border-slate-200/60">
                 <span className="text-[11px] font-semibold text-slate-500">
-                  High quality directly saves you money
+                  {t('proRatingTierNotice')}
                 </span>
               </div>
             </div>
@@ -186,13 +194,13 @@ export function ProfessionalPortal() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="px-3 py-1 text-[10px] uppercase font-bold tracking-widest text-indigo-700 bg-indigo-100/60 rounded-full">
-              Recognition & Rewards
+              {t('proRewardsBadge')}
             </span>
             <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mt-3 tracking-tight">
-              Milestone Bonuses & Quality Badges
+              {t('proRewardsTitle')}
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 mt-2">
-              Earn tool credits, premium profile spotlights, and zero-fee perks as you complete more jobs.
+              {t('proRewardsSubtitle')}
             </p>
           </div>
 
@@ -201,9 +209,9 @@ export function ProfessionalPortal() {
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black text-sm">
                 10
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">10 Completed Jobs</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('proReward10Title')}</h3>
               <p className="text-xs text-slate-500">
-                Unlock a <strong className="text-slate-800">₹500 Tool Voucher</strong> credit for trade supplies and gear.
+                {t('proReward10Desc')}
               </p>
             </div>
 
@@ -211,9 +219,9 @@ export function ProfessionalPortal() {
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm">
                 50
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">50 Completed Jobs</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('proReward50Title')}</h3>
               <p className="text-xs text-slate-500">
-                Receive a <strong className="text-slate-800">Free Premium Spotlight</strong> banner boosting your search ranking.
+                {t('proReward50Desc')}
               </p>
             </div>
 
@@ -221,9 +229,9 @@ export function ProfessionalPortal() {
               <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-sm">
                 100
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">100 Completed Jobs</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('proReward100Title')}</h3>
               <p className="text-xs text-slate-500">
-                Earn <strong className="text-slate-800">0% Platform Fees</strong> for an entire month — keep 100% of your earnings!
+                {t('proReward100Desc')}
               </p>
             </div>
 
@@ -231,9 +239,9 @@ export function ProfessionalPortal() {
               <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                 <HeartHandshake className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-slate-900 text-sm">Safety Badges</h3>
+              <h3 className="font-bold text-slate-900 text-sm">{t('proRewardSafetyTitle')}</h3>
               <p className="text-xs text-slate-500">
-                Qualify for <strong className="text-slate-800">Elder-Safe</strong> and <strong className="text-slate-800">Women-Safe</strong> certified badges.
+                {t('proRewardSafetyDesc')}
               </p>
             </div>
           </div>
@@ -244,14 +252,14 @@ export function ProfessionalPortal() {
       <section className="py-14 sm:py-20 bg-indigo-600 text-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
           <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-            Ready to Build Your Trade Business with KaamNow?
+            {t('proCtaTitle')}
           </h2>
           <p className="text-sm sm:text-base text-indigo-100 max-w-xl mx-auto">
-            Sign up in 3 minutes, choose your categories, set your standard rates, and start receiving job requests today.
+            {t('proCtaSubtitle')}
           </p>
           <div className="pt-2">
             <Button asChild size="lg" className="bg-white text-indigo-600 hover:bg-slate-100 font-black text-xs px-8 h-12 rounded-xl shadow-xl">
-              <Link to="/register-professional">Apply as a Professional Partner</Link>
+              <Link to="/register-professional">{t('proCtaApply')}</Link>
             </Button>
           </div>
         </div>

@@ -8,6 +8,8 @@ import {
   CheckCircle2, RefreshCw, ArrowLeft, AlertCircle 
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useLanguage } from '../lib/i18n';
+import { LanguageSwitcher } from '../components/LanguageSelector';
 
 const COUNTRY_CODES = [
   { code: '+91', label: '🇮🇳 India (+91)' },
@@ -49,6 +51,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { login, professionals, customers } = useStore();
+  const { t, lang } = useLanguage();
 
   // Mode: Sign Up (default) or Sign In
   const [authMode, setAuthMode] = useState<'signup' | 'signin'>(initialMode);
@@ -422,18 +425,21 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
   return (
     <div className="flex min-h-[85vh] items-center justify-center px-4 py-8 sm:px-6 lg:px-8 bg-transparent">
       <div className="w-full max-w-md space-y-6 bg-white/80 backdrop-blur-md p-7 sm:p-8 rounded-3xl shadow-2xl border border-white/60">
-        {/* Header */}
+        {/* Header with Language Switcher */}
+        <div className="flex justify-end -mb-4">
+          <LanguageSwitcher />
+        </div>
         <div className="text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
             <UserCheck className="h-6 w-6" />
           </div>
           <h2 className="mt-3.5 text-2xl font-black tracking-tight text-slate-900">
-            {authMode === 'signup' ? 'Create Account' : 'Welcome Back'}
+            {authMode === 'signup' ? t('authCreateAccount') : t('authWelcomeBack')}
           </h2>
           <p className="mt-1 text-xs text-slate-500">
             {authMode === 'signup'
-              ? 'Join KaamNow in seconds with name, email, mobile & password.'
-              : 'Sign in to access your bookings, quotes, and profile.'}
+              ? t('authSignupSubtitle')
+              : t('authSigninSubtitle')}
           </p>
         </div>
 
@@ -452,7 +458,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Sign Up (New User)
+            {t('authSignupTab')}
           </button>
           <button
             type="button"
@@ -467,7 +473,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            Sign In (Existing)
+            {t('authSigninTab')}
           </button>
         </div>
 
@@ -485,7 +491,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <span>👤 Customer</span>
+            <span>{t('authCustomerRole')}</span>
           </button>
           <button
             type="button"
@@ -499,7 +505,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <span>💼 Partner</span>
+            <span>{t('authPartnerRole')}</span>
           </button>
         </div>
 
@@ -516,7 +522,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             ) : (
               <GoogleIcon className="h-4 w-4" />
             )}
-            <span>{googleLoading ? 'Connecting with Google...' : 'Continue with Google'}</span>
+            <span>{googleLoading ? t('authConnectingGoogle') : t('authContinueGoogle')}</span>
           </button>
         </div>
 
@@ -524,7 +530,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
         <div className="relative flex items-center justify-center">
           <div className="border-t border-slate-200 w-full" />
           <span className="bg-white px-3 text-[11px] font-semibold text-slate-400 absolute uppercase tracking-wider">
-            or with {authMode === 'signup' ? 'simple signup' : 'credentials'}
+            {t('orWith')} {authMode === 'signup' ? t('authOrSignup') : t('authOrCredentials')}
           </span>
         </div>
 
@@ -549,7 +555,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             {/* Full Name */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Full Name <span className="text-rose-500">*</span>
+                {t('authFullName')} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -561,7 +567,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder="e.g. Rahul Sharma"
+                  placeholder={t('authFullNamePlaceholder')}
                 />
               </div>
             </div>
@@ -569,7 +575,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             {/* Email Address */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Email Address <span className="text-rose-500">*</span>
+                {t('email')} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -581,16 +587,16 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder="you@example.com"
+                  placeholder={t('authEmailPlaceholder')}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">A 6-digit confirmation code will be sent to this email via Supabase Auth.</p>
+              <p className="text-[10px] text-slate-400 mt-1">{t('authEmailNotice')}</p>
             </div>
 
             {/* Mobile Number */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Mobile Number <span className="text-rose-500">*</span>
+                {t('mobile')} <span className="text-rose-500">*</span>
               </label>
               <div className="flex gap-2">
                 <select
@@ -614,7 +620,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                     value={mobileNumber}
                     onChange={(e) => setMobileNumber(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                    placeholder="10-digit number"
+                    placeholder={t('authMobilePlaceholder')}
                   />
                 </div>
               </div>
@@ -623,7 +629,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             {/* Password */}
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
-                Password <span className="text-rose-500">*</span>
+                {t('password')} <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
@@ -635,7 +641,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-10 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder="Min. 6 characters"
+                  placeholder={t('authPasswordMin')}
                 />
                 <button
                   type="button"
@@ -656,11 +662,11 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
               {loading ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Sending Verification Code...</span>
+                  <span>{t('authSendingCode')}</span>
                 </>
               ) : (
                 <>
-                  <span>Sign Up as {role === 'customer' ? 'Customer' : 'Partner'}</span>
+                  <span>{t('authSignUpBtn')} {role === 'customer' ? t('customer') : t('professional')}</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -678,7 +684,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 }`}
               >
                 <Mail className="h-3.5 w-3.5" />
-                Email
+                {t('email')}
               </button>
               <button
                 type="button"
@@ -688,13 +694,13 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                 }`}
               >
                 <Phone className="h-3.5 w-3.5" />
-                Mobile
+                {t('mobile')}
               </button>
             </div>
 
             {loginMethod === 'email' ? (
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Email Address</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('email')}</label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                     <Mail className="h-4 w-4" />
@@ -705,13 +711,13 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                    placeholder="you@example.com"
+                    placeholder={t('authEmailPlaceholder')}
                   />
                 </div>
               </div>
             ) : (
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mobile Number</label>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('mobile')}</label>
                 <div className="flex gap-2">
                   <select
                     value={countryCode}
@@ -734,7 +740,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                       value={mobileNumber}
                       onChange={(e) => setMobileNumber(e.target.value)}
                       className="block w-full rounded-xl border border-slate-200 bg-white pl-9 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                      placeholder="10-digit number"
+                      placeholder={t('authMobilePlaceholder')}
                     />
                   </div>
                 </div>
@@ -742,7 +748,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             )}
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">{t('password')}</label>
               <div className="relative">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400">
                   <Lock className="h-4 w-4" />
@@ -773,11 +779,11 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
               {loading ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Signing In...</span>
+                  <span>{t('authSigningIn')}</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In as {role === 'customer' ? 'Customer' : 'Partner'}</span>
+                  <span>{t('authSignInBtn')} {role === 'customer' ? t('customer') : t('professional')}</span>
                   <ArrowRight className="h-4 w-4" />
                 </>
               )}
@@ -790,7 +796,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
           <p className="text-xs text-slate-500">
             {authMode === 'signup' ? (
               <>
-                Already have an account?{' '}
+                {t('authAlreadyHaveAccount')}{' '}
                 <button
                   type="button"
                   onClick={() => {
@@ -799,12 +805,12 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   }}
                   className="font-bold text-indigo-600 hover:underline"
                 >
-                  Sign In Here
+                  {t('authSignInHere')}
                 </button>
               </>
             ) : (
               <>
-                Don't have an account yet?{' '}
+                {t('authDontHaveAccount')}{' '}
                 <button
                   type="button"
                   onClick={() => {
@@ -813,7 +819,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   }}
                   className="font-bold text-indigo-600 hover:underline"
                 >
-                  Create Simple Account
+                  {t('authCreateSimpleAccount')}
                 </button>
               </>
             )}
@@ -829,9 +835,9 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-md">
                 <Shield className="h-7 w-7 animate-pulse" />
               </div>
-              <h3 className="mt-3.5 text-xl font-black text-slate-900">Verify Your Email</h3>
+              <h3 className="mt-3.5 text-xl font-black text-slate-900">{t('authVerifyEmailTitle')}</h3>
               <p className="mt-1.5 text-xs text-slate-500 leading-relaxed">
-                A 6-digit confirmation code has been sent to{' '}
+                {t('authVerifyEmailSubtitle')}{' '}
                 <span className="font-bold text-slate-800">{pendingSignupUser.email}</span> via Supabase Auth.
               </p>
             </div>
@@ -839,13 +845,13 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
             {/* Supabase security pill */}
             <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl flex items-center justify-center gap-2 text-[11px] text-indigo-900 font-semibold">
               <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Check your inbox or spam folder for the code</span>
+              <span>{t('authVerifyEmailNotice')}</span>
             </div>
 
             <form onSubmit={handleVerifyOtp} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 text-center mb-2 uppercase tracking-wider">
-                  Enter 6-Digit Code
+                  {t('authEnterCodeLabel')}
                 </label>
                 <input
                   type="text"
@@ -880,7 +886,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   disabled={otpLoading}
                 >
                   <ArrowLeft className="h-3.5 w-3.5 mr-1" />
-                  Cancel
+                  {t('authCancelBtn')}
                 </Button>
                 <Button
                   type="submit"
@@ -890,10 +896,10 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                   {otpLoading ? (
                     <>
                       <RefreshCw className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                      Verifying...
+                      {t('authVerifyingBtn')}
                     </>
                   ) : (
-                    'Verify Code'
+                    t('authVerifyCodeBtn')
                   )}
                 </Button>
               </div>
@@ -902,7 +908,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
               <div className="text-center pt-2">
                 {resendCooldown > 0 ? (
                   <p className="text-[11px] text-slate-400 font-medium">
-                    Resend code in <span className="font-bold text-slate-600">{resendCooldown}s</span>
+                    {t('authResendIn')} <span className="font-bold text-slate-600">{resendCooldown}s</span>
                   </p>
                 ) : (
                   <button
@@ -912,7 +918,7 @@ export function AuthForm({ initialMode = 'signup' }: AuthFormProps) {
                     className="text-[11px] font-bold text-indigo-600 hover:underline inline-flex items-center gap-1"
                   >
                     <RefreshCw className="h-3 w-3" />
-                    Resend Verification Code
+                    {t('authResendBtn')}
                   </button>
                 )}
               </div>
