@@ -26,7 +26,8 @@ export function AdminPage() {
     updateCustomer, 
     deleteCustomer, 
     updateProfessional, 
-    deleteProfessional 
+    deleteProfessional,
+    migrateToKaamNow
   } = useStore();
   
   // Login credentials state
@@ -66,7 +67,8 @@ export function AdminPage() {
     e.preventDefault();
     setLoginError('');
 
-    if (username.trim() === 'goservik' && password === 'goservik@%*134679') {
+    if ((username.trim() === 'kaamnow' || username.trim() === 'goservik') && 
+        (password === 'kaamnow@%*134679' || password === 'goservik@%*134679')) {
       sessionStorage.setItem('admin_authenticated', 'true');
       setIsLoggedIn(true);
     } else {
@@ -210,7 +212,7 @@ export function AdminPage() {
             </div>
             <h2 className="mt-6 text-2xl font-black tracking-tight text-slate-900">Admin Portal</h2>
             <p className="mt-2 text-xs text-slate-500 font-medium">
-              Access restricted to GoServik platform coordinators.
+              Access restricted to KaamNow platform coordinators.
             </p>
           </div>
 
@@ -397,7 +399,7 @@ export function AdminPage() {
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Normal User Accounts</p>
                     <p className="text-3xl font-extrabold text-slate-900 mt-1">{customers.length}</p>
                   </div>
-                  <p className="text-[10px] text-emerald-600 font-semibold">Registered clients on GoServik</p>
+                  <p className="text-[10px] text-emerald-600 font-semibold">Registered clients on KaamNow</p>
                 </div>
                 <div className="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex flex-col justify-between h-36">
                   <div>
@@ -417,7 +419,7 @@ export function AdminPage() {
                       Firebase Cloud Storage & Synchronization
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      GoServik is integrated with persistent Google Cloud Firestore. Any changes made inside this admin panel (profile updates, verification status toggles, booking status completions, account cancellations) are written instantly to Firebase. Use the controls below to trigger a full manual synchronization of mock entities or to refresh.
+                      KaamNow is integrated with persistent Google Cloud Firestore. Any changes made inside this admin panel (profile updates, verification status toggles, booking status completions, account cancellations) are written instantly to Firebase. Use the controls below to trigger a full manual synchronization of mock entities or to refresh.
                     </p>
                   </div>
                   <span className="px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider shrink-0 flex items-center gap-1.5">
@@ -437,6 +439,41 @@ export function AdminPage() {
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* KaamNow Migration Action */}
+                  <div className="p-5 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-150 rounded-2xl space-y-3 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5 text-indigo-700 font-black text-xs uppercase tracking-wider">
+                        <Sparkles className="h-4 w-4" />
+                        KaamNow Migration
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-normal mt-1">
+                        Purge all legacy GoServik test/demo records, purge old bookings/users, and re-seed the 16 KaamNow categories and verified professionals.
+                      </p>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        if (!window.confirm("Run KaamNow database migration? This will purge all old GoServik mock data and seed fresh KaamNow categories and verified pros.")) {
+                          return;
+                        }
+                        setPurging(true);
+                        setSyncMessage('');
+                        try {
+                          await migrateToKaamNow();
+                          setSyncMessage('Successfully completed KaamNow database migration! 16 categories and seed pros initialized.');
+                          setTimeout(() => setSyncMessage(''), 5000);
+                        } catch (err: any) {
+                          setSyncMessage(`Migration failed: ${err.message}`);
+                        } finally {
+                          setPurging(false);
+                        }
+                      }}
+                      disabled={purging}
+                      className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer mt-3"
+                    >
+                      <Sparkles className="h-3.5 w-3.5" />
+                      {purging ? "Migrating..." : "Run KaamNow Migration"}
+                    </button>
+                  </div>
                   <div className="p-5 bg-slate-50 border border-slate-100 rounded-2xl space-y-3 flex flex-col justify-between">
                     <div>
                       <p className="text-xs font-black text-slate-800 uppercase tracking-wider">Manual Database Sync</p>
@@ -841,7 +878,7 @@ export function AdminPage() {
                               <span className="text-slate-400 font-extrabold uppercase tracking-wider text-[9px] block">Client Contact</span>
                               <div className="flex items-center gap-1.5 font-bold text-slate-850">
                                 <User className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                                <span>{bk.customerName || 'GoServik Client'}</span>
+                                <span>{bk.customerName || 'KaamNow Client'}</span>
                               </div>
                               <div className="flex items-center gap-1.5 text-slate-500">
                                 <Phone className="h-3.5 w-3.5 text-slate-400 shrink-0" />
@@ -1276,7 +1313,7 @@ export function AdminPage() {
               <div className="space-y-1">
                 <h3 className="font-extrabold text-slate-900 text-base">Delete Customer Profile?</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Are you sure you want to permanently delete customer <b>{deletingCustomer.name}</b> from the GoServik database? This will immediately wipe all session data. This action is irreversible.
+                  Are you sure you want to permanently delete customer <b>{deletingCustomer.name}</b> from the KaamNow database? This will immediately wipe all session data. This action is irreversible.
                 </p>
               </div>
             </div>

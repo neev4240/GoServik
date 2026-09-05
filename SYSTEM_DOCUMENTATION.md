@@ -1,163 +1,129 @@
-# GoServik System Architecture & Technical Documentation
+# KaamNow System Architecture & Technical Documentation
 
-Welcome to the **GoServik** engineering and system documentation. This document serves as a complete technical guide for other team members to understand the codebase, data schemas, service flows, integration layers, and operational frameworks.
+Welcome to the **KaamNow** engineering and system documentation. This document serves as a complete technical guide for understanding the KaamNow marketplace codebase, data schemas, service flows, integration layers, and operational frameworks.
 
 ---
 
 ## 1. System Overview & Core Workflow
 
-GoServik is a highly scalable, real-time, hyperlocal on-demand service aggregator that connects Customers needing household maintenance with verified local Professional Partners across **16 structured service categories**.
+**KaamNow** is a fast, trusted, bilingual marketplace connecting customers with nearby independent skilled professionals across **16 structured service categories**.
+
+* **Brand Core**: "Connect. Book. Sorted."
+* **Marketplace Model**: KaamNow is a connector and neutral platform. Professionals are independent service providers, not employees of KaamNow.
+* **Languages**: English and Hinglish (हिंग्लिश) toggle available system-wide.
 
 ### The Hyperlocal Match Workflow
 ```
-[Customer selects a Subcategory]
+[Customer selects Subcategory]
          │
          ▼
 [Inputs Address & Pinpoints Coordinates on Google Map]
          │
          ▼
-[System queries partners within the Pincode / Radius]
+[System matches nearest verified independent professionals within Radius]
          │
          ▼
-[Customer Schedules Slot & Pays Visit Booking Fee]
+[Customer Compares Profiles, Ratings, Experience & Selects Pro]
          │
          ▼
-[Booking Instantly Synchronized in Cloud Firestore]
+[Diagnostic Visit Fee ₹99 + 5% Marketplace Platform Fee transparently detailed]
          │
          ▼
-[Partner notified via Real-Time Partner Portal Desk]
+[Booking Instantly Synchronized in Cloud Firestore & Broadcast to Pro]
+         │
+         ▼
+[Pro Updates Lifecycle: En Route ➔ Arrived ➔ Diagnostics ➔ In Progress ➔ Completed]
+         │
+         ▼
+[Customer Rating & Review + KaamNow Work Protection Guarantee Claims]
 ```
 
 ---
 
 ## 2. File Architecture Directory
 
-Below is the structured registry of files that drive GoServik:
+Below is the structured registry of files that drive KaamNow:
 
 ### 📂 Configuration Files
-* `/index.html`: Web application wrapper. Configured with metadata, SEO indexes, responsive screen viewports, and custom document title set to **GoServik**.
-* `/vite.config.ts`: Vite bundler configuration. Injected with `define` blocks to securely expose the `process.env.GOOGLE_MAPS_PLATFORM_KEY` to browser components at build-time.
-* `/.env.example`: Template for environment variables. Documents the required environment keys like `GOOGLE_MAPS_PLATFORM_KEY` and Firebase credentials.
-* `/firestore.rules`: Declarative security rules governing database collections.
+* `/index.html`: Web application wrapper. Configured with metadata, SEO indexes, responsive screen viewports, and title set to **KaamNow | Connect. Book. Sorted.**
+* `/vite.config.ts`: Vite bundler configuration. Exposes `GOOGLE_MAPS_PLATFORM_KEY` to client components.
+* `/.env.example`: Documents required keys including `GOOGLE_MAPS_PLATFORM_KEY` and Firebase credentials.
+* `/firestore.rules`: Security rules governing database collections and role separation.
+* `/metadata.json`: Application metadata reflecting KaamNow.
 
 ### 📂 App Shell & Core State
-* `/src/main.tsx`: Entry point mounting React with strict runtime modules.
-* `/src/App.tsx`: Central router mapping customer dashboards, partner portals, booking pathways, and administrator panels.
-* `/src/store.ts`: The unified **Zustand** state engine. Manages user sessions, local data mirroring, and implements real-time client-to-cloud bidirectional synchronization with **Cloud Firestore**.
+* `/src/main.tsx`: Entry point mounting React.
+* `/src/App.tsx`: Central router mapping customer dashboards, partner portals, booking pathways, explore directory, and administrative tools.
+* `/src/store.ts`: The unified **Zustand** state engine. Manages user sessions, local data mirroring, and implements real-time client-to-cloud bidirectional synchronization with **Cloud Firestore**. Contains `migrateToKaamNow()` database migration logic.
 
 ### 📂 Global Pages & Portals
-* `/src/pages/Auth.tsx`: **The Unified Auth Portal**. Houses the client-side login and registration components for both Customers and Partners. Implements role checks and prevents cross-role login collisions.
-* `/src/pages/AuthProfessional.tsx`: Backward-compatible proxy module routing legacy links into the unified Auth component.
-* `/src/pages/Dashboard.tsx`: Primary consumer screen featuring category listings, active orders, and historical booking logs.
-* `/src/pages/BookingFlow.tsx`: Multi-step checkout funnel managing dynamic subcategory checklist arrays, address details, and coordinates capture.
-* `/src/pages/ProfessionalPortal.tsx`: Dedicated Partner Desk with job boards, status workflows, and profile settings.
-* `/src/pages/AdminPanel.tsx`: High-level operational dashboard for monitoring partners, active bookings, and category logs.
+* `/src/pages/Auth.tsx`: **The Unified Auth Portal**. Houses login and registration components for both Customers and Partners. Enforces strict role separation, mobile validation, and Google profile completion.
+* `/src/pages/Explore.tsx`: Browse all 16 service categories, filter by city/rating, compare professionals, and initiate direct bookings.
+* `/src/pages/Dashboard.tsx`: Primary consumer screen with live booking tracker, review modals, and support.
+* `/src/pages/BookingFlow.tsx`: 5-step checkout funnel managing subcategory checklist, Google Maps coordinate capture, professional selection, slot scheduling, and fee breakdown.
+* `/src/pages/ProfessionalPortal.tsx`: Dedicated Partner Desk with live broadcast radar, job lifecycle progress, earnings calculator, 5% fee deductions, milestone bonuses, and rating tiers.
+* `/src/pages/Admin.tsx`: High-level operational dashboard for monitoring partners, active bookings, category logs, and the 1-click KaamNow database migration tool.
+* `/src/pages/StaticPages.tsx`: About KaamNow, Careers, Safety & Trust, Terms of Service, Privacy Policy, and Work Protection Guarantee.
 
 ### 📂 Custom Components
-* `/src/components/GoogleMapPicker.tsx`: **Precision Mapping Component**. Uses Google Maps Platform React wrappers. Detects key presence, supports geocoding queries, and falls back gracefully to standard OpenStreetMap/Leaflet maps when keys are pending setup.
-* `/src/components/ui/Button.tsx`: Highly reusable custom display button conforming to our modern visual guidelines.
+* `/src/components/GoogleMapPicker.tsx`: **Dual-Engine Precision Map Picker**. Uses Google Maps Platform React wrappers with geocoding, interactive pin dragging, and OpenStreetMap/Leaflet fallback.
+* `/src/components/dashboard/CustomerDashboardView.tsx`: Customer dashboard with live order tracking, chat, and settings.
+* `/src/components/dashboard/ProfessionalDashboardView.tsx`: Pro dashboard with radar alerts, status workflow, and milestone rewards.
 
 ---
 
-## 3. Financial Working Model
+## 3. Financial & Revenue Model
 
-GoServik operates under an optimized financial model designed to generate recurring platform maintenance revenue while giving local partners full job matching flexibility.
+KaamNow operates under a fair, transparent revenue model:
 
-### A. GoServik Platform Visit Booking Fee (Our Revenue)
-* **Visit Collection Policy**: When a Customer schedules any booking, they pay a nominal **Platform Visit Fee** (default: `₹99` / `$99` based on region).
-* **Platform Retention**: **All initial visit booking fees are fully retained on-platform as GoServik Platform Revenue.** This visit fee is dedicated to cover the cost of background checks, system upkeep, and hyperlocal coordinate matching services.
-* **Payout Boundary**: 
-  * No part of the visit booking fee is transferred, credited, or distributed to the Professional Partners. 
-  * The Professional Partners are registered on GoServik as independent third-party contractors and are aware that visit booking fees are platform-retained.
+### A. Customer Diagnostic Visit Fee
+* Customers pay a nominal **₹99 Diagnostic / Visiting Fee** when booking.
+* This covers initial coordination, coordinates verification, and on-site inspection.
 
-### B. Offline Service Contracts & Partner Quotations
-* **Quotations**: The actual repair labor and physical material costs are negotiated directly between the Customer and the Partner during the physical home visit.
-* **Direct Billing**: Customers pay the Partner directly for all offline labor, parts replacements, or custom installations. The platform does not intervene or claim commission on these offline material transactions, providing a transparent, flat-fee listing model.
+### B. Marketplace Commission (5% Platform Fee)
+* KaamNow charges a transparent **5% platform fee** on total job billings.
+* The independent professional retains **95%** of all earnings.
+* Complete breakdown is shown to both customer and professional in their respective views.
+
+### C. Rating-Linked Subscriptions (Starting Q4)
+* Free ₹0 registration during the current launch phase.
+* Starting in Q4, monthly subscriptions will scale inversely with ratings:
+  * **Rating ≥ 4.8**: ₹100/month (Highest tier discount for quality pros)
+  * **Rating 4.5 - 4.79**: ₹199/month
+  * **Rating 4.0 - 4.49**: ₹299/month
+  * **Rating < 4.0**: Standard evaluation tier
+
+### D. Quality Incentives & Milestones
+* **10 Jobs**: ₹500 Tool Voucher credit
+* **50 Jobs**: Free Premium Spotlight banner in local search
+* **100 Jobs**: 0% Platform Fee for 1 full month
+
+### E. KaamNow Work Protection Guarantee
+* Protection coverage on eligible bookings against property damage or non-completion.
+* Disclaimers explicitly specify KaamNow acts as an introductory marketplace and professionals are independent contractors.
 
 ---
 
 ## 4. Hyperlocal Precision Mapping
 
-Hyperlocal matching uses a **Dual-Engine Precision Map Picker** (`GoogleMapPicker.tsx`) to capture coordinate locations without relying on brittle geolocation defaults:
+Hyperlocal matching uses a **Dual-Engine Precision Map Picker** (`GoogleMapPicker.tsx`):
 
 1. **Google Maps Platform (`@vis.gl/react-google-maps`)**:
-   * Utilizes the **Geocoder API** to resolve entered addresses into exact `{ lat, lng }` coordinates.
-   * Relocates the map automatically when an address is typed.
-   * Allows the user to click or drag on the map to pinpoint the exact structural location (e.g., apartment wing, garage gate).
-   * Passes the required internal attribution ID: `gmp_mcp_codeassist_v1_aistudio`.
+   * Uses Geocoder API to resolve addresses into `{ lat, lng }` coordinates.
+   * Pinpoint selection on map drag/click.
+   * Attribution tag: `gmp_mcp_codeassist_v1_aistudio`.
 2. **OpenStreetMap/Leaflet Fallback Engine**:
-   * Uses the OpenStreetMap Nominatim API to fetch coordinates without requiring client API key setup.
-   * Displays the map and permits coordinate pinpointing, ensuring the app remains fully robust even if the platform secret is not yet configured.
+   * Automatic fallback if the Google Maps key is unset, maintaining 100% uptime for coordinate pinpointing.
 
 ---
 
-## 5. Security Rules & Data Model
+## 5. Authentication Architecture
 
-Database security rules are declared in `/firestore.rules` and protect user documents from cross-role manipulation:
-
-### 🗄️ Collections & Schema Specifications
-
-#### 1. Customers (`/customers/{userId}`)
-```json
-{
-  "id": "string (cust-id)",
-  "name": "string",
-  "email": "string",
-  "mobile": "string",
-  "role": "customer",
-  "joinedAt": "timestampISO",
-  "coordinates": { "lat": "number", "lng": "number" },
-  "city": "string",
-  "pincode": "string"
-}
-```
-
-#### 2. Professionals (`/professionals/{proId}`)
-```json
-{
-  "id": "string (pro-id)",
-  "name": "string",
-  "email": "string",
-  "mobile": "string",
-  "role": "professional",
-  "verified": "boolean",
-  "category": "string (cat-id)",
-  "coordinates": { "lat": "number", "lng": "number" },
-  "city": "string",
-  "pincode": "string",
-  "companyName": "string"
-}
-```
-
-#### 3. Bookings (`/bookings/{bookingId}`)
-```json
-{
-  "id": "string (bk-id)",
-  "customerId": "string",
-  "status": "pending | accepted | completed | cancelled",
-  "totalPrice": "number (Platform Visit Fee)",
-  "createdAt": "timestampISO",
-  "customerName": "string",
-  "customerMobile": "string",
-  "customerAddress": "string",
-  "customerServiceOpted": "string",
-  "coordinates": { "lat": "number", "lng": "number" },
-  "date": "string (YYYY-MM-DD)",
-  "time": "string (Slot)"
-}
-```
-
----
-
-## 6. Authentication Architecture
-
-GoServik implements split-role authentication powered by **Firebase Auth** with client-side guard-rail validation:
-
-1. **Email and Mobile Conversions**:
-   * Traditional email/password is supported.
-   * Mobile logins are converted to secure virtual email credentials (`+919876543210@goservik.com`) under the hood to leverage Firebase's identity providers.
-2. **Anti-Duplication Filter**:
-   * When signing up, the system inspects both database indices (Customers & Professionals).
-   * A mobile number is restricted to **one unique account**. An account cannot have duplicate mobile linkages across different roles.
-3. **Role Cross-Collision Protection**:
-   * If an account is registered as a Customer, the login system rejects any attempts to sign in via the Partner Portal toggle, and instructs the user to use the Customer Portal, and vice versa. This preserves structural separation.
+* **Phone and Email Authentication**:
+  * Phone numbers are formatted with standard 10-digit Indian mobile validation (+91).
+  * Virtual synthetic credentials (`phone@kaamnow.com`) allow seamless Firebase Auth integration.
+* **Strict Role Separation**:
+  * Customers cannot log into the Professional portal, and vice versa.
+  * Same email or phone cannot be registered across opposing roles.
+* **Google OAuth Completion Flow**:
+  * Google Sign-in automatically checks if mobile and city are completed; prompts first-time users to complete their profile before proceeding.

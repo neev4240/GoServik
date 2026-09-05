@@ -130,7 +130,7 @@ export function AdminDashboardView({ currentTab, setTab }: AdminDashboardViewPro
             </h3>
             {bookings.length === 0 ? (
               <div className="p-8 text-center text-slate-500 text-xs">
-                No active bookings on the GoServik platform yet.
+                No active bookings on the KaamNow platform yet.
               </div>
             ) : (
               <div className="space-y-3">
@@ -168,7 +168,7 @@ export function AdminDashboardView({ currentTab, setTab }: AdminDashboardViewPro
       {/* TAB: VERIFY PROFESSIONALS */}
       {currentTab === 'users' && (
         <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/40 shadow-sm p-6 space-y-4">
-          <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Registered GoServik Technicians & Partners</h3>
+          <h3 className="text-sm font-extrabold text-slate-900 uppercase tracking-wider">Registered KaamNow Technicians & Partners</h3>
           <div className="space-y-3">
             {professionals.map((pro) => (
               <div key={pro.id} className="p-4 bg-white/80 rounded-2xl border border-slate-150 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

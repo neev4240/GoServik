@@ -1,905 +1,1196 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
-import { Button } from '../components/ui/Button';
+import { useLanguage } from '../lib/i18n';
+import { matchProfessionals } from '../lib/matching';
+import { KAAMNOW_CATEGORIES } from '../lib/categories';
+import { GoogleMapPicker } from '../components/GoogleMapPicker';
 import { 
-  ChevronLeft, Calendar as CalendarIcon, Clock, CheckCircle2, 
-  AlertCircle, MapPin, Sparkles, HelpCircle, Map as MapIcon, Compass
+  CheckCircle2, 
+  AlertCircle, 
+  MapPin, 
+  Calendar as CalendarIcon, 
+  Clock, 
+  Shield, 
+  Star, 
+  HeartHandshake, 
+  MessageSquare, 
+  ArrowRight, 
+  ArrowLeft, 
+  User, 
+  Phone, 
+  Home as HomeIcon, 
+  Briefcase,
+  Layers,
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
-import { GoogleMapPicker } from '../components/GoogleMapPicker';
+import { ProfessionalProfile, BookingStatus, ServiceAddress } from '../types';
 
 export function BookingFlow() {
-  const { proId } = useParams<{ proId: string }>();
   const [searchParams] = useSearchParams();
-  const catParam = searchParams.get('category') || useParams<{ categoryId: string }>().categoryId;
+  const catParam = searchParams.get('category');
+  const proParam = searchParams.get('proId');
   const navigate = useNavigate();
-  const { professionals, categories, currentUser, bookService } = useStore();
+  const { professionals, categories, currentUser, bookService, bookings, updateBookingStatus } = useStore();
+  const { t, lang } = useLanguage();
 
-  const [step, setStep] = useState(1);
+  // Current multi-step flow: 1: Service Selection, 2: Address, 3: Schedule & Preferences, 4: Compare Pros, 5: Review & Confirm, 6: Success
+  const [step, setStep] = useState<number>(1);
 
-  // STEP 1 state: Category & checklist subcategories selection
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(catParam || 'cat-1');
+  // Step 1: Category & Subcategories
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>(catParam || 'cat-electrical');
   const [selectedSubcats, setSelectedSubcats] = useState<string[]>([]);
 
-  // STEP 2 state: Customer Details, Map Picker, Date & Time, Payment
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  
-  // Mandatory input fields
-  const [custName, setCustName] = useState('');
-  const [custMobile, setCustMobile] = useState('');
-  const [custEmail, setCustEmail] = useState('');
-  const [custAddressLine, setCustAddressLine] = useState('');
-  const [custCoordinates, setCustCoordinates] = useState<{ lat: number, lng: number } | undefined>(undefined);
+  // Step 2: Address Details
+  const [houseFlat, setHouseFlat] = useState('');
+  const [buildingStreet, setBuildingStreet] = useState('');
+  const [areaLocality, setAreaLocality] = useState('');
+  const [landmark, setLandmark] = useState('');
+  const [city, setCity] = useState(currentUser?.city || '');
+  const [stateName, setStateName] = useState(currentUser?.state || 'Delhi');
+  const [pincode, setPincode] = useState(currentUser?.pincode || '');
+  const [contactPhone, setContactPhone] = useState(currentUser?.mobile || '');
+  const [addressLabel, setAddressLabel] = useState<'Home' | 'Office' | 'Other'>('Home');
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | undefined>(
+    currentUser?.coordinates || { lat: 28.6139, lng: 77.2090 } // Default to New Delhi coordinates
+  );
 
-  // Optional fields
-  const [custLandmark, setCustLandmark] = useState('');
-  const [custCity, setCustCity] = useState('');
-  const [custState, setCustState] = useState('');
-  const [custPincode, setCustPincode] = useState('');
+  // Step 3: Date, Time, Urgency & Safety
+  const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedTime, setSelectedTime] = useState<string>('10:00 AM - 12:00 PM');
+  const [urgency, setUrgency] = useState<'normal' | 'urgent' | 'emergency'>('normal');
   const [notes, setNotes] = useState('');
+  const [preferElderSafe, setPreferElderSafe] = useState(false);
+  const [preferWomenSafe, setPreferWomenSafe] = useState(false);
 
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'razorpay'>('cash');
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [showSimulator, setShowSimulator] = useState(false);
-  const [simulatedOrderData, setSimulatedOrderData] = useState<any>(null);
+  // Step 4: Selected Professional & Package
+  const [selectedProId, setSelectedProId] = useState<string | null>(proParam || null);
+  const [selectedRateType, setSelectedRateType] = useState<'diagnostic' | 'hourly' | 'four_hours' | 'full_day'>('diagnostic');
 
-  // Prefill fields from authenticated customer profile
+  // Step 5: Payment
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
+
+  // Pre-fill if customer has existing details
   useEffect(() => {
     if (currentUser && currentUser.role === 'customer') {
-      setCustName(currentUser.name || '');
-      setCustMobile(currentUser.mobile || '');
-      setCustEmail(currentUser.email || '');
-      setCustAddressLine(currentUser.addressLine || '');
-      setCustLandmark(currentUser.landmark || '');
-      setCustCity(currentUser.city || '');
-      setCustState(currentUser.state || '');
-      setCustPincode(currentUser.pincode || '');
-      if (currentUser.coordinates) {
-        setCustCoordinates(currentUser.coordinates);
-      }
+      if (currentUser.mobile && !contactPhone) setContactPhone(currentUser.mobile);
+      if (currentUser.city && !city) setCity(currentUser.city);
+      if (currentUser.addressLine && !buildingStreet) setBuildingStreet(currentUser.addressLine);
+      if (currentUser.landmark && !landmark) setLandmark(currentUser.landmark);
+      if (currentUser.pincode && !pincode) setPincode(currentUser.pincode);
+      if (currentUser.coordinates && !coordinates) setCoordinates(currentUser.coordinates);
     }
   }, [currentUser]);
 
-  // Handle category change -> reset chosen subcategories
-  const handleCategoryChange = (catId: string) => {
-    setSelectedCategoryId(catId);
-    setSelectedSubcats([]);
-  };
+  // If proParam is passed, pre-select that professional
+  useEffect(() => {
+    if (proParam) {
+      const p = professionals.find(pro => pro.id === proParam);
+      if (p) {
+        setSelectedProId(p.id);
+        if (p.skills && p.skills.length > 0) {
+          setSelectedCategoryId(p.skills[0].categoryId);
+          if (p.skills[0].subcategories.length > 0) {
+            setSelectedSubcats([p.skills[0].subcategories[0]]);
+          }
+        }
+      }
+    }
+  }, [proParam, professionals]);
 
-  // Enforce authentication
+  // Auth gate
   if (!currentUser) {
     return (
-      <div className="mx-auto max-w-md p-8 text-center mt-20 border rounded-3xl shadow-lg bg-white/80 backdrop-blur-md">
-        <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-2 text-slate-900">Sign in Required</h2>
-        <p className="text-slate-500 mb-6 text-sm">You need to sign in to your customer account to book a professional.</p>
-        <div className="flex gap-4 justify-center">
-          <Button variant="outline" onClick={() => navigate(-1)} className="rounded-xl">Go Back</Button>
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl"><Link to="/login">Sign In</Link></Button>
+      <div className="mx-auto max-w-md p-8 text-center mt-20 border border-slate-200 rounded-3xl shadow-xl bg-white">
+        <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">{t('signInRequired')}</h2>
+        <p className="text-slate-500 mb-6 text-xs leading-relaxed">
+          Please sign in to your KaamNow customer account to connect and compare verified local professionals.
+        </p>
+        <div className="flex gap-3 justify-center">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+          >
+            Go Back
+          </button>
+          <Link 
+            to="/login" 
+            className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md"
+          >
+            {t('signIn')}
+          </Link>
         </div>
       </div>
     );
   }
 
-  // Restrict professional partners from creating booking jobs
+  // Prevent Professionals from booking services
   if (currentUser.role === 'professional') {
     return (
-      <div className="mx-auto max-w-md p-8 text-center mt-20 border rounded-3xl shadow-lg bg-white/80 backdrop-blur-md">
-        <div className="h-12 w-12 rounded-full bg-rose-50 flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="h-6 w-6 text-rose-500" />
+      <div className="mx-auto max-w-md p-8 text-center mt-20 border border-slate-200 rounded-3xl shadow-xl bg-white">
+        <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <AlertCircle className="w-6 h-6" />
         </div>
-        <h2 className="text-2xl font-bold mb-2 text-slate-900">Access Restricted</h2>
-        <p className="text-slate-500 mb-6 text-sm leading-relaxed">
-          Professional partner accounts are designed exclusively for managing dashboard requests, chat messages, and job completions. 
-          They are <span className="font-extrabold text-slate-800">not permitted</span> to place booking orders.
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Professional Account</h2>
+        <p className="text-slate-500 mb-6 text-xs leading-relaxed">
+          You are logged in as a KaamNow Professional partner. Professional accounts manage service requests on their Dashboard and cannot book jobs.
         </p>
-        <div className="flex flex-col gap-2.5">
-          <Button asChild className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl w-full">
-            <Link to="/dashboard">Go to Partner Dashboard</Link>
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/')} className="rounded-xl w-full">
-            Return to Homepage
-          </Button>
-        </div>
+        <Link 
+          to="/dashboard" 
+          className="inline-block px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-md"
+        >
+          Open Professional Dashboard
+        </Link>
       </div>
     );
   }
 
-  const currentCategoryObj = categories.find(c => c.id === selectedCategoryId);
-  const subcatsList = currentCategoryObj?.subcategories || [];
+  const currentCategory = KAAMNOW_CATEGORIES.find(c => c.id === selectedCategoryId) || KAAMNOW_CATEGORIES[0];
+  const subcategoriesList = currentCategory.subcategories;
 
-  // Flat transparent standard visit charge
-  const calculatedPrice = 99;
+  // Matching engine scored professionals
+  const matchedPros = matchProfessionals(professionals, {
+    categoryId: selectedCategoryId,
+    subcategories: selectedSubcats,
+    customerLat: coordinates?.lat,
+    customerLng: coordinates?.lng,
+    preferElderSafe,
+    preferWomenSafe
+  });
 
-  const handleNextToStep2 = () => {
-    if (selectedSubcats.length === 0) {
-      alert("Please select at least one service subcategory work checklist.");
-      return;
+  const selectedProfessional = professionals.find(p => p.id === selectedProId) || (matchedPros[0]?.professional ?? professionals[0]);
+
+  // Calculate price based on selected rate package
+  const getCalculatedPrice = () => {
+    if (!selectedProfessional) return 99;
+    if (selectedRateType === 'diagnostic') return 99;
+    if (selectedRateType === 'hourly') return selectedProfessional.hourlyRate || 350;
+    if (selectedRateType === 'four_hours') return selectedProfessional.fourHourRate || 1200;
+    if (selectedRateType === 'full_day') return selectedProfessional.fullDayRate || 2200;
+    return 99;
+  };
+
+  const basePrice = getCalculatedPrice();
+  const platformFee = Math.round(basePrice * 0.05); // 5% platform fee
+  const totalPrice = basePrice + platformFee;
+
+  // Available dates (next 7 days)
+  const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
+  const timeSlots = [
+    '08:00 AM - 10:00 AM',
+    '10:00 AM - 12:00 PM',
+    '12:00 PM - 02:00 PM',
+    '02:00 PM - 04:00 PM',
+    '04:00 PM - 06:00 PM',
+    '06:00 PM - 08:00 PM'
+  ];
+
+  const handleToggleSubcat = (subcat: string) => {
+    if (selectedSubcats.includes(subcat)) {
+      setSelectedSubcats(selectedSubcats.filter(s => s !== subcat));
+    } else {
+      setSelectedSubcats([...selectedSubcats, subcat]);
     }
-    setStep(2);
   };
 
-  // Generate next 14 days for booking
-  const availableDates = Array.from({ length: 14 }).map((_, i) => addDays(new Date(), i + 1));
-  const availableTimes = ['09:00 AM', '10:30 AM', '12:00 PM', '01:30 PM', '03:00 PM', '04:30 PM', '06:00 PM'];
-
-  // Mandatory fields checklist validator
-  const isFormValid = () => {
-    return (
-      custName.trim().length > 0 &&
-      custMobile.trim().length > 0 &&
-      custEmail.trim().length > 0 &&
-      custAddressLine.trim().length > 0 &&
-      custCoordinates !== undefined &&
-      selectedDate !== null &&
-      selectedTime.length > 0
-    );
+  // Step validation
+  const validateStep1 = () => {
+    if (selectedSubcats.length === 0) {
+      alert("Please check at least one specific sub-service or task you need.");
+      return false;
+    }
+    return true;
   };
 
-  const performBookingCreation = (paymentId?: string, orderId?: string) => {
-    if (!selectedDate || !selectedTime || !custCoordinates) return;
-
-    // Construct full customer address
-    const fullAddr = [
-      custAddressLine.trim(),
-      custLandmark.trim(),
-      custCity.trim(),
-      custState.trim(),
-      custPincode.trim(),
-      'India'
-    ].filter(Boolean).join(', ');
-
-    bookService({
-      customerId: currentUser?.id || 'guest',
-      date: selectedDate.toISOString().split('T')[0],
-      time: selectedTime,
-      notes: notes.trim() || 'Standard consultation visit requested.',
-      totalPrice: calculatedPrice,
-      customerName: custName.trim(),
-      customerMobile: custMobile.trim(),
-      customerAddress: fullAddr,
-      customerServiceOpted: `${currentCategoryObj?.name} (${selectedSubcats.join(', ')})`,
-      categoryId: selectedCategoryId,
-      selectedSubcategories: selectedSubcats,
-      coordinates: custCoordinates,
-      paymentMethod: paymentMethod,
-      razorpayPaymentId: paymentId,
-      razorpayOrderId: orderId,
-      paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending'
-    });
-    setStep(3); // Success step
+  const validateStep2 = () => {
+    if (!houseFlat.trim() || !buildingStreet.trim()) {
+      alert("Please provide your House/Flat number and Street address.");
+      return false;
+    }
+    if (!contactPhone.trim() || contactPhone.replace(/\D/g, '').length !== 10) {
+      alert("Please provide a valid 10-digit contact mobile number.");
+      return false;
+    }
+    if (!city.trim()) {
+      alert("Please enter your city.");
+      return false;
+    }
+    return true;
   };
 
-  const handleSimulatedPaymentSuccess = async (simulatedOrderId: string) => {
-    setPaymentLoading(true);
-    setShowSimulator(false);
+  const validateStep3 = () => {
+    if (!selectedDate) {
+      alert("Please select a date for the visit.");
+      return false;
+    }
+    if (!selectedTime) {
+      alert("Please select a time slot.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleConfirmBooking = async () => {
     try {
-      const simulatedPaymentId = `pay_sim_${Date.now()}`;
-      const simulatedSignature = `sig_sim_${Date.now()}`;
-      
-      const verifyResponse = await fetch('/api/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          razorpay_order_id: simulatedOrderId,
-          razorpay_payment_id: simulatedPaymentId,
-          razorpay_signature: simulatedSignature
-        })
+      setIsSubmitting(true);
+
+      const fullServiceAddress: ServiceAddress = {
+        houseFlat: houseFlat.trim(),
+        buildingStreet: buildingStreet.trim(),
+        areaLocality: areaLocality.trim() || undefined,
+        landmark: landmark.trim() || undefined,
+        city: city.trim(),
+        state: stateName.trim() || 'Delhi',
+        pincode: pincode.trim(),
+        contactPhone: contactPhone.trim(),
+        addressLabel: addressLabel,
+        coordinates: coordinates
+      };
+
+      const bookingId = await bookService({
+        customerId: currentUser.id,
+        customerName: currentUser.name,
+        customerMobile: contactPhone.trim(),
+        customerEmail: currentUser.email,
+        professionalId: selectedProfessional?.id,
+        professionalName: selectedProfessional?.name,
+        categoryId: selectedCategoryId,
+        categoryName: currentCategory.name,
+        subcategories: selectedSubcats,
+        selectedSubcategories: selectedSubcats,
+        date: format(selectedDate!, 'yyyy-MM-dd'),
+        time: selectedTime,
+        scheduledDate: format(selectedDate!, 'yyyy-MM-dd'),
+        timeSlot: selectedTime,
+        serviceAddress: fullServiceAddress,
+        deliveryAddress: `${houseFlat}, ${buildingStreet}, ${areaLocality ? areaLocality + ', ' : ''}${city} ${pincode}`,
+        deliveryCoordinates: coordinates,
+        urgency: urgency,
+        notes: notes,
+        preferElderSafe: preferElderSafe,
+        preferWomenSafe: preferWomenSafe,
+        basePrice: basePrice,
+        platformFee: platformFee,
+        totalPrice: totalPrice,
+        paymentMethod: paymentMethod,
+        rateType: selectedRateType,
+        workProtectionApplied: true
       });
 
-      if (!verifyResponse.ok) {
-        throw new Error('Simulation verification failed');
-      }
-
-      const verifyData = await verifyResponse.json();
-      if (verifyData.verified) {
-        performBookingCreation(simulatedPaymentId, simulatedOrderId);
-      } else {
-        throw new Error('Simulated verification returned failed status.');
-      }
+      setCreatedBookingId(bookingId);
+      setStep(6); // Step 6: Confirmation & Live Tracker
     } catch (err: any) {
-      setPaymentError(err.message || 'Simulated payment processing failed.');
+      alert("Booking creation failed: " + (err.message || err));
     } finally {
-      setPaymentLoading(false);
-    }
-  };
-
-  const handleBook = async () => {
-    if (!isFormValid()) {
-      alert("Please ensure all mandatory fields (Name, Mobile, Email, Address & Map Coordinates, Date & Time) are provided!");
-      return;
-    }
-    
-    setPaymentError(null);
-
-    if (paymentMethod === 'cash') {
-      performBookingCreation();
-    } else {
-      setPaymentLoading(true);
-      try {
-        const amountInPaise = Math.round(calculatedPrice * 100);
-        const orderResponse = await fetch('/api/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: amountInPaise,
-            currency: 'INR',
-            receipt: `rcpt_${Date.now()}`
-          })
-        });
-
-        if (!orderResponse.ok) {
-          const errData = await orderResponse.json();
-          throw new Error(errData.error || 'Failed to create payment order');
-        }
-
-        const orderData = await orderResponse.json();
-
-        if (orderData.simulated) {
-          setSimulatedOrderData(orderData);
-          setShowSimulator(true);
-          setPaymentLoading(false);
-          return;
-        }
-
-        const keyId = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID || 'rzp_test_TEYA8yK9iWlsjJ';
-        const options = {
-          key: keyId,
-          amount: orderData.amount,
-          currency: orderData.currency || 'INR',
-          name: 'GoServik',
-          description: `Standard visit fee for ${currentCategoryObj?.name}`,
-          order_id: orderData.id,
-          handler: async function (response: any) {
-            setPaymentLoading(true);
-            try {
-              const verifyResponse = await fetch('/api/verify-payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  razorpay_order_id: response.razorpay_order_id,
-                  razorpay_payment_id: response.razorpay_payment_id,
-                  razorpay_signature: response.razorpay_signature
-                })
-              });
-
-              if (!verifyResponse.ok) {
-                const verifyErr = await verifyResponse.json();
-                throw new Error(verifyErr.error || 'Signature verification failed');
-              }
-
-              const verifyData = await verifyResponse.json();
-              if (verifyData.verified) {
-                performBookingCreation(response.razorpay_payment_id, response.razorpay_order_id);
-              } else {
-                throw new Error('Payment verification was unsuccessful.');
-              }
-            } catch (err: any) {
-              console.error('Payment verification error:', err);
-              setPaymentError(err.message || 'Payment verification failed');
-            } finally {
-              setPaymentLoading(false);
-            }
-          },
-          prefill: {
-            name: custName,
-            email: custEmail,
-            contact: custMobile
-          },
-          theme: {
-            color: '#4f46e5'
-          },
-          modal: {
-            ondismiss: function() {
-              setPaymentLoading(false);
-              setPaymentError('Payment window was closed before completion.');
-            }
-          }
-        };
-
-        const rzp = new (window as any).Razorpay(options);
-        rzp.on('payment.failed', function (response: any) {
-          console.error('Razorpay payment failed:', response.error);
-          setPaymentError(`Payment failed: ${response.error.description}`);
-          setPaymentLoading(false);
-        });
-        rzp.open();
-      } catch (err: any) {
-        console.error('Order creation error:', err);
-        setPaymentError(err.message || 'Could not initiate Razorpay payment');
-        setPaymentLoading(false);
-      }
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-transparent min-h-screen py-10">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        
-        {/* Back Button */}
-        <button 
-          onClick={() => step > 1 ? setStep(step - 1) : navigate(-1)} 
-          className="flex items-center text-xs font-bold text-slate-500 hover:text-slate-900 mb-6 transition-colors"
-        >
-          <ChevronLeft className="h-4 w-4 mr-1" />
-          {step > 1 ? 'Back to previous step' : 'Cancel booking'}
-        </button>
+    <div className="bg-slate-50 min-h-screen py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header Steps */}
-        {step < 3 && (
-          <div className="mb-8 bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
-            <h1 className="text-xl font-extrabold text-slate-900 mb-3 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600" /> Book Standard Home Visit
-            </h1>
-            <div className="flex flex-wrap items-center gap-y-2 gap-x-3 text-xs">
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 1 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>1. Select Service Category & Works</span>
-              <div className="h-px w-3 bg-slate-300" />
-              <span className={`px-2.5 py-1 rounded-xl font-bold ${step === 2 ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600'}`}>2. Details, Map & Schedule</span>
+        {/* Top Progress Bar */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+            {[
+              { num: 1, label: 'Service & Tasks' },
+              { num: 2, label: 'Address & Map' },
+              { num: 3, label: 'Schedule & Safety' },
+              { num: 4, label: 'Compare & Select' },
+              { num: 5, label: 'Confirm' }
+            ].map((s) => (
+              <div key={s.num} className="flex items-center gap-2">
+                <div 
+                  className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs transition-all ${
+                    step === s.num
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
+                      : step > s.num
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-100 text-slate-400'
+                  }`}
+                >
+                  {step > s.num ? '✓' : s.num}
+                </div>
+                <span className={`hidden sm:inline ${step === s.num ? 'text-indigo-600 font-extrabold' : ''}`}>
+                  {s.label}
+                </span>
+                {s.num < 5 && <div className="hidden md:block w-8 h-0.5 bg-slate-200 ml-2" />}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* STEP 1: CATEGORY & CHECKLIST SUBCATEGORIES */}
+        {step === 1 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div>
+              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
+                Step 1 of 5 • Service Requirement
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 mt-1">
+                What kind of help do you need today?
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Select your main category and check off the exact tasks needed.
+              </p>
+            </div>
+
+            {/* Category Picker Dropdown / Chips */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Main Trade Category
+              </label>
+              <select
+                value={selectedCategoryId}
+                onChange={(e) => {
+                  setSelectedCategoryId(e.target.value);
+                  setSelectedSubcats([]);
+                }}
+                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                {KAAMNOW_CATEGORIES.map(cat => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.name} ({cat.hindiName || ''})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Checklist of Sub-Services */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Select Specific Tasks (Check all that apply) *
+                </label>
+                <span className="text-xs text-indigo-600 font-bold">
+                  {selectedSubcats.length} selected
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {subcategoriesList.map((subcat) => {
+                  const isChecked = selectedSubcats.includes(subcat);
+                  return (
+                    <button
+                      key={subcat}
+                      type="button"
+                      onClick={() => handleToggleSubcat(subcat)}
+                      className={`p-3.5 rounded-xl border-2 text-left text-xs font-bold transition-all flex items-center justify-between ${
+                        isChecked
+                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs'
+                          : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                      }`}
+                    >
+                      <span>{subcat}</span>
+                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                        isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'
+                      }`}>
+                        {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Action */}
+            <div className="pt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateStep1()) setStep(2);
+                }}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+              >
+                <span>Continue to Service Address</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}
 
-        <div className="bg-white/60 backdrop-blur-md rounded-3xl shadow-xl border border-white/40 overflow-hidden">
-          
-          {/* STEP 1: CATEGORY & WORK CHECKLIST SELECTION */}
-          {step === 1 && (
-            <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900 mb-1">What service category do you require?</h2>
-                <p className="text-xs text-slate-500">
-                  Select a category and select as many works as you need from the checklist below.
-                </p>
-              </div>
-
-              <div className="space-y-6">
-                {/* Category Grid */}
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-3 tracking-wider">Service Category</label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {categories.map(cat => (
-                      <button
-                        key={cat.id}
-                        type="button"
-                        onClick={() => handleCategoryChange(cat.id)}
-                        className={`p-4 rounded-2xl border text-left transition-all flex flex-col justify-between h-24 ${
-                          selectedCategoryId === cat.id 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md scale-[1.02]' 
-                            : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <p className="text-xs font-extrabold truncate w-full">{cat.name}</p>
-                        <p className={`text-[9px] leading-snug line-clamp-2 mt-1.5 ${selectedCategoryId === cat.id ? 'text-slate-300' : 'text-slate-400'}`}>
-                          {cat.description}
-                        </p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Subcategory Checklist */}
-                <div>
-                  <div className="flex items-center justify-between mb-2.5">
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      Select Required Works (Check multiple if needed)
-                    </label>
-                    <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-lg">
-                      Checklist Selection
-                    </span>
-                  </div>
-                  
-                  {subcatsList.length === 0 ? (
-                    <p className="text-xs text-slate-400 italic">No subcategories registered.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {subcatsList.map(subcat => {
-                        const isChecked = selectedSubcats.includes(subcat);
-                        return (
-                          <button
-                            key={subcat}
-                            type="button"
-                            onClick={() => {
-                              if (isChecked) {
-                                setSelectedSubcats(selectedSubcats.filter(s => s !== subcat));
-                              } else {
-                                setSelectedSubcats([...selectedSubcats, subcat]);
-                              }
-                            }}
-                            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
-                              isChecked 
-                                ? 'bg-indigo-50/70 border-indigo-300 ring-1 ring-indigo-300' 
-                                : 'bg-white/80 hover:bg-white border-slate-200'
-                            }`}
-                          >
-                            <input 
-                              type="checkbox"
-                              checked={isChecked}
-                              readOnly
-                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 pointer-events-none"
-                            />
-                            <span className="text-xs font-bold text-slate-700">{subcat}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Flat Visit Fee Notice */}
-                <div className="p-4 bg-gradient-to-r from-indigo-50/40 to-blue-50/40 border border-indigo-100 rounded-2xl flex justify-between items-center">
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-indigo-800 uppercase tracking-wider block">Standard Visit & Diagnostics Fee</span>
-                    <span className="text-[11px] text-indigo-600/90 font-medium leading-relaxed block max-w-sm">
-                      Our system assigns this visit broadcast to all nearby qualified technicians within service range. Flat visit fee covers inspection & consult.
-                    </span>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-2xl font-black text-indigo-600 block">₹{calculatedPrice}</span>
-                    <span className="text-[9px] text-indigo-500 font-bold block">Visit Fee Only</span>
-                  </div>
-                </div>
-
-              </div>
-
-              <div className="flex justify-end pt-2 border-t border-slate-100">
-                <Button 
-                  onClick={handleNextToStep2} 
-                  disabled={selectedSubcats.length === 0}
-                  className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-11 shadow-lg shadow-indigo-100"
-                >
-                  Continue to Booking details & Map
-                </Button>
-              </div>
+        {/* STEP 2: SERVICE ADDRESS & GOOGLE MAPS PIN */}
+        {step === 2 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div>
+              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
+                Step 2 of 5 • Service Address
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 mt-1">
+                Where should the professional arrive?
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Detailed address and Google Maps pin ensure precise travel calculation.
+              </p>
             </div>
-          )}
 
-          {/* STEP 2: DETAILS, MAP & CONFIRMATION */}
-          {step === 2 && (
-            <div className="p-6 sm:p-8 space-y-6 animate-in fade-in duration-200">
-              
-              {/* Mandatory Fields Section */}
-              <div className="space-y-4">
-                <div className="border-b pb-2">
-                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider">1. Contact & Booking Information</h3>
-                  <p className="text-[10px] text-slate-400">Please provide mandatory contact and address coordinates below.</p>
-                </div>
+            {/* Address Label Chips */}
+            <div className="flex gap-3">
+              {(['Home', 'Office', 'Other'] as const).map((lbl) => (
+                <button
+                  key={lbl}
+                  type="button"
+                  onClick={() => setAddressLabel(lbl)}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    addressLabel === lbl
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {lbl}
+                </button>
+              ))}
+            </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Contact Name <span className="text-rose-500">*</span></label>
-                    <input 
-                      type="text"
-                      required
-                      value={custName}
-                      onChange={(e) => setCustName(e.target.value)}
-                      placeholder="Enter Full Name"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Mobile Number <span className="text-rose-500">*</span></label>
-                    <input 
-                      type="tel"
-                      required
-                      value={custMobile}
-                      onChange={(e) => setCustMobile(e.target.value)}
-                      placeholder="Enter 10-digit Mobile"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">Email Address <span className="text-rose-500">*</span></label>
-                    <input 
-                      type="email"
-                      required
-                      value={custEmail}
-                      onChange={(e) => setCustEmail(e.target.value)}
-                      placeholder="Enter Email Address"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1 sm:col-span-2">
-                    <label className="block text-[10px] font-extrabold text-slate-500 uppercase">House / Flat / Street Address <span className="text-rose-500">*</span></label>
-                    <input 
-                      type="text"
-                      required
-                      value={custAddressLine}
-                      onChange={(e) => setCustAddressLine(e.target.value)}
-                      placeholder="Flat No, Wing, Building Name, Street"
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Landmark (Optional)</label>
-                    <input 
-                      type="text"
-                      value={custLandmark}
-                      onChange={(e) => setCustLandmark(e.target.value)}
-                      placeholder="e.g. Near Station"
-                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">City (Optional)</label>
-                    <input 
-                      type="text"
-                      value={custCity}
-                      onChange={(e) => setCustCity(e.target.value)}
-                      placeholder="Mumbai"
-                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">State (Optional)</label>
-                    <input 
-                      type="text"
-                      value={custState}
-                      onChange={(e) => setCustState(e.target.value)}
-                      placeholder="Maharashtra"
-                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Pincode (Optional)</label>
-                    <input 
-                      type="text"
-                      value={custPincode}
-                      onChange={(e) => setCustPincode(e.target.value)}
-                      placeholder="400001"
-                      className="w-full rounded-xl border border-slate-150 bg-white px-3.5 py-2 text-xs focus:border-indigo-500 focus:outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Map Location Picker */}
-              <div className="space-y-2">
-                <div className="border-b pb-2">
-                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
-                    <MapIcon className="h-4 w-4 text-indigo-600" /> 2. Pin Address Coordinates on Map <span className="text-rose-500">*</span>
-                  </h3>
-                  <p className="text-[10px] text-slate-400">Click on the map to pin your exact location. No preselected or default values set.</p>
-                </div>
-                <GoogleMapPicker 
-                  value={custCoordinates} 
-                  onChange={setCustCoordinates} 
-                  addressInput={`${custAddressLine} ${custCity} ${custState}`.trim()}
+            {/* Form Fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  House / Flat / Unit Number *
+                </label>
+                <input
+                  type="text"
+                  value={houseFlat}
+                  onChange={(e) => setHouseFlat(e.target.value)}
+                  placeholder="e.g. Flat 402, Block B"
+                  required
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
-              {/* Date & Time Select */}
-              <div className="space-y-4">
-                <div className="border-b pb-2">
-                  <h3 className="text-xs font-black uppercase text-slate-900 tracking-wider flex items-center gap-1.5">
-                    <CalendarIcon className="h-4 w-4 text-indigo-600" /> 3. Schedule Visit Slot <span className="text-rose-500">*</span>
-                  </h3>
-                  <p className="text-[10px] text-slate-400">Select date and standard arrival time slot.</p>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Building / Street / Road Name *
+                </label>
+                <input
+                  type="text"
+                  value={buildingStreet}
+                  onChange={(e) => setBuildingStreet(e.target.value)}
+                  placeholder="e.g. Green Meadows, Sector 15"
+                  required
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
 
-                {/* Date Slider */}
-                <div className="flex overflow-x-auto pb-2 gap-2 snap-x scrollbar-thin">
-                  {availableDates.map(date => {
-                    const isSelected = selectedDate?.toDateString() === date.toDateString();
-                    return (
-                      <button
-                        key={date.toISOString()}
-                        type="button"
-                        onClick={() => setSelectedDate(date)}
-                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border min-w-[70px] shrink-0 snap-start transition-all ${
-                          isSelected 
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-                            : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
-                        }`}
-                      >
-                        <span className="text-[9px] uppercase font-bold opacity-80">{format(date, 'MMM')}</span>
-                        <span className="text-base font-extrabold my-0.5">{format(date, 'd')}</span>
-                        <span className="text-[9px] font-bold opacity-80">{format(date, 'EEE')}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Area / Locality
+                </label>
+                <input
+                  type="text"
+                  value={areaLocality}
+                  onChange={(e) => setAreaLocality(e.target.value)}
+                  placeholder="e.g. Rohini / Indira Nagar"
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
 
-                {/* Time Slots */}
-                {selectedDate && (
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2 animate-in slide-in-from-bottom-2 duration-200">
-                    {availableTimes.map(time => (
-                      <button
-                        key={time}
-                        type="button"
-                        onClick={() => setSelectedTime(time)}
-                        className={`py-2 rounded-xl border text-xs font-bold transition-all ${
-                          selectedTime === time 
-                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                            : 'bg-white text-slate-600 hover:border-slate-300 border-slate-200'
-                        }`}
-                      >
-                        {time}
-                      </button>
-                    ))}
-                  </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Landmark (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={landmark}
+                  onChange={(e) => setLandmark(e.target.value)}
+                  placeholder="e.g. Near Metro Pillar 120"
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  City *
+                </label>
+                <input
+                  type="text"
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  placeholder="e.g. New Delhi"
+                  required
+                  className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    placeholder="Delhi"
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    PIN Code
+                  </label>
+                  <input
+                    type="text"
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value)}
+                    placeholder="110001"
+                    maxLength={6}
+                    className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  Contact Mobile Number *
+                </label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                    <Phone className="w-4 h-4" />
+                  </span>
+                  <input
+                    type="tel"
+                    value={contactPhone}
+                    onChange={(e) => setContactPhone(e.target.value)}
+                    placeholder="9876543210"
+                    maxLength={10}
+                    required
+                    className="w-full pl-9 pr-3 py-3 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Google Maps Pin */}
+            <div className="space-y-2 pt-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-indigo-600" />
+                  Pin Location On Map (For Accurate Distance Calculation)
+                </label>
+                {coordinates && (
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {coordinates.lat.toFixed(4)}°N, {coordinates.lng.toFixed(4)}°E
+                  </span>
                 )}
               </div>
-
-              {/* Instructions / Notes */}
-              <div className="space-y-1">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Instructions or Work Details (Optional)</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs focus:border-indigo-500 focus:outline-none min-h-[70px]"
-                  placeholder="Specify any special notes or entry instructions..."
-                />
-              </div>
-
-              {/* Payment Gateway */}
-              <div className="space-y-3 pt-2">
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider">Select Payment Option</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('cash')}
-                    className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all ${
-                      paymentMethod === 'cash'
-                        ? 'border-slate-900 bg-slate-50/50'
-                        : 'border-slate-100 hover:border-slate-200 bg-white/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-xs font-bold text-slate-900">Cash / Pay on Visit</span>
-                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'cash' ? 'border-slate-900 bg-slate-900' : 'border-slate-300'
-                      }`}>
-                        {paymentMethod === 'cash' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                      Pay visit fee directly to partner in cash/UPI upon diagnostic arrival.
-                    </p>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod('razorpay')}
-                    className={`p-4 rounded-2xl border-2 text-left flex flex-col justify-between transition-all ${
-                      paymentMethod === 'razorpay'
-                        ? 'border-slate-900 bg-slate-50/50'
-                        : 'border-slate-100 hover:border-slate-200 bg-white/40'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between w-full">
-                      <span className="text-xs font-bold text-slate-900">Pay via Razorpay</span>
-                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        paymentMethod === 'razorpay' ? 'border-slate-900 bg-slate-900' : 'border-slate-300'
-                      }`}>
-                        {paymentMethod === 'razorpay' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
-                      Secure checkout with UPI, Cards or Netbanking.
-                    </p>
-                  </button>
-                </div>
-              </div>
-
-              {/* Summary Card */}
-              <div className="bg-slate-50/50 p-5 rounded-2xl border border-slate-150 space-y-3.5">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider border-b pb-1">Booking Visit Summary</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Service Category</span>
-                    <span className="font-bold text-slate-800">{currentCategoryObj?.name}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chosen specialization</span>
-                    <span className="font-bold text-indigo-600">{selectedSubcats.join(', ')}</span>
-                  </div>
-                  {selectedDate && selectedTime && (
-                    <div className="sm:col-span-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Schedule Slot</span>
-                      <span className="font-bold text-slate-800">
-                        {format(selectedDate, 'EEEE, MMMM d, yyyy')} at {selectedTime}
-                      </span>
-                    </div>
-                  )}
-                  {custCoordinates && (
-                    <div className="sm:col-span-2">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Delivery Coordinates</span>
-                      <span className="font-mono text-slate-700 font-bold">
-                        {custCoordinates.lat.toFixed(5)} °N, {custCoordinates.lng.toFixed(5)} °E
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t flex justify-between items-center">
-                  <div>
-                    <span className="font-extrabold text-xs text-slate-900 block">Total Calculated Visit Fee</span>
-                    <span className="text-[9px] text-slate-400 block">Standard diagnostic visit charge.</span>
-                  </div>
-                  <span className="text-2xl font-extrabold text-slate-900">₹{calculatedPrice}</span>
-                </div>
-              </div>
-
-              {/* Payment Error */}
-              {paymentError && (
-                <div className="bg-red-50 border border-red-200 p-4 rounded-2xl flex items-start gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" />
-                  <div className="text-xs">
-                    <p className="font-extrabold text-red-950">Payment Error</p>
-                    <p className="text-red-700 mt-0.5">{paymentError}</p>
-                  </div>
-                </div>
-              )}
-
-              {/* Step 2 Actions */}
-              <div className="flex justify-between items-center pt-2">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setStep(1)} 
-                  disabled={paymentLoading}
-                  className="rounded-xl text-xs h-10 font-bold"
-                >
-                  Back
-                </Button>
-                <Button 
-                  onClick={handleBook} 
-                  disabled={!isFormValid() || paymentLoading}
-                  className="bg-slate-900 hover:bg-slate-850 text-white font-bold px-8 py-2.5 rounded-xl text-xs h-10 shadow-lg disabled:opacity-50 flex items-center gap-2"
-                >
-                  {paymentLoading ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    paymentMethod === 'razorpay' ? 'Pay & Confirm Visit' : 'Confirm Visit Booking'
-                  )}
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: SUCCESS STEP */}
-          {step === 3 && (
-            <div className="p-12 text-center space-y-6 animate-in fade-in duration-200">
-              <div className="mx-auto h-16 w-16 bg-emerald-50 rounded-full flex items-center justify-center border border-emerald-100 shadow-sm">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
-              </div>
-              <div>
-                <h2 className="text-2xl font-extrabold text-slate-900 mb-1">Standard Visit Placed!</h2>
-                <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                  Your standard visit request has been created and broadcasted to all technicians within their service radius in your area. First technician to accept gets assigned!
-                </p>
-              </div>
-
-              <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 max-w-sm mx-auto text-xs text-slate-600 space-y-2">
-                <p className="font-bold text-slate-800">First-Come-First-Serve Booking Broadcast</p>
-                <p className="text-[11px] leading-relaxed text-left">
-                  1. Your pinned coordinates and required works are broadcasted to qualified technicians within 10 km (or custom service radius).<br />
-                  2. The first technician who clicks "Accept" on their dashboard secures the job.<br />
-                  3. You can communicate via Helpline chat as soon as an expert accepts.
-                </p>
-              </div>
-
-              <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button asChild size="lg" className="bg-slate-900 hover:bg-slate-850 text-white font-bold rounded-xl text-xs h-11 px-6">
-                  <Link to="/dashboard">Go to Dashboard</Link>
-                </Button>
-                <Button variant="outline" asChild size="lg" className="border-slate-200/80 hover:bg-slate-50 font-bold rounded-xl text-xs h-11 px-6">
-                  <Link to="/explore">Explore More Services</Link>
-                </Button>
-              </div>
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {/* Razorpay Sandbox Payment Simulator Overlay */}
-      {showSimulator && simulatedOrderData && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-100 flex flex-col animate-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="bg-indigo-600 px-6 py-5 text-white flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-indigo-200">Razorpay Secure</h3>
-                <h4 className="text-lg font-black mt-0.5">Sandbox Payment Simulator</h4>
-              </div>
-              <div className="px-2.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-[9px] font-bold uppercase tracking-wider">
-                Demo Mode
-              </div>
+              <GoogleMapPicker
+                value={coordinates}
+                onChange={setCoordinates}
+                addressInput={`${houseFlat} ${buildingStreet} ${city} ${stateName}`}
+              />
             </div>
 
-            {/* Warning Banner */}
-            <div className="bg-amber-50 border-b border-amber-100 px-6 py-3 flex items-start gap-2.5">
-              <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="text-[11px] text-amber-800 leading-relaxed">
-                <span className="font-extrabold">Simulated Gateway:</span> Razorpay Key variables are not configured in your <code>.env</code> file. Exposing high-fidelity test flow for preview.
-              </div>
-            </div>
-
-            {/* Merchant Details */}
-            <div className="p-6 space-y-4 flex-1">
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                <div>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Booking Service</p>
-                  <p className="text-sm font-extrabold text-slate-850 mt-0.5">{selectedSubcats.join(', ')}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Amount Due</p>
-                  <p className="text-lg font-black text-slate-900 mt-0.5">₹{calculatedPrice}.00</p>
-                </div>
-              </div>
-
-              {/* Order Meta */}
-              <div className="space-y-2.5 text-xs text-slate-600 font-medium">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Order Reference</span>
-                  <span className="font-mono font-bold text-slate-800">{simulatedOrderData.id}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Customer Email</span>
-                  <span className="text-slate-800 font-bold">{custEmail}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Customer Contact</span>
-                  <span className="text-slate-800 font-bold">{custMobile}</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
-                <p className="text-[10px] text-slate-400 font-bold uppercase">Select Simulated Outcome</p>
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  Toggle whether the payment succeeds or fails to test downstream order placement and database updates.
-                </p>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="p-6 pt-0 space-y-2 bg-slate-50/50 border-t border-slate-100">
+            {/* Action */}
+            <div className="pt-4 flex justify-between">
               <button
                 type="button"
-                onClick={() => handleSimulatedPaymentSuccess(simulatedOrderData.id)}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-100"
+                onClick={() => setStep(1)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
               >
-                <CheckCircle2 className="h-4 w-4" />
-                Simulate Successful Payment
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
               </button>
-              
-              <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateStep2()) setStep(3);
+                }}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+              >
+                <span>Continue to Schedule & Safety</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: SCHEDULE, URGENCY & SAFETY PREFERENCES */}
+        {step === 3 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div>
+              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
+                Step 3 of 5 • Timing & Safety
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 mt-1">
+                Schedule your visit & set comfort preferences
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Customize arrival timing, urgency level, and elder/women safe comfort criteria.
+              </p>
+            </div>
+
+            {/* Date Slider */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4 text-indigo-600" />
+                Select Preferred Date
+              </label>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+                {availableDates.map(date => {
+                  const isSelected = selectedDate?.toDateString() === date.toDateString();
+                  return (
+                    <button
+                      key={date.toISOString()}
+                      type="button"
+                      onClick={() => setSelectedDate(date)}
+                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border min-w-[76px] transition-all shrink-0 ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                          : 'bg-slate-50 text-slate-700 hover:border-slate-300 border-slate-200'
+                      }`}
+                    >
+                      <span className="text-[10px] font-bold uppercase opacity-80">{format(date, 'MMM')}</span>
+                      <span className="text-lg font-black my-0.5">{format(date, 'd')}</span>
+                      <span className="text-[10px] font-bold opacity-80">{format(date, 'EEE')}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Time Slots */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <Clock className="w-4 h-4 text-indigo-600" />
+                Select Preferred Arrival Window
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                {timeSlots.map(slot => (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => setSelectedTime(slot)}
+                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
+                      selectedTime === slot
+                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                        : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
+                    }`}
+                  >
+                    {slot}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Urgency */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Urgency Level
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: 'normal', label: 'Standard Visit', sub: 'Regular scheduled time' },
+                  { id: 'urgent', label: 'Urgent (Within 4 hrs)', sub: 'Priority dispatch' },
+                  { id: 'emergency', label: 'Emergency (Immediate)', sub: 'Active leak / outage' }
+                ].map(u => (
+                  <button
+                    key={u.id}
+                    type="button"
+                    onClick={() => setUrgency(u.id as any)}
+                    className={`p-3 rounded-xl border-2 text-left text-xs transition-all ${
+                      urgency === u.id
+                        ? 'border-indigo-600 bg-indigo-50/60 font-bold text-indigo-900'
+                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
+                    }`}
+                  >
+                    <span className="block font-bold">{u.label}</span>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">{u.sub}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Safety & Comfort Preferences */}
+            <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-3">
+              <div className="flex items-center gap-2">
+                <HeartHandshake className="w-4 h-4 text-indigo-600" />
+                <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
+                  Safety & Comfort Matching Filters
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-indigo-100 cursor-pointer hover:border-indigo-300 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={preferElderSafe}
+                    onChange={(e) => setPreferElderSafe(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Elder-Safe Verified Professional
+                    </span>
+                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                      Professionals verified for respectful communication, patience, and senior home protocols.
+                    </span>
+                  </div>
+                </label>
+
+                <label className="flex items-start gap-3 p-3 bg-white rounded-xl border border-indigo-100 cursor-pointer hover:border-indigo-300 transition-all">
+                  <input
+                    type="checkbox"
+                    checked={preferWomenSafe}
+                    onChange={(e) => setPreferWomenSafe(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block">
+                      Women-Safe Verified Professional
+                    </span>
+                    <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
+                      Professionals with verified ID background checks and 5-star conduct records in family residences.
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Additional Instructions / Problem Notes (Optional)
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={2}
+                placeholder="Describe any specifics e.g. switchboard sparking in kitchen, bring 15A socket..."
+                className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            {/* Action */}
+            <div className="pt-4 flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (validateStep3()) setStep(4);
+                }}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+              >
+                <span>Compare Matched Professionals</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: COMPARE & SELECT SUITABLE MATCHED PROFESSIONALS */}
+        {step === 4 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div>
+              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
+                Step 4 of 5 • Compare & Select
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 mt-1">
+                Matched Professionals Nearby
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Scored by skill overlap, GPS distance, verified ratings, safety credentials, and transparent rates.
+              </p>
+            </div>
+
+            {/* Matched Pros List */}
+            <div className="space-y-4">
+              {matchedPros.length === 0 ? (
+                <div className="p-8 text-center text-slate-500 text-xs border border-dashed rounded-2xl">
+                  No direct local match found with selected filters. Showing all verified professionals.
+                </div>
+              ) : (
+                matchedPros.map(({ professional: pro, score, distanceKm, skillOverlapCount }) => {
+                  const isSelected = (selectedProId === pro.id) || (!selectedProId && pro.id === matchedPros[0].professional.id);
+
+                  return (
+                    <div
+                      key={pro.id}
+                      onClick={() => setSelectedProId(pro.id)}
+                      className={`p-5 rounded-2xl border-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-indigo-600 bg-indigo-50/40 shadow-md ring-1 ring-indigo-500'
+                          : 'border-slate-200 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        
+                        {/* Pro identity */}
+                        <div className="flex items-start gap-4">
+                          <img
+                            src={pro.avatar}
+                            alt={pro.name}
+                            className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0"
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-base font-black text-slate-900">{pro.name}</h3>
+                              {pro.verified && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                                </span>
+                              )}
+                              <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-black">
+                                {score}% Match
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{pro.tagline}</p>
+
+                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-600">
+                              <span className="flex items-center gap-1 font-bold text-amber-500">
+                                <Star className="w-3.5 h-3.5 fill-amber-400" />
+                                {pro.rating} ({pro.reviewCount})
+                              </span>
+                              <span>•</span>
+                              <span className="text-slate-500">
+                                {pro.jobsCompleted}+ jobs completed
+                              </span>
+                              <span>•</span>
+                              <span className="text-indigo-600 font-semibold flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {distanceKm ? `${distanceKm} km away` : pro.location}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Pricing & Selection */}
+                        <div className="w-full sm:w-auto text-right flex flex-col items-end gap-2 shrink-0">
+                          <div>
+                            <span className="text-xs text-slate-400 block font-medium">Standard Rate</span>
+                            <span className="text-lg font-black text-slate-900">₹{pro.hourlyRate}/hr</span>
+                          </div>
+
+                          <div className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}>
+                            {isSelected ? 'Selected ✓' : 'Select Professional'}
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* Package selector inside selected pro */}
+                      {isSelected && (
+                        <div className="mt-4 pt-4 border-t border-indigo-100 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRateType('diagnostic');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                              selectedRateType === 'diagnostic'
+                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
+                                : 'border-slate-200 bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Inspection</span>
+                            <span className="text-sm font-black text-slate-900 block">₹99</span>
+                            <span className="text-[10px] text-slate-500">Visit & diagnosis</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRateType('hourly');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                              selectedRateType === 'hourly'
+                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
+                                : 'border-slate-200 bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">1 Hour</span>
+                            <span className="text-sm font-black text-slate-900 block">₹{pro.hourlyRate}</span>
+                            <span className="text-[10px] text-slate-500">Standard task</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRateType('four_hours');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                              selectedRateType === 'four_hours'
+                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
+                                : 'border-slate-200 bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Half Day (4h)</span>
+                            <span className="text-sm font-black text-slate-900 block">₹{pro.fourHourRate || 1200}</span>
+                            <span className="text-[10px] text-slate-500">Multiple repairs</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedRateType('full_day');
+                            }}
+                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
+                              selectedRateType === 'full_day'
+                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
+                                : 'border-slate-200 bg-slate-50 text-slate-600'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Full Day (8h)</span>
+                            <span className="text-sm font-black text-slate-900 block">₹{pro.fullDayRate || 2200}</span>
+                            <span className="text-[10px] text-slate-500">Comprehensive job</span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Action */}
+            <div className="pt-4 flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(5)}
+                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
+              >
+                <span>Proceed to Review & Confirm</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 5: REVIEW & CONFIRM BOOKING */}
+        {step === 5 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
+            <div>
+              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
+                Step 5 of 5 • Review & Confirm
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 mt-1">
+                Confirm your booking details
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                KaamNow Work Protection is automatically applied to this booking.
+              </p>
+            </div>
+
+            {/* Summary details card */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Professional</span>
+                  <p className="text-sm font-black text-slate-900">{selectedProfessional?.name}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</span>
+                  <p className="text-sm font-bold text-indigo-600">{currentCategory.name}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Selected Tasks</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">{selectedSubcats.join(', ')}</p>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Schedule Window</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    {selectedDate && format(selectedDate, 'EEEE, MMMM d, yyyy')} at {selectedTime}
+                  </p>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Arrival Address</span>
+                  <p className="font-semibold text-slate-800 mt-0.5">
+                    {houseFlat}, {buildingStreet}, {areaLocality ? areaLocality + ', ' : ''}{city} {pincode}
+                  </p>
+                </div>
+              </div>
+
+              {/* KaamNow Work Protection Badge */}
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-emerald-600" />
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-950">KaamNow Work Protection Applied</h4>
+                    <p className="text-[10px] text-emerald-700">Covers damage, unresolved delays, and verified dispute resolution up to ₹10,000.</p>
+                  </div>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded">Included</span>
+              </div>
+            </div>
+
+            {/* Payment Method Selector */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Payment Option
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentError("Simulated checkout was cancelled by the user.");
-                    setShowSimulator(false);
-                  }}
-                  className="py-2.5 bg-white hover:bg-slate-50 text-slate-600 rounded-xl text-[11px] font-bold border border-slate-200 transition-all text-center"
+                  onClick={() => setPaymentMethod('cash')}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    paymentMethod === 'cash'
+                      ? 'border-indigo-600 bg-indigo-50/50'
+                      : 'border-slate-200 bg-white'
+                  }`}
                 >
-                  Cancel / Dismiss
+                  <span className="font-bold text-xs text-slate-900 block">Cash / UPI on Visit</span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Pay directly to the professional upon diagnostic arrival or completion.
+                  </span>
                 </button>
+
                 <button
                   type="button"
-                  onClick={() => {
-                    setPaymentError("Simulated transaction failed (Declined by bank).");
-                    setShowSimulator(false);
-                  }}
-                  className="py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-[11px] font-bold border border-rose-100 transition-all text-center"
+                  onClick={() => setPaymentMethod('online')}
+                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
+                    paymentMethod === 'online'
+                      ? 'border-indigo-600 bg-indigo-50/50'
+                      : 'border-slate-200 bg-white'
+                  }`}
                 >
-                  Simulate Bank Failure
+                  <span className="font-bold text-xs text-slate-900 block">Pay Online via UPI/Card</span>
+                  <span className="text-[11px] text-slate-500 block mt-0.5">
+                    Secure checkout with instant digital invoice.
+                  </span>
                 </button>
               </div>
             </div>
+
+            {/* Transparent Pricing Breakdown */}
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Base Service Rate ({selectedRateType === 'diagnostic' ? 'Diagnostic Visit' : selectedRateType})</span>
+                <span className="font-bold">₹{basePrice}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Platform Fee (5%)</span>
+                <span className="font-bold">₹{platformFee}</span>
+              </div>
+              <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black text-slate-900">
+                <span>Total Amount</span>
+                <span className="text-xl font-extrabold text-indigo-600">₹{totalPrice}</span>
+              </div>
+            </div>
+
+            {/* Action */}
+            <div className="pt-4 flex justify-between">
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> Back
+              </button>
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={handleConfirmBooking}
+                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
+              >
+                {isSubmitting ? 'Confirming...' : 'Confirm & Book Now'}
+                <CheckCircle2 className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* STEP 6: CONFIRMATION & LIVE TRACKER */}
+        {step === 6 && (
+          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xl space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+                Booking Confirmed!
+              </h2>
+              <p className="text-xs text-slate-500">
+                Booking ID: <span className="font-mono font-bold text-slate-800">{createdBookingId}</span>
+              </p>
+            </div>
+
+            {/* Real-time Status Tracker */}
+            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
+                  KaamNow Live Status Machine
+                </h4>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
+                  Pro Selected
+                </span>
+              </div>
+
+              {/* Status Stepper */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
+                {[
+                  { status: 'submitted', label: '1. Submitted', active: true },
+                  { status: 'pro_selected', label: '2. Pro Selected', active: true },
+                  { status: 'confirmed', label: '3. En Route / Arrived', active: false },
+                  { status: 'completed', label: '4. Completed', active: false }
+                ].map((st, i) => (
+                  <div 
+                    key={i} 
+                    className={`p-2 rounded-xl text-center text-xs font-bold ${
+                      st.active 
+                        ? 'bg-indigo-600 text-white' 
+                        : 'bg-white border border-slate-200 text-slate-400'
+                    }`}
+                  >
+                    {st.label}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Link
+                to="/dashboard"
+                className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md text-center flex items-center justify-center gap-2"
+              >
+                <span>View in Customer Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                to="/"
+                className="py-3 px-5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl text-center"
+              >
+                Return to Home
+              </Link>
+            </div>
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }

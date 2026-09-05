@@ -40,7 +40,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
       { sender: 'me', text: 'Namaste! Yes, we carry organic sanitizers and biodegradable floor agents as standard equipment.', time: '15 mins ago' }
     ],
     helpdesk: [
-      { sender: 'them', text: 'Namaste! GoServik Partner support desk is active. Need help with payout, tax slab, or scheduling?', time: 'Yesterday' }
+      { sender: 'them', text: 'Namaste! KaamNow Partner support desk is active. Need help with payout, tax slab, or scheduling?', time: 'Yesterday' }
     ]
   });
 
@@ -228,18 +228,87 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
       {/* TAB: OVERVIEW */}
       {currentTab === 'overview' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Assigned Jobs</div>
-              <div className="text-3xl font-extrabold text-indigo-600">{pendingRequestsCount}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Active Jobs</div>
+              <div className="text-2xl font-black text-indigo-600">{pendingRequestsCount}</div>
             </div>
-            <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
+            <div className="bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
               <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Completed Jobs</div>
-              <div className="text-3xl font-extrabold text-slate-900">{completedCount}</div>
+              <div className="text-2xl font-black text-slate-900">{completedCount}</div>
             </div>
-            <div className="bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/40 shadow-sm">
-              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Business Revenue</div>
-              <div className="text-3xl font-extrabold text-emerald-600">₹{totalRevenue}</div>
+            <div className="bg-white/60 backdrop-blur-md p-5 rounded-3xl border border-white/40 shadow-sm">
+              <div className="text-slate-500 text-xs font-bold uppercase tracking-wider mb-1">Gross Earnings</div>
+              <div className="text-2xl font-black text-slate-900">₹{totalRevenue}</div>
+              <span className="text-[10px] text-slate-400">Total Billed</span>
+            </div>
+            <div className="bg-emerald-50/80 backdrop-blur-md p-5 rounded-3xl border border-emerald-200/60 shadow-sm">
+              <div className="text-emerald-700 text-xs font-bold uppercase tracking-wider mb-1">Net Take-Home (95%)</div>
+              <div className="text-2xl font-black text-emerald-700">₹{Math.round(totalRevenue * 0.95)}</div>
+              <span className="text-[10px] text-emerald-600/80">5% Platform Fee: ₹{Math.round(totalRevenue * 0.05)}</span>
+            </div>
+          </div>
+
+          {/* QUALITY INCENTIVES & GAMIFICATION PANEL */}
+          <div className="bg-white/70 backdrop-blur-md p-6 rounded-3xl border border-slate-200/70 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                  Quality & Performance
+                </span>
+                <h3 className="font-extrabold text-slate-900 text-sm mt-1">Milestone Rewards & Badges</h3>
+              </div>
+              <div className="text-xs font-bold text-slate-600">
+                Rating: <span className="text-amber-500 font-black">⭐ {proUser?.rating || '4.9'}</span> / 5.0
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Milestone 1 */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                completedCount >= 10 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span>10 Jobs Milestone</span>
+                  <span className="text-[10px] font-black">{completedCount >= 10 ? '✓ Unlocked' : `${completedCount}/10`}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">₹500 Tool Voucher credit for equipment and spares.</p>
+              </div>
+
+              {/* Milestone 2 */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                completedCount >= 50 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span>50 Jobs Milestone</span>
+                  <span className="text-[10px] font-black">{completedCount >= 50 ? '✓ Unlocked' : `${completedCount}/50`}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">Free Premium Spotlight banner boosting local discovery.</p>
+              </div>
+
+              {/* Milestone 3 */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                completedCount >= 100 ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+              }`}>
+                <div className="flex justify-between items-center text-xs font-bold">
+                  <span>100 Jobs Milestone</span>
+                  <span className="text-[10px] font-black">{completedCount >= 100 ? '✓ Unlocked' : `${completedCount}/100`}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1 font-medium">0% Platform Fee for 1 full month — keep 100% of billings!</p>
+              </div>
+            </div>
+
+            {/* Q4 Subscription Tiers Preview */}
+            <div className="p-4 bg-indigo-50/60 rounded-2xl border border-indigo-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div>
+                <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">Q4 Rating-Linked Subscription Preview</span>
+                <p className="text-slate-600 text-[11px] mt-0.5">
+                  Launch Phase: <strong className="text-emerald-600 font-black">₹0 Free Registration Active</strong>. Starting Q4, your {proUser?.rating || 4.9} rating qualifies you for:
+                </p>
+              </div>
+              <div className="shrink-0 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 text-center">
+                <span className="font-black text-indigo-700">₹100/mo (Max Discount Tier)</span>
+              </div>
             </div>
           </div>
 
@@ -325,7 +394,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                   >
                     <div>
                       <p className="font-bold text-slate-800">
-                        Booking from {booking.customerName || 'GoServik Client'}
+                        Booking from {booking.customerName || 'KaamNow Client'}
                       </p>
                       <p className="text-slate-500">{new Date(booking.date).toLocaleDateString()} at {booking.time}</p>
                     </div>
@@ -386,18 +455,20 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                       </span>
                     </div>
                     <h3 className="text-slate-900 font-extrabold text-base group-hover:text-indigo-600 transition-colors">
-                      Booking from {booking.customerName || 'GoServik Client'}
+                      Booking from {booking.customerName || 'KaamNow Client'}
                     </h3>
                     <p className="text-xs text-slate-500 leading-relaxed max-w-md">
                       {booking.notes || "No special requests mentioned."}
                     </p>
-                    <div className="flex items-center gap-4 mt-2">
-                      <p className="text-sm font-bold text-indigo-600">Earnings: ₹{booking.totalPrice} INR</p>
-                      <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline">Click to view location & address &rarr;</span>
+                    <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+                      <span className="font-bold text-slate-900">Total: ₹{booking.totalPrice}</span>
+                      <span className="text-emerald-700 font-bold">Take-home: ₹{Math.round(booking.totalPrice * 0.95)}</span>
+                      <span className="text-slate-400 text-[10px]">(5% fee: ₹{Math.round(booking.totalPrice * 0.05)})</span>
+                      <span className="text-[11px] text-indigo-600 font-semibold group-hover:underline">Click for details &rarr;</span>
                     </div>
                   </div>
                   
-                  <div className="flex gap-2 w-full sm:w-auto shrink-0" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex flex-wrap gap-2 w-full sm:w-auto shrink-0" onClick={(e) => e.stopPropagation()}>
                     {booking.status === 'pending' && (
                       <>
                         <Button 
@@ -420,10 +491,46 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     {booking.status === 'confirmed' && (
                       <Button 
                         size="sm" 
-                        onClick={() => updateBookingStatus(booking.id, 'completed')}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold h-9 rounded-xl px-4"
+                        onClick={() => updateBookingStatus(booking.id, 'in_transit')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold h-9 rounded-xl px-3"
                       >
-                        Mark Completed
+                        En Route 🚗
+                      </Button>
+                    )}
+                    {booking.status === 'in_transit' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateBookingStatus(booking.id, 'arrived')}
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold h-9 rounded-xl px-3"
+                      >
+                        Mark Arrived 📍
+                      </Button>
+                    )}
+                    {booking.status === 'arrived' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateBookingStatus(booking.id, 'diagnostic_in_progress')}
+                        className="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold h-9 rounded-xl px-3"
+                      >
+                        Start Diagnostics 🔍
+                      </Button>
+                    )}
+                    {booking.status === 'diagnostic_in_progress' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateBookingStatus(booking.id, 'work_in_progress')}
+                        className="bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold h-9 rounded-xl px-3"
+                      >
+                        Start Work ⚙️
+                      </Button>
+                    )}
+                    {booking.status === 'work_in_progress' && (
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateBookingStatus(booking.id, 'completed')}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold h-9 rounded-xl px-4"
+                      >
+                        Complete Job ✓
                       </Button>
                     )}
                   </div>
@@ -572,7 +679,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                 <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100&h=100" alt="Client" className="object-cover h-full w-full" />
               </div>
               <div className="text-xs">
-                <p className="font-bold text-slate-800">GoServik Client</p>
+                <p className="font-bold text-slate-800">KaamNow Client</p>
                 <p className="text-[10px] text-slate-500 truncate max-w-[120px]">Active Booking Client</p>
               </div>
             </button>
@@ -585,7 +692,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
             >
               <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm">🛎️</div>
               <div className="text-xs">
-                <p className="font-bold text-slate-800">GoServik Desk</p>
+                <p className="font-bold text-slate-800">KaamNow Desk</p>
                 <p className="text-[10px] text-slate-500 truncate max-w-[120px]">Partner Support</p>
               </div>
             </button>
@@ -595,7 +702,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
           <div className="md:col-span-2 flex flex-col justify-between h-full bg-white/30">
             <div className="p-4 border-b border-slate-200/60 bg-white/80 font-bold text-xs text-slate-850 flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Talking to {activeChatContact === 'helpdesk' ? 'Partner support Desk' : 'GoServik Client'}
+              Talking to {activeChatContact === 'helpdesk' ? 'Partner support Desk' : 'KaamNow Client'}
             </div>
 
             {/* Messages body */}
@@ -926,7 +1033,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
             </div>
             <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center space-y-1">
               <p className="text-[9px] font-bold text-indigo-800 uppercase tracking-widest">Simulated SMS Delivery</p>
-              <p className="text-sm font-black text-slate-800">Your GoServik Mobile OTP is: {generatedOtp}</p>
+              <p className="text-sm font-black text-slate-800">Your KaamNow Mobile OTP is: {generatedOtp}</p>
             </div>
             <input 
               type="text"
@@ -1051,7 +1158,7 @@ export function ProfessionalDashboardView({ currentTab, setTab }: ProfessionalDa
                     </div>
                     <div>
                       <span className="text-[10px] font-bold text-slate-400 uppercase block">Full Name</span>
-                      <span className="text-xs font-bold text-slate-850">{selectedBooking.customerName || 'GoServik Client'}</span>
+                      <span className="text-xs font-bold text-slate-850">{selectedBooking.customerName || 'KaamNow Client'}</span>
                     </div>
                   </div>
 

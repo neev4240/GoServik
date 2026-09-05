@@ -2,7 +2,7 @@
   "entities": {
     "Professional": {
       "title": "Professional Profile",
-      "description": "A verified professional profile on GoServik offering local expert services.",
+      "description": "A verified professional profile on KaamNow offering local expert services.",
       "type": "object",
       "properties": {
         "id": {
@@ -126,7 +126,7 @@
     },
     "Customer": {
       "title": "Customer Profile",
-      "description": "A registered customer or client profile on GoServik.",
+      "description": "A registered customer or client profile on KaamNow.",
       "type": "object",
       "properties": {
         "id": {

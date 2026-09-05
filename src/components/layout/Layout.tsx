@@ -1,6 +1,8 @@
 import { Outlet, ScrollRestoration } from 'react-router-dom';
 import { Navbar } from './Navbar';
 import { Footer } from './Footer';
+import { FirstVisitLanguageModal } from '../LanguageSelector';
+import { CompleteProfileModal } from '../CompleteProfileModal';
 
 export function Layout() {
   return (
@@ -10,6 +12,8 @@ export function Layout() {
         <Outlet />
       </main>
       <Footer />
+      <FirstVisitLanguageModal />
+      <CompleteProfileModal />
       <ScrollRestoration />
     </div>
   );

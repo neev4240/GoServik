@@ -144,7 +144,7 @@ export function Dashboard() {
           </div>
 
           {/* Email Verification Alert Banner to Maintain Legitimacy */}
-          {auth.currentUser && auth.currentUser.email && !auth.currentUser.email.endsWith('@goservik.com') && !auth.currentUser.emailVerified && (
+          {auth.currentUser && auth.currentUser.email && !auth.currentUser.email.endsWith('@kaamnow.com') && !auth.currentUser.email.endsWith('@goservik.com') && !auth.currentUser.emailVerified && (
             <div className="bg-amber-50/80 border border-amber-200/80 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fade-in backdrop-blur-sm">
               <div className="flex gap-3">
                 <span className="text-2xl mt-0.5">✉️</span>

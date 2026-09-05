@@ -1,6 +1,6 @@
 {
-  "name": "GoServik",
-  "description": "Standardized local service marketplace connecting customers with verified professional experts for plumbing, electrical, cleaning, and beauty.",
-  "requestFramePermissions": [],
+  "name": "KaamNow",
+  "description": "Connect. Book. Sorted. A fast, trusted, bilingual marketplace connecting customers with nearby independent skilled professionals across 16 home and trade service categories.",
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

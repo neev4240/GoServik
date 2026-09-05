@@ -1,203 +1,381 @@
 import { useState, useMemo, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { 
-  Sparkles, Wrench, Zap, Tv, Hammer, Paintbrush, 
-  ShieldAlert, TreePine, Grid3X3, Cctv, Cpu, Truck, 
-  Droplets, Smile, HeartPulse, ShieldCheck, Search, Filter, ArrowRight 
+  Search, 
+  Briefcase, 
+  Shield, 
+  Star, 
+  MapPin, 
+  CheckCircle2, 
+  ArrowRight, 
+  Zap, 
+  Wrench, 
+  Hammer, 
+  Grid3X3, 
+  Paintbrush, 
+  Layers, 
+  Columns, 
+  Tv, 
+  Sparkles, 
+  ShieldCheck, 
+  LayoutDashboard, 
+  Lock, 
+  Building2, 
+  Trees, 
+  Flame, 
+  ClipboardCheck,
+  HeartHandshake,
+  Filter,
+  Check
 } from 'lucide-react';
 import { useStore } from '../store';
-import { Button } from '../components/ui/Button';
+import { useLanguage } from '../lib/i18n';
+import { KAAMNOW_CATEGORIES } from '../lib/categories';
 
-// Icon map for the 16 categories
-const iconMap: Record<string, any> = {
-  Sparkles, Wrench, Zap, Tv, Hammer, Paintbrush, 
-  ShieldAlert, TreePine, Grid3X3, Cctv, Cpu, Truck, 
-  Droplets, Smile, HeartPulse, ShieldCheck
-};
-
-const servicesByCategory: Record<string, string[]> = {
-  'cat-1': ['Full Home Deep Cleaning', 'Sofa Wet Shampooing', 'Bathroom Sanitization', 'Kitchen Degreasing', 'Balcony & Window Cleaning', 'Post-Construction Cleanup'],
-  'cat-2': ['Emergency Leakage & Pipe Repair', 'Faucet & Sink Install', 'Drainage Clog Removal', 'Geyser Inspection', 'Water Tank & Sump Cleaning', 'Toilet Seat & Flush Repair'],
-  'cat-3': ['Switch & Socket Repair', 'Ceiling Fan Installation', 'House Re-wiring Inspection', 'Inverter Battery Service', 'Smart Meter & MCB Repair', 'Chandelier & Decorative Lighting'],
-  'cat-4': ['AC Servicing & Filter Wash', 'AC Gas Refilling', 'Refrigerator Repair', 'Washing Machine Repair', 'Microwave Oven Fix', 'Water Purifier RO Service'],
-  'cat-5': ['Door Lock & Hinge Repair', 'Furniture Repair & Assembly', 'Modular Cabinet Adjustment', 'Drawer Slider Install', 'Wooden Partition Setup', 'Sofa Frame Stitching & Fix'],
-  'cat-6': ['Wall Paint Touch-ups', 'Waterproofing Damage Inspection', 'Interior Wall Texture', 'Flat Painting Consult', 'Wallpaper Stencil Design', 'Wood & Metal Enamel Polish'],
-  'cat-7': ['General Pest Control', 'Cockroach & Ant Gel', 'Bedbug Herbal Spray', 'Termite Protection', 'Mosquito Screen Treatment', 'Rodent & Rat Baiting'],
-  'cat-8': ['Lawn Mowing & Grass Trim', 'Weeding & Soil Treatment', 'Indoor Planter Maintenance', 'New Garden Setup', 'Artificial Turf Fitting', 'Tree Pruning & Shrub Shaping'],
-  'cat-9': ['Floor/Wall Tile Grouting', 'Cement Wall Crack Plastering', 'Bathroom Tiling Repair', 'Brickwork/Masonry', 'Marble Grinding & Polishing', 'Granite Countertop Repair'],
-  'cat-10': ['CCTV Camera Setup', 'Smart Door Lock Setup', 'Video Doorbell Wiring', 'Security Sensors Consult', 'Intercom System Repair', 'Burglar Alarm Integration'],
-  'cat-11': ['Router Setup & WiFi', 'Smart Speaker Setup', 'Smart TV Installation', 'Smart Lighting Switch', 'Home Theatre Calibration', 'Ethernet Cabling (Cat6)'],
-  'cat-12': ['Local Shift Pre-move', 'Packing & Loading Help', 'Furniture Reassembly', 'Inter-city Relocation', 'Office Goods Transport', 'Fragile Item Air-Bubble Wrap'],
-  'cat-13': ['Kitchen Chimney Clean', 'Water Purifier RO Service', 'Microwave Deep Clean', 'Hob & Stove Checkup', 'Dishwasher Filter Wash', 'Induction Cooker Repair'],
-  'cat-14': ['Men Haircut & Groom', 'Women Hair & Styling', 'Facial & Face Massage', 'Stress Relief Massage', 'Bridal & Groom Makeup', 'Mani-Pedi at Home'],
-  'cat-15': ['Physio Pain Assessment', 'Elderly Companion Visit', 'Daily Nursing Visit', 'Infant Care Consult', 'Post-Surgery Rehab Care', 'Acupressure Reflexology'],
-  'cat-16': ['Whole House Sanitization', 'Steam Disinfection', 'Workstation Spray', 'Car Cabin Fogging', 'School/Gym Sanitization', 'Antibacterial Upholstery Spray']
-};
-
-const keywordsByCategory: Record<string, string[]> = {
-  'cat-1': ['cleaning', 'clean', 'wash', 'sofa', 'carpet', 'vacuum', 'dusting', 'sweeping', 'bathroom', 'kitchen', 'deep clean', 'maid', 'housekeeper'],
-  'cat-2': ['plumber', 'plumbing', 'leak', 'leakage', 'pipe', 'water', 'tap', 'sink', 'faucet', 'toilet', 'flush', 'drain', 'clog', 'blockage', 'geyser', 'heater', 'tank'],
-  'cat-3': ['electrician', 'electricity', 'wire', 'wiring', 'switch', 'socket', 'plug', 'fan', 'light', 'chandelier', 'inverter', 'battery', 'short circuit', 'mcb', 'fuse'],
-  'cat-4': ['ac', 'air conditioner', 'cooling', 'fridge', 'refrigerator', 'compressor', 'gas fill', 'washing machine', 'dryer', 'microwave', 'oven', 'appliance'],
-  'cat-5': ['carpenter', 'carpentry', 'wood', 'wooden', 'door', 'lock', 'hinge', 'handle', 'key', 'furniture', 'cabinet', 'drawer', 'sofa repair', 'table', 'chair'],
-  'cat-6': ['painter', 'painting', 'paint', 'wall', 'wall color', 'waterproof', 'moisture', 'leakage wall', 'texture', 'stencil', 'wallpaper', 'polish', 'enamel'],
-  'cat-7': ['pest', 'cockroach', 'ant', 'bug', 'bedbug', 'termite', 'mosquito', 'insect', 'rodent', 'rat', 'mouse', 'lizard', 'spray', 'fumigation'],
-  'cat-8': ['gardener', 'gardening', 'garden', 'plant', 'lawn', 'grass', 'flower', 'pot', 'soil', 'weed', 'tree', 'trim', 'pruning', 'fertilizer'],
-  'cat-9': ['mason', 'masonry', 'brick', 'tile', 'cement', 'plaster', 'concrete', 'floor', 'granite', 'marble', 'grout', 'crack'],
-  'cat-10': ['security', 'cctv', 'camera', 'surveillance', 'lock', 'video door', 'bell', 'sensor', 'alarm', 'intercom', 'burglar'],
-  'cat-11': ['wifi', 'router', 'internet', 'network', 'smart home', 'alexa', 'google', 'speaker', 'tv', 'smart light', 'ethernet', 'cable'],
-  'cat-12': ['packer', 'mover', 'shift', 'shifting', 'pack', 'luggage', 'transport', 'truck', 'moving', 'relocation', 'office shift', 'bubble wrap'],
-  'cat-13': ['kitchen', 'chimney', 'ro', 'purifier', 'water filter', 'microwave', 'oven', 'stove', 'hob', 'burner', 'dishwasher'],
-  'cat-14': ['salon', 'parlor', 'grooming', 'haircut', 'shave', 'beard', 'facial', 'massage', 'spa', 'makeup', 'pedicure', 'manicure', 'hair style'],
-  'cat-15': ['physio', 'physiotherapy', 'doctor', 'nurse', 'elderly', 'elder', 'nursing', 'rehab', 'massage pain', 'back pain', 'knee pain', 'medical', 'health'],
-  'cat-16': ['sanitizer', 'sanitisation', 'sanitization', 'disinfection', 'fogging', 'germs', 'virus', 'covid', 'spray', 'antibacterial', 'sterilize']
+const ICON_MAP: Record<string, any> = {
+  Zap,
+  Wrench,
+  Hammer,
+  Grid3X3,
+  Paintbrush,
+  Layers,
+  Columns,
+  Tv,
+  Sparkles,
+  ShieldCheck,
+  LayoutDashboard,
+  Lock,
+  Building2,
+  Trees,
+  Flame,
+  ClipboardCheck
 };
 
 export function Explore() {
-  const { categories, currentUser } = useStore();
+  const { professionals, categories } = useStore();
+  const { t, lang } = useLanguage();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
-  const handleSearch = (e: FormEvent) => {
-    e.preventDefault();
-    if (searchQuery) {
-      searchParams.set('q', searchQuery);
-    } else {
-      searchParams.delete('q');
-    }
-    setSearchParams(searchParams);
-  };
+  const initialSearch = searchParams.get('search') || searchParams.get('q') || '';
+  const initialCategory = searchParams.get('category') || 'all';
+  const initialProtection = searchParams.get('protection') === 'true';
 
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
+  const [activeCategory, setActiveCategory] = useState<string>(initialCategory);
+  const [viewMode, setViewMode] = useState<'categories' | 'pros'>('categories');
+  const [filterElderSafe, setFilterElderSafe] = useState(false);
+  const [filterWomenSafe, setFilterWomenSafe] = useState(false);
+  const [filterProtection, setFilterProtection] = useState(initialProtection);
+
+  // Filter Categories
   const filteredCategories = useMemo(() => {
-    return categories.filter(cat => {
-      const query = searchQuery.toLowerCase().trim();
+    const query = searchQuery.toLowerCase().trim();
+    return KAAMNOW_CATEGORIES.filter(cat => {
       if (!query) return true;
-      
       const nameMatch = cat.name.toLowerCase().includes(query);
-      const descMatch = cat.description.toLowerCase().includes(query);
-      
-      const suboptions = servicesByCategory[cat.id] || [];
-      const suboptionsMatch = suboptions.some(sub => sub.toLowerCase().includes(query));
-      
-      const keys = keywordsByCategory[cat.id] || [];
-      const keywordsMatch = keys.some(key => key.toLowerCase().includes(query));
-      
-      return nameMatch || descMatch || suboptionsMatch || keywordsMatch;
+      const hindiNameMatch = cat.hindiName ? cat.hindiName.toLowerCase().includes(query) : false;
+      const subMatch = cat.subcategories.some(sub => sub.toLowerCase().includes(query));
+      return nameMatch || hindiNameMatch || subMatch;
     });
-  }, [categories, searchQuery]);
+  }, [searchQuery]);
+
+  // Filter Professionals
+  const filteredPros = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    return professionals.filter(pro => {
+      // Category filter
+      if (activeCategory !== 'all') {
+        const hasCat = pro.skills?.some(s => s.categoryId === activeCategory);
+        if (!hasCat) return false;
+      }
+
+      // Safety filters
+      if (filterElderSafe && !pro.satisfiesElderSafe) return false;
+      if (filterWomenSafe && !pro.satisfiesWomenSafe) return false;
+
+      // Query filter
+      if (query) {
+        const nameMatch = pro.name.toLowerCase().includes(query);
+        const taglineMatch = (pro.tagline || '').toLowerCase().includes(query);
+        const skillMatch = pro.skills?.some(s => 
+          s.categoryName.toLowerCase().includes(query) ||
+          s.subcategories.some(sub => sub.toLowerCase().includes(query))
+        );
+        return nameMatch || taglineMatch || skillMatch;
+      }
+
+      return true;
+    });
+  }, [professionals, activeCategory, filterElderSafe, filterWomenSafe, searchQuery]);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Search Header */}
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b pb-6 border-slate-100">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Explore Home Services</h1>
-          <p className="text-slate-500 mt-1">Select a verified service category. Book standard diagnostics visits in a single click.</p>
-        </div>
+    <div className="bg-slate-50 min-h-screen py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         
-        <form onSubmit={handleSearch} className="flex w-full md:max-w-md gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search services, e.g. AC, leakage, paint, cleanup..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-11 w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 text-xs outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-            />
-          </div>
-          <Button type="submit" className="bg-indigo-600 hover:bg-indigo-700 font-bold rounded-xl h-11 px-6 text-xs text-white">Search</Button>
-        </form>
-      </div>
-
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-            Showing {filteredCategories.length} Service Categories
-          </div>
-          <div className="text-xs text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg font-bold">
-            ⚡ All visits priced at flat ₹99 diagnosis fee
-          </div>
-        </div>
-
-        {/* Categories Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCategories.map(cat => {
-            const IconComponent = iconMap[cat.icon] || Sparkles;
-            const suboptions = servicesByCategory[cat.id] || [];
-
-            return (
-              <div 
-                key={cat.id} 
-                className="group flex flex-col justify-between p-6 border border-white/40 rounded-3xl bg-white/60 backdrop-blur-md hover:shadow-xl hover:bg-white transition-all duration-300"
-              >
-                <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all duration-300">
-                      <IconComponent className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h2 className="text-base font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                        {cat.name}
-                      </h2>
-                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Urban Assist Certified</span>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-500 leading-relaxed mb-4 h-10 line-clamp-2">
-                    {cat.description}
-                  </p>
-
-                  <div className="space-y-2 mb-6">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Popular Specializations:</div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {suboptions.map(sub => (
-                        <span 
-                          key={sub} 
-                          className="inline-flex items-center rounded-lg bg-slate-50 border border-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600"
-                        >
-                          {sub}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4 mt-auto">
-                  <div className="text-left">
-                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider block">Standard Visit Rate</span>
-                    <span className="text-lg font-black text-slate-900 block">₹99</span>
-                  </div>
-                  {currentUser?.role === 'professional' ? (
-                    <Button 
-                      disabled 
-                      className="bg-slate-100 text-slate-400 border border-slate-200 font-bold rounded-xl h-10 px-5 text-xs cursor-not-allowed"
-                    >
-                      Booking Restricted
-                    </Button>
-                  ) : (
-                    <Button 
-                      asChild 
-                      className="bg-slate-900 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-md h-10 px-5 text-xs transition-all duration-300"
-                    >
-                      <Link to={`/book?category=${cat.id}`}>
-                        Book Diagnostic Visit <ArrowRight className="h-3.5 w-3.5 ml-1.5 group-hover:translate-x-1 transition-transform" />
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {filteredCategories.length === 0 && (
-            <div className="col-span-full text-center py-20 border rounded-3xl bg-slate-50/50">
-              <Search className="mx-auto h-12 w-12 text-slate-300 mb-4 animate-bounce" />
-              <h3 className="text-lg font-extrabold text-slate-900">No Service Categories Match</h3>
-              <p className="text-slate-500 text-xs mt-1">Try checking your spelling or search for a general term like 'clean' or 'repair'.</p>
+        {/* Header with Search and Stats */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-100">
+                Direct Marketplace
+              </span>
+              <span className="text-xs text-slate-400">•</span>
+              <span className="text-xs text-slate-500 font-medium">16 Categories</span>
             </div>
-          )}
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight mt-1">
+              Explore Services & Verified Professionals
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Find independent professionals, view transparent rates, and book diagnostic visits.
+            </p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="w-full md:max-w-md">
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400">
+                <Search className="w-4 h-4" />
+              </span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search category, task or skill (e.g. fan, pipe, AC)..."
+                className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-indigo-500 shadow-xs"
+              />
+            </div>
+          </div>
         </div>
+
+        {/* View Toggle & Filters */}
+        <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+          
+          {/* Mode toggle */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl">
+            <button
+              onClick={() => setViewMode('categories')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'categories'
+                  ? 'bg-white text-indigo-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              16 Trade Categories ({filteredCategories.length})
+            </button>
+            <button
+              onClick={() => setViewMode('pros')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'pros'
+                  ? 'bg-white text-indigo-700 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Verified Professionals ({filteredPros.length})
+            </button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <button
+              onClick={() => setFilterProtection(!filterProtection)}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition-all ${
+                filterProtection
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Work Protection</span>
+              {filterProtection && <Check className="w-3 h-3 text-emerald-700" />}
+            </button>
+
+            <button
+              onClick={() => setFilterElderSafe(!filterElderSafe)}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition-all ${
+                filterElderSafe
+                  ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <HeartHandshake className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Elder-Safe</span>
+              {filterElderSafe && <Check className="w-3 h-3 text-indigo-700" />}
+            </button>
+
+            <button
+              onClick={() => setFilterWomenSafe(!filterWomenSafe)}
+              className={`px-3 py-1.5 rounded-xl border flex items-center gap-1.5 font-bold transition-all ${
+                filterWomenSafe
+                  ? 'bg-indigo-50 text-indigo-800 border-indigo-300'
+                  : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'
+              }`}
+            >
+              <HeartHandshake className="w-3.5 h-3.5 text-indigo-600" />
+              <span>Women-Safe</span>
+              {filterWomenSafe && <Check className="w-3 h-3 text-indigo-700" />}
+            </button>
+          </div>
+        </div>
+
+        {/* Categories View */}
+        {viewMode === 'categories' && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {filteredCategories.map((cat) => {
+              const IconComponent = ICON_MAP[cat.icon] || Briefcase;
+              return (
+                <div 
+                  key={cat.id} 
+                  className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-xs hover:shadow-lg transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <IconComponent className="w-5 h-5" />
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200/60">
+                        ₹99 Visit Fee
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-slate-900 text-sm">
+                      {lang === 'hi' ? cat.hindiName || cat.name : cat.name}
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1 line-clamp-2 leading-relaxed">
+                      {lang === 'hi' ? cat.hindiDescription || cat.description : cat.description}
+                    </p>
+
+                    <div className="mt-3 pt-3 border-t border-slate-100">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                        Popular Tasks:
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {cat.subcategories.slice(0, 3).map((sub, i) => (
+                          <span key={i} className="px-1.5 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600">
+                            {sub}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
+                    <button
+                      onClick={() => {
+                        setActiveCategory(cat.id);
+                        setViewMode('pros');
+                      }}
+                      className="text-[11px] font-bold text-slate-600 hover:text-indigo-600 transition-colors"
+                    >
+                      View Pros
+                    </button>
+                    <Link
+                      to={`/book?category=${cat.id}`}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-colors flex items-center gap-1"
+                    >
+                      Book <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Professionals List View */}
+        {viewMode === 'pros' && (
+          <div className="space-y-4">
+            {filteredPros.length === 0 ? (
+              <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-3">
+                <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
+                <h3 className="text-base font-bold text-slate-700">No professionals found</h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  Try clearing your search query or adjusting your safety filters to see more results.
+                </p>
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    setActiveCategory('all');
+                    setFilterElderSafe(false);
+                    setFilterWomenSafe(false);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold"
+                >
+                  Reset All Filters
+                </button>
+              </div>
+            ) : (
+              filteredPros.map((pro) => (
+                <div
+                  key={pro.id}
+                  className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:border-indigo-300 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+                >
+                  {/* Pro Bio */}
+                  <div className="flex items-start gap-4">
+                    <img
+                      src={pro.avatar}
+                      alt={pro.name}
+                      className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0"
+                    />
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-black text-slate-900">{pro.name}</h3>
+                        {pro.verified && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
+                          </span>
+                        )}
+                        {pro.satisfiesElderSafe && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
+                            Elder-Safe
+                          </span>
+                        )}
+                        {pro.satisfiesWomenSafe && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-100">
+                            Women-Safe
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-600 font-medium mt-0.5">{pro.tagline}</p>
+                      <p className="text-xs text-slate-400 mt-1 max-w-xl line-clamp-2">{pro.bio}</p>
+
+                      <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-500">
+                        <span className="flex items-center gap-1 font-bold text-amber-500">
+                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                          {pro.rating} ({pro.reviewCount} reviews)
+                        </span>
+                        <span>•</span>
+                        <span>{pro.jobsCompleted}+ jobs</span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 text-slate-600">
+                          <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                          {pro.location}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Rates and Direct Book Button */}
+                  <div className="w-full md:w-auto flex md:flex-col items-center md:items-end justify-between gap-3 shrink-0 pt-4 md:pt-0 border-t md:border-t-0 border-slate-100">
+                    <div className="text-left md:text-right">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rates</span>
+                      <span className="text-lg font-black text-slate-900">₹{pro.hourlyRate}/hr</span>
+                      <span className="text-[10px] text-slate-500 block">Full day: ₹{pro.fullDayRate || 2200}</span>
+                    </div>
+
+                    <Link
+                      to={`/book?proId=${pro.id}&category=${pro.skills[0]?.categoryId || 'cat-electrical'}`}
+                      className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      Book Professional <ArrowRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );

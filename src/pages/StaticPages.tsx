@@ -9,9 +9,9 @@ export function AboutPage() {
       <div className="max-w-4xl mx-auto space-y-12">
         <div className="text-center space-y-4">
           <span className="px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 rounded-full border border-indigo-100">Our Story</span>
-          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">Standardizing Home Services</h1>
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">Connecting You With Independent Experts</h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            GoServik is India's premium service marketplace, designed to bring transparency, high training standards, and guaranteed reliability to every household.
+            KaamNow is India's fast, trusted, bilingual service marketplace connecting customers with nearby independent skilled professionals.
           </p>
         </div>
 
@@ -40,9 +40,9 @@ export function AboutPage() {
         </div>
 
         <div className="bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 space-y-6">
-          <h2 className="text-2xl font-bold text-slate-900">Inspired by Standardized Quality</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Direct Marketplace, Zero Middlemen</h2>
           <p className="text-slate-600 text-sm leading-relaxed">
-            Unlike traditional portals, GoServik makes it incredibly easy to invite verified independent professionals to your home. We perform identity checks, define transparent visit charge limits, and let you meet and compare expert partners in person to decide what fits best.
+            KaamNow is a direct marketplace and connector. KaamNow itself does not perform the trade services, and verified professionals are independent contractors, not employees of KaamNow. We provide identity verification, transparent diagnostics rate guidance, direct in-app chat, and the KaamNow Work Protection guarantee.
           </p>
           <div className="space-y-3">
             <div className="flex gap-3 items-start text-sm text-slate-700">
@@ -108,7 +108,7 @@ export function ContactPage() {
               <Mail className="h-5 w-5 text-indigo-600 shrink-0" />
               <div>
                 <p className="font-bold">Support Email</p>
-                <p className="text-xs text-slate-500">help@goservik.com</p>
+                <p className="text-xs text-slate-500">support@kaamnow.com</p>
               </div>
             </div>
           </div>
@@ -230,9 +230,9 @@ export function HowItWorksPage() {
       <div className="max-w-4xl mx-auto space-y-12">
         <div className="text-center space-y-4">
           <span className="px-3 py-1 text-xs font-bold uppercase tracking-widest text-indigo-600 bg-indigo-50 rounded-full border border-indigo-100">Simple Walkthrough</span>
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">How GoServik Works</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">How KaamNow Works</h1>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto leading-relaxed">
-            From tap to booking completion, we've simplified how you hire top-tier independent professionals.
+            Connect. Book. Sorted. We've simplified how you book top-tier independent professionals with complete safety and transparency.
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export function SuccessStoriesPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 shadow-xl space-y-4 flex flex-col justify-between">
             <p className="text-slate-600 italic text-sm leading-relaxed">
-              "Before joining GoServik, my plumbing work was highly seasonal. I had to pay heavy commissions to local brokers just to find jobs. Now, I receive pre-paid confirmed bookings in my area daily, and my family's income has stabilized at 3x higher than before."
+              "Before joining KaamNow, my plumbing work was highly seasonal. I had to pay heavy commissions to local brokers just to find jobs. Now, I receive pre-paid confirmed bookings in my area daily, and my family's income has stabilized at 3x higher than before."
             </p>
             <div className="flex gap-4 items-center">
               <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-600">RP</div>
@@ -299,7 +299,7 @@ export function SuccessStoriesPage() {
 
           <div className="bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 shadow-xl space-y-4 flex flex-col justify-between">
             <p className="text-slate-600 italic text-sm leading-relaxed">
-              "The professional training and standardized cleaning equipment provided by GoServik transformed how customers view my service. I get respected, paid fairly, and can easily manage my availability directly from my partner app dashboard."
+              "The direct booking tools and fair 5% platform fee on KaamNow transformed how customers view my service. I get respected, paid fairly, and can easily manage my availability directly from my partner app dashboard."
             </p>
             <div className="flex gap-4 items-center">
               <div className="w-12 h-12 bg-slate-200 rounded-full flex items-center justify-center font-bold text-slate-600">SK</div>
@@ -334,8 +334,8 @@ export function CommunityGuidelinesPage() {
             <div className="flex gap-3 items-start">
               <CheckCircle2 className="h-5 w-5 text-indigo-600 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-slate-800">Standardized SOP Compliance</p>
-                <p className="text-xs">Follow standard service parameters, wear proper GoServik credentials/uniform, and maintain optimal sanitization standards.</p>
+                <p className="font-bold text-slate-800">Professional Standards</p>
+                <p className="text-xs">Follow standard trade safety parameters, carry valid government identification, and maintain respectful conduct at all client locations.</p>
               </div>
             </div>
             <div className="flex gap-3 items-start">
@@ -383,9 +383,9 @@ export function PrivacyPolicyPage() {
     <div className="bg-transparent min-h-screen py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 space-y-6">
         <h1 className="text-3xl font-extrabold text-slate-900">Privacy Policy</h1>
-        <p className="text-xs text-slate-400 font-mono">Last updated: July 17, 2026</p>
+        <p className="text-xs text-slate-400 font-mono">Last updated: September 2026</p>
         <p className="text-sm text-slate-600 leading-relaxed">
-          At GoServik, we value and respect the confidentiality of our users. This privacy policy outlines how we collect, store, process, and protect your information when you access our marketplace app.
+          At KaamNow, we value and respect the confidentiality of our users. This privacy policy outlines how we collect, store, process, and protect your information when you access our marketplace platform.
         </p>
         <div className="space-y-4 text-sm text-slate-700">
           <h2 className="font-bold text-slate-900">1. Information We Collect</h2>
@@ -405,13 +405,13 @@ export function TermsPage() {
     <div className="bg-transparent min-h-screen py-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto bg-white/60 backdrop-blur-md p-8 rounded-3xl border border-white/40 space-y-6">
         <h1 className="text-3xl font-extrabold text-slate-900">Terms of Service</h1>
-        <p className="text-xs text-slate-400 font-mono">Last updated: July 17, 2026</p>
+        <p className="text-xs text-slate-400 font-mono">Last updated: September 2026</p>
         <p className="text-sm text-slate-600 leading-relaxed">
-          Welcome to GoServik. By accessing or using our marketplace platform, you agree to comply with and be bound by the following Terms and Conditions of use.
+          Welcome to KaamNow. By accessing or using our marketplace platform, you agree to comply with and be bound by the following Terms and Conditions of use. KaamNow is a technology marketplace connecting customers with independent service professionals. KaamNow does not perform services directly and professionals are independent contractors.
         </p>
         <div className="space-y-4 text-sm text-slate-700">
-          <h2 className="font-bold text-slate-900">1. Standardized Bookings</h2>
-          <p className="text-xs text-slate-500">Bookings placed through GoServik are subject to standard pricing rate cards. Any modifications or custom pricing requests must be recorded officially through the platform.</p>
+          <h2 className="font-bold text-slate-900">1. Standardized Bookings & Visit Fee</h2>
+          <p className="text-xs text-slate-500">Bookings placed through KaamNow are subject to the ₹99 diagnostic visiting fee card. Any modifications, spare parts, or custom pricing requests must be confirmed between customer and professional.</p>
           
           <h2 className="font-bold text-slate-900">2. Cancellation Policy</h2>
           <p className="text-xs text-slate-500">Bookings cancelled within 2 hours of the scheduled service slot may incur a standard ₹100 dispatch penalty fee to compensate partners for fuel and mobilization.</p>

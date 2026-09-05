@@ -1,12 +1,32 @@
 import { create } from 'zustand';
-import { User, ProfessionalProfile, ServiceCategory, Booking, Review, Message, Role } from './types';
+import { 
+  User, 
+  ProfessionalProfile, 
+  ServiceCategory, 
+  Booking, 
+  BookingStatus,
+  Review, 
+  Message, 
+  Role,
+  IncentiveRule,
+  PlatformConfig,
+  ServiceAddress
+} from './types';
 import { db, auth } from './lib/firebase';
 import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
+import { KAAMNOW_CATEGORIES } from './lib/categories';
+import { 
+  DEMO_SAMPLE_TESTING_PRO, 
+  DEMO_SECONDARY_PROS, 
+  DEMO_SAMPLE_TESTING_REVIEWS, 
+  DEMO_SAMPLE_TESTING_BOOKINGS,
+  INITIAL_INCENTIVE_RULES,
+  INITIAL_PLATFORM_CONFIG
+} from './lib/demoData';
 
-// Mock Data
 export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371; // Radius of the earth in km
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLng = (lng2 - lng1) * Math.PI / 180;
   const a = 
@@ -14,279 +34,22 @@ export function getDistanceKm(lat1: number, lng1: number, lat2: number, lng2: nu
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
     Math.sin(dLng/2) * Math.sin(dLng/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
+  return Math.round(R * c * 10) / 10;
 }
 
 export const MOCK_CUSTOMERS: User[] = [];
 
-export const MOCK_CATEGORIES: ServiceCategory[] = [
-  {
-    id: 'cat-1',
-    name: 'Electrical Services',
-    description: 'Wiring, switches, sockets, fan installations, EV charger setup, and fault repairs',
-    icon: 'Zap',
-    subcategories: [
-      'Wiring',
-      'Switches & Sockets',
-      'Fan Installation',
-      'Lighting',
-      'MCB & Distribution Boards',
-      'Inverter Installation',
-      'Generator Connection',
-      'EV Charger Installation',
-      'Electrical Fault Repair'
-    ]
-  },
-  {
-    id: 'cat-2',
-    name: 'Plumbing Services',
-    description: 'Faucet repair, pipe leakage, bathroom fittings, water tanks, sewage and drain cleaning',
-    icon: 'Wrench',
-    subcategories: [
-      'Tap & Faucet Repair',
-      'Pipe Leakage',
-      'Bathroom Fittings',
-      'Kitchen Plumbing',
-      'Water Tank Installation',
-      'Drain Cleaning',
-      'Toilet Repair',
-      'Sewage Line',
-      'Water Pressure Issues'
-    ]
-  },
-  {
-    id: 'cat-3',
-    name: 'Carpentry & Woodwork',
-    description: 'Furniture assembly, modular furniture, doors, windows, locks, wardrobes, and custom work',
-    icon: 'Hammer',
-    subcategories: [
-      'Furniture Assembly',
-      'Modular Furniture',
-      'Doors & Windows',
-      'Locks',
-      'Cabinets',
-      'Wardrobes',
-      'Shelves',
-      'Wooden Flooring',
-      'Custom Furniture'
-    ]
-  },
-  {
-    id: 'cat-4',
-    name: 'Masonry & Civil Work',
-    description: 'Brickwork, plastering, RCC repair, boundary walls, floor repairs, stairs and tile base prep',
-    icon: 'Grid3X3',
-    subcategories: [
-      'Brickwork',
-      'Plastering',
-      'RCC Repair',
-      'Concrete Work',
-      'Boundary Walls',
-      'Floor Repair',
-      'Stair Construction',
-      'Tile Base Preparation',
-      'Structural Repairs'
-    ]
-  },
-  {
-    id: 'cat-5',
-    name: 'Painting & Wall Finishes',
-    description: 'Interior & exterior painting, texture paint, putty work, waterproof coatings, and wallpaper',
-    icon: 'Paintbrush',
-    subcategories: [
-      'Interior Painting',
-      'Exterior Painting',
-      'Texture Paint',
-      'Putty Work',
-      'Waterproof Coatings',
-      'Wall Repair',
-      'Wallpaper Installation',
-      'POP Designs'
-    ]
-  },
-  {
-    id: 'cat-6',
-    name: 'Tiles, Marble & Flooring',
-    description: 'Tile installation, replacement, marble/granite work, vinyl/wooden flooring, and polishing',
-    icon: 'Layers',
-    subcategories: [
-      'Tile Installation',
-      'Tile Replacement',
-      'Marble Installation',
-      'Granite Work',
-      'Wooden Flooring',
-      'Vinyl Flooring',
-      'Floor Polishing',
-      'Grouting'
-    ]
-  },
-  {
-    id: 'cat-7',
-    name: 'Aluminium, Glass & UPVC',
-    description: 'UPVC windows, sliding windows, aluminium doors, toughened glass, and mosquito mesh',
-    icon: 'Columns',
-    subcategories: [
-      'UPVC Windows',
-      'Aluminium Doors',
-      'Sliding Windows',
-      'Toughened Glass',
-      'Glass Partitions',
-      'Shower Enclosures',
-      'Mosquito Mesh',
-      'Balcony Glazing'
-    ]
-  },
-  {
-    id: 'cat-8',
-    name: 'AC & Home Appliances',
-    description: 'AC install & repair, refrigerator, washing machine, microwave, chimney, and geysers',
-    icon: 'Tv',
-    subcategories: [
-      'AC Installation',
-      'AC Repair',
-      'Refrigerator Repair',
-      'Washing Machine Repair',
-      'Microwave Repair',
-      'Chimney Service',
-      'Geyser Repair',
-      'Dishwasher Repair',
-      'Water Purifier (RO)'
-    ]
-  },
-  {
-    id: 'cat-9',
-    name: 'Home Cleaning & Sanitization',
-    description: 'Deep home cleaning, sofa & carpet cleaning, water tanks, kitchen and post-construction cleaning',
-    icon: 'Sparkles',
-    subcategories: [
-      'Deep Cleaning',
-      'Sofa Cleaning',
-      'Carpet Cleaning',
-      'Bathroom Cleaning',
-      'Kitchen Cleaning',
-      'Water Tank Cleaning',
-      'Move-in Cleaning',
-      'Post-Construction Cleaning'
-    ]
-  },
-  {
-    id: 'cat-10',
-    name: 'Waterproofing & Roofing',
-    description: 'Roof & terrace waterproofing, crack repairs, basement waterproofing, and heatproof coatings',
-    icon: 'Umbrella',
-    subcategories: [
-      'Roof Waterproofing',
-      'Terrace Waterproofing',
-      'Crack Repair',
-      'Basement Waterproofing',
-      'Roof Leakage Repair',
-      'Heatproof Coating',
-      'Rainwater Protection'
-    ]
-  },
-  {
-    id: 'cat-11',
-    name: 'Interior & Modular Solutions',
-    description: 'Modular kitchens, wardrobes, TV units, false ceilings, office interiors, and layout planning',
-    icon: 'Layout',
-    subcategories: [
-      'Modular Kitchen',
-      'Wardrobes',
-      'TV Units',
-      'False Ceiling',
-      'Partition Walls',
-      'Office Interiors',
-      'Space Planning',
-      'Interior Consultation'
-    ]
-  },
-  {
-    id: 'cat-12',
-    name: 'Smart Home & Security',
-    description: 'CCTV setup, video door phones, smart locks, home automation, wifi and intercom setups',
-    icon: 'Cctv',
-    subcategories: [
-      'CCTV Installation',
-      'Video Door Phone',
-      'Smart Locks',
-      'Home Automation',
-      'Wi-Fi Setup',
-      'Alarm Systems',
-      'Access Control',
-      'Intercom Systems'
-    ]
-  },
-  {
-    id: 'cat-13',
-    name: 'Construction & Renovation',
-    description: 'House construction, room extensions, demolition, remodels, and structural consultation',
-    icon: 'Building',
-    subcategories: [
-      'House Construction',
-      'Room Extension',
-      'Demolition',
-      'Renovation',
-      'Remodeling',
-      'Foundation Work',
-      'Structural Consultation',
-      'Turnkey Projects'
-    ]
-  },
-  {
-    id: 'cat-14',
-    name: 'Outdoor & Exterior Services',
-    description: 'Gates, fencing, paver blocks, driveways, landscaping, and garden irrigation',
-    icon: 'Sun',
-    subcategories: [
-      'Gates',
-      'Fencing',
-      'Paver Blocks',
-      'Driveways',
-      'Landscaping',
-      'Garden Irrigation',
-      'Outdoor Lighting',
-      'Compound Wall Repair'
-    ]
-  },
-  {
-    id: 'cat-15',
-    name: 'Metal Fabrication & Welding',
-    description: 'Steel gates, railings, grills, staircases, welding repairs, and shed fabrication',
-    icon: 'Flame',
-    subcategories: [
-      'Steel Gates',
-      'Railings',
-      'Grills',
-      'Staircases',
-      'Shed Fabrication',
-      'Welding Repair',
-      'Stainless Steel Work',
-      'Iron Fabrication'
-    ]
-  },
-  {
-    id: 'cat-16',
-    name: 'Home Inspection & Maintenance',
-    description: 'Property inspections, electrical/plumbing safety inspects, snag lists, and handyman services',
-    icon: 'ClipboardCheck',
-    subcategories: [
-      'Property Inspection',
-      'Electrical Safety Inspection',
-      'Plumbing Inspection',
-      'Annual Home Maintenance',
-      'Preventive Maintenance',
-      'Snag List Inspection',
-      'Rental Property Check',
-      'General Handyman Services'
-    ]
-  }
-];
-
-export const MOCK_PROFESSIONALS: ProfessionalProfile[] = [];
-
-export const MOCK_BOOKINGS: Booking[] = [];
-
-export const MOCK_REVIEWS: Review[] = [];
+interface WorkProtectionClaim {
+  id: string;
+  bookingId: string;
+  customerId: string;
+  professionalId: string;
+  issueType: 'damage' | 'unfinished' | 'delay' | 'conduct' | 'other';
+  description: string;
+  amountClaimed: number;
+  status: 'submitted' | 'under_review' | 'approved' | 'rejected' | 'settled';
+  createdAt: string;
+}
 
 interface AppState {
   currentUser: User | ProfessionalProfile | null;
@@ -296,63 +59,77 @@ interface AppState {
   reviews: Review[];
   savedProfessionals: string[];
   customers: User[];
+  incentiveRules: IncentiveRule[];
+  platformConfig: PlatformConfig;
+  workProtectionClaims: WorkProtectionClaim[];
   listenersInitialized?: boolean;
+  
   initializeFromFirestore: () => Promise<void>;
+  migrateToKaamNow: (purgeUsers?: boolean) => Promise<{ success: boolean; message: string }>;
   login: (emailOrPhone: string, role?: Role, name?: string, additionalDetails?: any) => void;
   logout: () => void;
-  bookService: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => void;
+  bookService: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => Promise<string>;
   toggleSavedProfessional: (proId: string) => void;
-  updateBookingStatus: (bookingId: string, status: Booking['status'], professionalId?: string) => void;
-  addProfessionalService: (proId: string, service: any) => void;
-  updateUserProfile: (profile: Partial<User & ProfessionalProfile>) => void;
-  updateCustomer: (id: string, updated: Partial<User>) => void;
-  deleteCustomer: (id: string) => void;
-  updateProfessional: (id: string, updated: Partial<ProfessionalProfile>) => void;
-  deleteProfessional: (id: string) => void;
-  deleteBooking: (id: string) => void;
+  updateBookingStatus: (bookingId: string, status: BookingStatus, note?: string, professionalId?: string) => Promise<void>;
+  addProfessionalService: (proId: string, service: any) => Promise<void>;
+  updateUserProfile: (profile: Partial<User & ProfessionalProfile>) => Promise<void>;
+  completeUserProfile: (details: { mobile: string; city: string; state?: string; pincode?: string }) => Promise<void>;
+  updateCustomer: (id: string, updated: Partial<User>) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<void>;
+  updateProfessional: (id: string, updated: Partial<ProfessionalProfile>) => Promise<void>;
+  deleteProfessional: (id: string) => Promise<void>;
+  deleteBooking: (id: string) => Promise<void>;
+  addReview: (review: Omit<Review, 'id' | 'createdAt'>) => Promise<void>;
+  submitWorkProtectionClaim: (claim: Omit<WorkProtectionClaim, 'id' | 'createdAt' | 'status'>) => Promise<void>;
+  updatePlatformConfig: (config: Partial<PlatformConfig>) => void;
+  addIncentiveRule: (rule: IncentiveRule) => void;
+  toggleIncentiveRule: (ruleId: string) => void;
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   currentUser: (() => {
     try {
-      const saved = localStorage.getItem('goservik_user');
+      const saved = localStorage.getItem('kaamnow_user') || localStorage.getItem('goservik_user');
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   })(),
-  categories: MOCK_CATEGORIES,
-  professionals: MOCK_PROFESSIONALS,
-  bookings: MOCK_BOOKINGS,
-  reviews: MOCK_REVIEWS,
+  categories: KAAMNOW_CATEGORIES,
+  professionals: [DEMO_SAMPLE_TESTING_PRO, ...DEMO_SECONDARY_PROS],
+  bookings: DEMO_SAMPLE_TESTING_BOOKINGS,
+  reviews: DEMO_SAMPLE_TESTING_REVIEWS,
   savedProfessionals: [],
   customers: MOCK_CUSTOMERS,
+  incentiveRules: INITIAL_INCENTIVE_RULES,
+  platformConfig: INITIAL_PLATFORM_CONFIG,
+  workProtectionClaims: [],
   listenersInitialized: false,
-  
+
   login: (emailOrPhone, role, name, additionalDetails) => set((state) => {
     const isEmail = emailOrPhone.includes('@');
     const cleanedIdentifier = emailOrPhone.trim();
 
     // Admin login
-    if (cleanedIdentifier.toLowerCase() === 'admin@goservik.com' || cleanedIdentifier.toLowerCase() === 'admin') {
-      const adminUser = {
-        id: 'admin-1',
-        name: name || 'Platform Admin',
-        email: 'admin@goservik.com',
-        role: 'admin' as const,
+    if (cleanedIdentifier.toLowerCase() === 'admin@kaamnow.com' || 
+        cleanedIdentifier.toLowerCase() === 'admin@goservik.com' || 
+        cleanedIdentifier.toLowerCase() === 'admin') {
+      const adminUser: User = {
+        id: 'admin-kaamnow-1',
+        name: name || 'KaamNow Admin',
+        email: 'admin@kaamnow.com',
+        role: 'admin',
         joinedAt: new Date().toISOString()
       };
-      localStorage.setItem('goservik_user', JSON.stringify(adminUser));
-      return {
-        currentUser: adminUser
-      };
+      localStorage.setItem('kaamnow_user', JSON.stringify(adminUser));
+      return { currentUser: adminUser };
     }
 
     const finalRole = role || 'customer';
 
     // Normalize phone numbers for checks
     let extractedPhone = '';
-    if (cleanedIdentifier.endsWith('@goservik.com')) {
+    if (cleanedIdentifier.endsWith('@kaamnow.com') || cleanedIdentifier.endsWith('@goservik.com')) {
       const prefix = cleanedIdentifier.split('@')[0];
       if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
         extractedPhone = prefix;
@@ -417,74 +194,89 @@ export const useStore = create<AppState>((set) => ({
     if (finalRole === 'professional') {
       const existingPro = state.professionals.find(matchesEmailOrPhone);
       if (existingPro) {
-        localStorage.setItem('goservik_user', JSON.stringify(existingPro));
+        localStorage.setItem('kaamnow_user', JSON.stringify(existingPro));
         return { currentUser: existingPro };
       }
 
-      const proCategory = additionalDetails?.category || 'cat-1';
-      const catObj = state.categories.find(c => c.id === proCategory);
+      const defaultCategory = additionalDetails?.category || 'cat-electrical';
+      const catObj = state.categories.find(c => c.id === defaultCategory) || state.categories[0];
       
       const newPro: ProfessionalProfile = {
         id: additionalDetails?.uid || `pro-${Date.now()}`,
         uid: additionalDetails?.uid || undefined,
         name: additionalDetails?.companyName || name || cleanedIdentifier.split('@')[0],
         personalName: name || cleanedIdentifier.split('@')[0],
-        email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
+        email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@kaamnow.com`,
         role: 'professional',
         joinedAt: new Date().toISOString(),
-        avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200&h=200',
+        avatar: additionalDetails?.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=300',
         verified: true,
-        tagline: additionalDetails?.companyName ? `Partner with ${additionalDetails.companyName}` : 'Verified Partner',
-        bio: 'Dedicated independent professional registered on GoServik.',
-        location: additionalDetails?.city ? `${additionalDetails.city}, ${additionalDetails.state || ''}` : '',
-        serviceRadiusKm: additionalDetails?.serviceRadiusKm || 10,
-        languages: ['English', 'Hindi'],
-        coordinates: additionalDetails?.coordinates || undefined,
+        tagline: additionalDetails?.tagline || 'Verified KaamNow Partner',
+        bio: additionalDetails?.bio || 'Skilled independent professional on KaamNow.',
+        location: additionalDetails?.city ? `${additionalDetails.city}, ${additionalDetails.state || ''}` : 'Delhi NCR',
+        serviceRadiusKm: additionalDetails?.serviceRadiusKm || 20,
+        languages: additionalDetails?.languages || ['Hindi', 'English'],
+        coordinates: additionalDetails?.coordinates || { lat: 28.5355, lng: 77.2410 },
+        // Multi-category skills
+        skills: additionalDetails?.skills || [
+          {
+            categoryId: catObj.id,
+            categoryName: catObj.name,
+            subcategories: additionalDetails?.subcategories || [catObj.subcategories[0]]
+          }
+        ],
+        hourlyRate: additionalDetails?.hourlyRate || 350,
+        fourHourRate: additionalDetails?.fourHourRate || 1200,
+        fullDayRate: additionalDetails?.fullDayRate || 2200,
+        supportsDiagnosticVisit: additionalDetails?.supportsDiagnosticVisit ?? true,
         services: [
           {
             id: `srv-${Date.now()}`,
-            categoryId: proCategory,
-            name: catObj ? `${catObj.name} Expert Services` : 'General Service',
-            description: 'Standard high-quality service package.',
-            basePrice: 99,
-            priceUnit: 'fixed',
-            experienceYears: 5,
-            subcategories: catObj ? [catObj.subcategories[0]] : []
+            categoryId: catObj.id,
+            name: `${catObj.name} Professional Work`,
+            description: 'Comprehensive skilled on-site service.',
+            basePrice: additionalDetails?.hourlyRate || 350,
+            priceUnit: 'hourly',
+            experienceYears: additionalDetails?.experienceYears || 5,
+            subcategories: additionalDetails?.subcategories || [catObj.subcategories[0]]
           }
         ],
         gallery: [],
-        certifications: ['Verified GoServik Partner'],
+        certifications: ['Verified KaamNow Professional'],
         workingHours: {
-          Monday: '09:00 - 18:00',
-          Tuesday: '09:00 - 18:00',
-          Wednesday: '09:00 - 18:00',
-          Thursday: '09:00 - 18:00',
-          Friday: '09:00 - 18:00',
-          Saturday: '10:00 - 16:00',
-          Sunday: 'Closed'
+          Mon: '08:00 - 20:00',
+          Tue: '08:00 - 20:00',
+          Wed: '08:00 - 20:00',
+          Thu: '08:00 - 20:00',
+          Fri: '08:00 - 20:00',
+          Sat: '09:00 - 18:00'
         },
-        responseTime: 'Responds within 2 hours',
+        responseTime: 'Within 30 minutes',
         availabilityStatus: 'available',
         rating: 5.0,
         reviewCount: 0,
         jobsCompleted: 0,
-        // Detailed parameters
         companyName: additionalDetails?.companyName || '',
         mobile: phoneToCheck || '',
         dob: additionalDetails?.dob || '',
-        country: additionalDetails?.country || '',
-        state: additionalDetails?.state || '',
-        city: additionalDetails?.city || '',
+        country: additionalDetails?.country || 'India',
+        state: additionalDetails?.state || 'Delhi',
+        city: additionalDetails?.city || 'New Delhi',
         pincode: additionalDetails?.pincode || '',
         addressLine: additionalDetails?.addressLine || '',
-        landmark: additionalDetails?.landmark || ''
+        landmark: additionalDetails?.landmark || '',
+        satisfiesElderSafe: additionalDetails?.satisfiesElderSafe ?? true,
+        satisfiesWomenSafe: additionalDetails?.satisfiesWomenSafe ?? true,
+        subscriptionStatus: 'active_free_tier',
+        subscriptionQuarter: 1,
+        calculatedMonthlySubscription: 100
       };
 
       setDoc(doc(db, 'professionals', newPro.id), newPro).catch(err => 
         console.warn("Firestore professional login write failed", err)
       );
 
-      localStorage.setItem('goservik_user', JSON.stringify(newPro));
+      localStorage.setItem('kaamnow_user', JSON.stringify(newPro));
       return {
         professionals: [...state.professionals, newPro],
         currentUser: newPro
@@ -494,93 +286,106 @@ export const useStore = create<AppState>((set) => ({
     // 4. Default to Customer Login/Registration
     const existingCustomer = state.customers.find(matchesEmailOrPhone);
     if (existingCustomer) {
-      localStorage.setItem('goservik_user', JSON.stringify(existingCustomer));
+      localStorage.setItem('kaamnow_user', JSON.stringify(existingCustomer));
       return { currentUser: existingCustomer };
     }
+
+    const isComplete = Boolean(phoneToCheck && (additionalDetails?.city || ''));
 
     const mockCustomer: User = {
       id: additionalDetails?.uid || `cust-${Date.now()}`,
       uid: additionalDetails?.uid || undefined,
       name: name || cleanedIdentifier.split('@')[0],
-      email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@goservik.com`,
+      email: isEmail ? cleanedIdentifier : `${cleanedIdentifier}@kaamnow.com`,
       role: 'customer',
       joinedAt: new Date().toISOString(),
+      avatar: additionalDetails?.avatar,
       companyName: '',
       mobile: phoneToCheck || '',
       dob: additionalDetails?.dob || '',
-      country: additionalDetails?.country || '',
-      state: additionalDetails?.state || '',
+      country: additionalDetails?.country || 'India',
+      state: additionalDetails?.state || 'Delhi',
       city: additionalDetails?.city || '',
       pincode: additionalDetails?.pincode || '',
       addressLine: additionalDetails?.addressLine || '',
       landmark: additionalDetails?.landmark || '',
-      coordinates: additionalDetails?.coordinates || undefined
+      coordinates: additionalDetails?.coordinates || undefined,
+      isProfileComplete: isComplete
     };
 
     setDoc(doc(db, 'customers', mockCustomer.id), mockCustomer).catch(err => 
       console.warn("Firestore customer login write failed", err)
     );
 
-    localStorage.setItem('goservik_user', JSON.stringify(mockCustomer));
+    localStorage.setItem('kaamnow_user', JSON.stringify(mockCustomer));
     return { 
       customers: [...state.customers, mockCustomer],
       currentUser: mockCustomer 
     };
   }),
-  
+
   logout: () => {
+    localStorage.removeItem('kaamnow_user');
     localStorage.removeItem('goservik_user');
     signOut(auth).catch((err) => {
       console.warn("Firebase signOut failed", err);
     });
     set({ currentUser: null });
   },
-  
+
   initializeFromFirestore: async () => {
     try {
       // 1. Fetch Categories
       const catSnap = await getDocs(collection(db, 'categories'));
       let loadedCategories = catSnap.docs.map(doc => doc.data() as ServiceCategory);
-      if (loadedCategories.length === 0) {
-        for (const cat of MOCK_CATEGORIES) {
+      
+      // Auto-migrate if categories don't match 16 KaamNow categories
+      const isOutdated = loadedCategories.length !== 16 || !loadedCategories.some(c => c.id === 'cat-electrical');
+      if (isOutdated) {
+        console.log("KaamNow: Refreshing 16 categories in Firestore...");
+        for (const cat of KAAMNOW_CATEGORIES) {
           await setDoc(doc(db, 'categories', cat.id), cat);
         }
-        loadedCategories = MOCK_CATEGORIES;
+        loadedCategories = KAAMNOW_CATEGORIES;
       }
 
       // 2. Fetch Professionals
       const proSnap = await getDocs(collection(db, 'professionals'));
       let loadedProfessionals = proSnap.docs.map(doc => doc.data() as ProfessionalProfile);
-      if (loadedProfessionals.length === 0 && MOCK_PROFESSIONALS.length > 0) {
-        for (const pro of MOCK_PROFESSIONALS) {
+      
+      // Ensure Sample Testing pro is seeded
+      const hasSampleTesting = loadedProfessionals.some(p => p.id === DEMO_SAMPLE_TESTING_PRO.id || p.name === 'Sample Testing');
+      if (!hasSampleTesting) {
+        await setDoc(doc(db, 'professionals', DEMO_SAMPLE_TESTING_PRO.id), DEMO_SAMPLE_TESTING_PRO);
+        for (const pro of DEMO_SECONDARY_PROS) {
           await setDoc(doc(db, 'professionals', pro.id), pro);
         }
-        loadedProfessionals = MOCK_PROFESSIONALS;
+        loadedProfessionals = [DEMO_SAMPLE_TESTING_PRO, ...DEMO_SECONDARY_PROS, ...loadedProfessionals];
       }
 
       // 3. Fetch Bookings
       const bkSnap = await getDocs(collection(db, 'bookings'));
-      const loadedBookings = bkSnap.docs.map(doc => doc.data() as Booking);
+      let loadedBookings = bkSnap.docs.map(doc => doc.data() as Booking);
+      if (loadedBookings.length === 0) {
+        for (const bk of DEMO_SAMPLE_TESTING_BOOKINGS) {
+          await setDoc(doc(db, 'bookings', bk.id), bk);
+        }
+        loadedBookings = DEMO_SAMPLE_TESTING_BOOKINGS;
+      }
 
       // 4. Fetch Reviews
       const revSnap = await getDocs(collection(db, 'reviews'));
       let loadedReviews = revSnap.docs.map(doc => doc.data() as Review);
-      if (loadedReviews.length === 0 && MOCK_REVIEWS.length > 0) {
-        for (const rev of MOCK_REVIEWS) {
+      if (loadedReviews.length === 0) {
+        for (const rev of DEMO_SAMPLE_TESTING_REVIEWS) {
           await setDoc(doc(db, 'reviews', rev.id), rev);
         }
-        loadedReviews = MOCK_REVIEWS;
+        loadedReviews = DEMO_SAMPLE_TESTING_REVIEWS;
       }
 
       // 5. Fetch Customers
       const custSnap = await getDocs(collection(db, 'customers'));
-      let loadedCustomers = custSnap.docs.map(doc => doc.data() as User);
-      if (loadedCustomers.length === 0 && MOCK_CUSTOMERS.length > 0) {
-        for (const cust of MOCK_CUSTOMERS) {
-          await setDoc(doc(db, 'customers', cust.id), cust);
-        }
-        loadedCustomers = MOCK_CUSTOMERS;
-      }
+      const loadedCustomers = custSnap.docs.map(doc => doc.data() as User);
 
       set({
         categories: loadedCategories,
@@ -590,24 +395,23 @@ export const useStore = create<AppState>((set) => ({
         customers: loadedCustomers
       });
 
-      // 6. Set up real-time snapshot listeners (avoiding duplicates)
-      const currentState = useStore.getState();
+      // 6. Set up real-time snapshot listeners
+      const currentState = get();
       if (!currentState.listenersInitialized) {
         onSnapshot(collection(db, 'bookings'), (snapshot) => {
           const liveBookings = snapshot.docs.map(doc => doc.data() as Booking);
-          // Sort or update bookings state
           set({ bookings: liveBookings });
         });
 
         onSnapshot(collection(db, 'customers'), (snapshot) => {
           const liveCustomers = snapshot.docs.map(doc => doc.data() as User);
           set({ customers: liveCustomers });
-          const current = useStore.getState().currentUser;
+          const current = get().currentUser;
           if (current && current.role === 'customer') {
             const updatedMe = liveCustomers.find(c => c.id === current.id);
             if (updatedMe) {
               set({ currentUser: updatedMe });
-              localStorage.setItem('goservik_user', JSON.stringify(updatedMe));
+              localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
             }
           }
         });
@@ -615,19 +419,19 @@ export const useStore = create<AppState>((set) => ({
         onSnapshot(collection(db, 'professionals'), (snapshot) => {
           const liveProfessionals = snapshot.docs.map(doc => doc.data() as ProfessionalProfile);
           set({ professionals: liveProfessionals });
-          const current = useStore.getState().currentUser;
+          const current = get().currentUser;
           if (current && current.role === 'professional') {
             const updatedMe = liveProfessionals.find(p => p.id === current.id);
             if (updatedMe) {
               set({ currentUser: updatedMe });
-              localStorage.setItem('goservik_user', JSON.stringify(updatedMe));
+              localStorage.setItem('kaamnow_user', JSON.stringify(updatedMe));
             }
           }
         });
 
         onSnapshot(collection(db, 'categories'), (snapshot) => {
           const liveCategories = snapshot.docs.map(doc => doc.data() as ServiceCategory);
-          set({ categories: liveCategories });
+          if (liveCategories.length > 0) set({ categories: liveCategories });
         });
 
         onSnapshot(collection(db, 'reviews'), (snapshot) => {
@@ -638,20 +442,98 @@ export const useStore = create<AppState>((set) => ({
         set({ listenersInitialized: true });
       }
     } catch (err) {
-      console.warn("Firestore initialization failed, using mock data fallback", err);
+      console.warn("Firestore initialization fallback to KaamNow local models", err);
     }
   },
-  
-  bookService: async (booking) => {
-    const newBooking = {
-      ...booking,
-      id: `bk-${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      status: 'pending' as const
-    };
+
+  migrateToKaamNow: async (purgeUsers = false) => {
+    try {
+      // 1. Clean old categories
+      const oldCatSnap = await getDocs(collection(db, 'categories'));
+      for (const docSnap of oldCatSnap.docs) {
+        await deleteDoc(doc(db, 'categories', docSnap.id));
+      }
+      // Seed 16 KaamNow categories
+      for (const cat of KAAMNOW_CATEGORIES) {
+        await setDoc(doc(db, 'categories', cat.id), cat);
+      }
+
+      // 2. Clean and re-seed professionals if requested
+      if (purgeUsers) {
+        const proSnap = await getDocs(collection(db, 'professionals'));
+        for (const pDoc of proSnap.docs) {
+          await deleteDoc(doc(db, 'professionals', pDoc.id));
+        }
+        const custSnap = await getDocs(collection(db, 'customers'));
+        for (const cDoc of custSnap.docs) {
+          await deleteDoc(doc(db, 'customers', cDoc.id));
+        }
+      }
+
+      // Re-seed Sample Testing pro
+      await setDoc(doc(db, 'professionals', DEMO_SAMPLE_TESTING_PRO.id), DEMO_SAMPLE_TESTING_PRO);
+      for (const pro of DEMO_SECONDARY_PROS) {
+        await setDoc(doc(db, 'professionals', pro.id), pro);
+      }
+
+      // Re-seed bookings and reviews
+      for (const bk of DEMO_SAMPLE_TESTING_BOOKINGS) {
+        await setDoc(doc(db, 'bookings', bk.id), bk);
+      }
+      for (const rev of DEMO_SAMPLE_TESTING_REVIEWS) {
+        await setDoc(doc(db, 'reviews', rev.id), rev);
+      }
+
+      set({
+        categories: KAAMNOW_CATEGORIES,
+        professionals: [DEMO_SAMPLE_TESTING_PRO, ...DEMO_SECONDARY_PROS],
+        bookings: DEMO_SAMPLE_TESTING_BOOKINGS,
+        reviews: DEMO_SAMPLE_TESTING_REVIEWS,
+        customers: purgeUsers ? [] : get().customers
+      });
+
+      return {
+        success: true,
+        message: "KaamNow database migration successful! 16 service categories & 'Sample Testing' verified pro seeded."
+      };
+    } catch (err: any) {
+      console.error("Migration error:", err);
+      return {
+        success: false,
+        message: `Migration encountered an issue: ${err.message || err}`
+      };
+    }
+  },
+
+  bookService: async (bookingData) => {
+    const bookingId = `bk-${Date.now()}`;
+    const initialStatus: BookingStatus = bookingData.professionalId ? 'pro_selected' : 'submitted';
     
+    const newBooking: Booking = {
+      ...bookingData,
+      id: bookingId,
+      status: initialStatus,
+      createdAt: new Date().toISOString(),
+      statusHistory: [
+        {
+          status: 'submitted',
+          timestamp: new Date().toISOString(),
+          note: 'Customer submitted requirement on KaamNow'
+        },
+        ...(bookingData.professionalId ? [
+          {
+            status: 'pro_selected' as BookingStatus,
+            timestamp: new Date().toISOString(),
+            note: 'Customer selected professional'
+          }
+        ] : [])
+      ],
+      platformFee: Math.round((bookingData.totalPrice || 0) * 0.05),
+      workProtectionApplied: true
+    };
+
     set((state) => ({
-      bookings: [...state.bookings, newBooking]
+      bookings: [newBooking, ...state.bookings]
     }));
 
     try {
@@ -659,24 +541,28 @@ export const useStore = create<AppState>((set) => ({
     } catch (err) {
       console.error("Firestore booking write failed", err);
     }
+
+    return bookingId;
   },
 
-  toggleSavedProfessional: (proId) => set((state) => {
-    const isSaved = state.savedProfessionals.includes(proId);
-    return {
-      savedProfessionals: isSaved 
-        ? state.savedProfessionals.filter(id => id !== proId)
-        : [...state.savedProfessionals, proId]
-    };
-  }),
-
-  updateBookingStatus: async (bookingId, status, professionalId) => {
+  updateBookingStatus: async (bookingId, status, note, professionalId) => {
     let updatedBooking: Booking | undefined;
 
     set((state) => {
       const updatedList = state.bookings.map(b => {
         if (b.id === bookingId) {
-          updatedBooking = { ...b, status, ...(professionalId ? { professionalId } : {}) };
+          const existingHistory = b.statusHistory || [];
+          const newHistoryItem = {
+            status,
+            timestamp: new Date().toISOString(),
+            note: note || `Status updated to ${status}`
+          };
+          updatedBooking = {
+            ...b,
+            status,
+            ...(professionalId ? { professionalId } : {}),
+            statusHistory: [...existingHistory, newHistoryItem]
+          };
           return updatedBooking;
         }
         return b;
@@ -692,6 +578,15 @@ export const useStore = create<AppState>((set) => ({
       }
     }
   },
+
+  toggleSavedProfessional: (proId) => set((state) => {
+    const isSaved = state.savedProfessionals.includes(proId);
+    return {
+      savedProfessionals: isSaved 
+        ? state.savedProfessionals.filter(id => id !== proId)
+        : [...state.savedProfessionals, proId]
+    };
+  }),
 
   addProfessionalService: async (proId, service) => {
     const newService = { ...service, id: `srv-${Date.now()}` };
@@ -760,7 +655,7 @@ export const useStore = create<AppState>((set) => ({
     });
 
     if (updatedUser) {
-      localStorage.setItem('goservik_user', JSON.stringify(updatedUser));
+      localStorage.setItem('kaamnow_user', JSON.stringify(updatedUser));
       try {
         if (isPro && updatedPro) {
           await setDoc(doc(db, 'professionals', updatedUser.id), updatedPro);
@@ -771,6 +666,19 @@ export const useStore = create<AppState>((set) => ({
         console.error("Firestore user profile update failed", err);
       }
     }
+  },
+
+  completeUserProfile: async (details) => {
+    const current = get().currentUser;
+    if (!current) return;
+
+    await get().updateUserProfile({
+      mobile: details.mobile,
+      city: details.city,
+      state: details.state || current.state || 'Delhi',
+      pincode: details.pincode || current.pincode || '',
+      isProfileComplete: true
+    });
   },
 
   updateCustomer: async (id, updated) => {
@@ -864,17 +772,95 @@ export const useStore = create<AppState>((set) => ({
   },
 
   deleteBooking: async (id) => {
-    set((state) => {
-      const updatedBookings = state.bookings.filter(b => b.id !== id);
-      return {
-        bookings: updatedBookings
-      };
-    });
+    set((state) => ({
+      bookings: state.bookings.filter(b => b.id !== id)
+    }));
 
     try {
       await deleteDoc(doc(db, 'bookings', id));
     } catch (err) {
       console.error("Firestore booking delete failed", err);
     }
+  },
+
+  addReview: async (reviewData) => {
+    const booking = get().bookings.find(b => b.id === reviewData.bookingId);
+    if (!booking) throw new Error("Booking not found");
+    if (booking.status !== 'completed') {
+      throw new Error("Reviews can only be submitted after the service is marked completed.");
+    }
+
+    const newReview: Review = {
+      ...reviewData,
+      id: `rev-${Date.now()}`,
+      createdAt: new Date().toISOString()
+    };
+
+    set((state) => ({
+      reviews: [newReview, ...state.reviews]
+    }));
+
+    // Update Pro's average rating
+    const proReviews = [...get().reviews.filter(r => r.professionalId === reviewData.professionalId), newReview];
+    const avgRating = Math.round(
+      (proReviews.reduce((sum, r) => sum + r.rating, 0) / proReviews.length) * 10
+    ) / 10;
+
+    const pro = get().professionals.find(p => p.id === reviewData.professionalId);
+    if (pro) {
+      await get().updateProfessional(pro.id, {
+        rating: avgRating,
+        reviewCount: proReviews.length,
+        jobsCompleted: (pro.jobsCompleted || 0) + 1
+      });
+    }
+
+    // Mark booking as reviewed
+    await get().updateBookingStatus(reviewData.bookingId, 'reviewed', 'Customer submitted review');
+
+    try {
+      await setDoc(doc(db, 'reviews', newReview.id), newReview);
+    } catch (err) {
+      console.error("Firestore review write failed", err);
+    }
+  },
+
+  submitWorkProtectionClaim: async (claimData) => {
+    const newClaim: WorkProtectionClaim = {
+      ...claimData,
+      id: `claim-${Date.now()}`,
+      status: 'submitted',
+      createdAt: new Date().toISOString()
+    };
+
+    set((state) => ({
+      workProtectionClaims: [newClaim, ...state.workProtectionClaims]
+    }));
+
+    try {
+      await setDoc(doc(db, 'protection_claims', newClaim.id), newClaim);
+    } catch (err) {
+      console.error("Firestore claim write failed", err);
+    }
+  },
+
+  updatePlatformConfig: (config) => {
+    set((state) => ({
+      platformConfig: { ...state.platformConfig, ...config }
+    }));
+  },
+
+  addIncentiveRule: (rule) => {
+    set((state) => ({
+      incentiveRules: [...state.incentiveRules, rule]
+    }));
+  },
+
+  toggleIncentiveRule: (ruleId) => {
+    set((state) => ({
+      incentiveRules: state.incentiveRules.map(r => 
+        r.id === ruleId ? { ...r, active: !r.active } : r
+      )
+    }));
   }
 }));

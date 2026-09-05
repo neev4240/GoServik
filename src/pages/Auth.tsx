@@ -61,16 +61,16 @@ export function Login() {
         setLoading(false);
         return;
       }
-      identifier = `${countryCode}${cleanPhone}@goservik.com`;
+      identifier = `${countryCode}${cleanPhone}@kaamnow.com`;
     }
 
     try {
       const cleanId = identifier.toLowerCase();
-      const finalRole = cleanId === 'admin@goservik.com' ? 'admin' : role;
+      const finalRole = (cleanId === 'admin@kaamnow.com' || cleanId === 'admin@goservik.com') ? 'admin' : role;
 
       // Extract phone if mobile login was used
       let extractedPhone = '';
-      if (cleanId.endsWith('@goservik.com')) {
+      if (cleanId.endsWith('@kaamnow.com') || cleanId.endsWith('@goservik.com')) {
         const prefix = cleanId.split('@')[0];
         if (prefix.startsWith('+') || /^\d+$/.test(prefix)) {
           extractedPhone = prefix;
@@ -182,9 +182,9 @@ export function Login() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
             <UserCheck className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Welcome to GoServik</h2>
+          <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Welcome to KaamNow</h2>
           <p className="mt-1.5 text-xs text-slate-500">
-            Secure, instant access to your GoServik account.
+            Connect. Book. Sorted. Instant access to your KaamNow account.
           </p>
         </div>
 
@@ -270,7 +270,7 @@ export function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="block w-full rounded-xl border border-slate-200 bg-white pl-10 pr-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all"
-                  placeholder={role === 'customer' ? "you@example.com" : "partner@goservik.com"}
+                  placeholder={role === 'customer' ? "you@example.com" : "partner@kaamnow.com"}
                 />
               </div>
             </div>
@@ -433,7 +433,7 @@ export function Register() {
     if (registerMethod === 'email') {
       identifier = email.trim();
     } else {
-      identifier = `${countryCode}${cleanPhone}@goservik.com`;
+      identifier = `${countryCode}${cleanPhone}@kaamnow.com`;
     }
     setRegisteredIdentifier(identifier);
 
@@ -590,9 +590,9 @@ export function Register() {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-200">
             <UserCheck className="h-6 w-6" />
           </div>
-          <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Create GoServik Account</h2>
+          <h2 className="mt-4 text-2xl font-black tracking-tight text-slate-900">Create KaamNow Account</h2>
           <p className="mt-1.5 text-xs text-slate-500">
-            Sign up to book home visits or manage client listings.
+            Sign up to connect with verified local professionals or register as a partner.
           </p>
         </div>
 
@@ -953,10 +953,10 @@ export function Register() {
                 <span>Simulated Google Mail / SMS Dispatcher</span>
               </div>
               <p className="text-[11px] font-semibold text-slate-700">
-                From: <span className="font-bold">verification-noreply@goservik.com</span>
+                From: <span className="font-bold">verification-noreply@kaamnow.com</span>
               </p>
               <p className="text-[11px] font-semibold text-slate-700">
-                Subject: <span className="font-bold">Your GoServik Account Access Security OTP Code is {generatedRegisterOtp}</span>
+                Subject: <span className="font-bold">Your KaamNow Account Access Security OTP Code is {generatedRegisterOtp}</span>
               </p>
               <p className="text-[10px] text-slate-400 mt-1 italic">
                 (This simulated service bypasses telecom delays to ensure a fast preview experience!)

@@ -127,12 +127,12 @@ export default function App() {
         if (authUser) {
           const email = authUser.email?.toLowerCase();
           if (email) {
-            if (email === 'admin@goservik.com') {
+            if (email === 'admin@kaamnow.com' || email === 'admin@goservik.com') {
               useStore.setState({
                 currentUser: {
                   id: 'admin-1',
-                  name: 'Platform Admin',
-                  email: 'admin@goservik.com',
+                  name: 'KaamNow Admin',
+                  email: 'admin@kaamnow.com',
                   role: 'admin',
                   joinedAt: new Date().toISOString()
                 }
@@ -145,7 +145,7 @@ export default function App() {
 
             // Extract phone if synthetic mobile email was used
             let phone = '';
-            if (email.endsWith('@goservik.com')) {
+            if (email.endsWith('@kaamnow.com') || email.endsWith('@goservik.com')) {
               const prefix = email.split('@')[0];
               phone = prefix.replace(/\D/g, '');
             }
@@ -156,7 +156,7 @@ export default function App() {
               if (u.email?.toLowerCase() === email) return true;
               if (phone) {
                 const uPhone = (u.mobile || '').replace(/\D/g, '');
-                if (uPhone && uPhone === phone) return true;
+                if (uPhone && uPhone.slice(-10) === phone.slice(-10)) return true;
               }
               return false;
             };
@@ -165,7 +165,7 @@ export default function App() {
             const foundCust = state.customers.find(isMatch);
             if (foundCust) {
               useStore.setState({ currentUser: foundCust });
-              localStorage.setItem('goservik_user', JSON.stringify(foundCust));
+              localStorage.setItem('kaamnow_user', JSON.stringify(foundCust));
               return;
             }
 
@@ -173,13 +173,14 @@ export default function App() {
             const foundPro = state.professionals.find(isMatch);
             if (foundPro) {
               useStore.setState({ currentUser: foundPro });
-              localStorage.setItem('goservik_user', JSON.stringify(foundPro));
+              localStorage.setItem('kaamnow_user', JSON.stringify(foundPro));
               return;
             }
           }
         } else {
           // No user found in Firebase Auth. Clear any saved local user to remain logged out
           useStore.setState({ currentUser: null });
+          localStorage.removeItem('kaamnow_user');
           localStorage.removeItem('goservik_user');
         }
       });

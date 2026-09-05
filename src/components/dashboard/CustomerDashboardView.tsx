@@ -27,7 +27,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
   const [chatInput, setChatInput] = useState('');
   const [chatThreads, setChatThreads] = useState<Record<string, Array<{ sender: 'me' | 'them'; text: string; time: string }>>>({
     helpdesk: [
-      { sender: 'them', text: 'Namaste! Welcome to GoServik Premium Support. How can we help you today?', time: 'Just now' },
+      { sender: 'them', text: 'Namaste! Welcome to KaamNow Premium Support. How can we help you today?', time: 'Just now' },
     ],
     pro_contact: [
       { sender: 'them', text: 'Hello, I am your assigned technician. I am bringing the required spares and tools for your visit.', time: '10 mins ago' }
@@ -103,7 +103,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
     setTimeout(() => {
       let replyText = "Thank you for writing. Our customer executive will check and reply shortly.";
       if (activeChatContact === 'helpdesk') {
-        replyText = "We have received your request. A GoServik support coordinator is reviewing your order parameters.";
+        replyText = "We have received your request. A KaamNow support coordinator is reviewing your order parameters.";
       } else if (activeChatContact === 'pro_contact') {
         replyText = "Sure, I have noted down the landmark. I am carrying standard service tools. See you soon!";
       }
@@ -249,7 +249,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
                         <p className="text-xs text-slate-500 font-semibold mt-0.5">Contact: {relatedPro.personalName}</p>
                       )}
                       <p className="text-xs text-slate-500 leading-relaxed max-w-md">
-                        {booking.notes || "No special requests mentioned. All standard tools will be supplied by GoServik."}
+                        {booking.notes || "No special requests mentioned. Diagnostic visiting fee ₹99 applies."}
                       </p>
                       <div className="flex items-center gap-4 mt-2">
                         <p className="text-sm font-bold text-indigo-600">Price: ₹{booking.totalPrice} INR</p>
@@ -610,7 +610,7 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
             </div>
             <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center space-y-1">
               <p className="text-[9px] font-bold text-indigo-800 uppercase tracking-widest">Simulated SMS Delivery</p>
-              <p className="text-sm font-black text-slate-800">Your GoServik Mobile OTP is: {generatedOtp}</p>
+              <p className="text-sm font-black text-slate-800">Your KaamNow Mobile OTP is: {generatedOtp}</p>
             </div>
             <input 
               type="text"
