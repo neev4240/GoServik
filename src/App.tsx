@@ -176,6 +176,19 @@ export default function App() {
               localStorage.setItem('kaamnow_user', JSON.stringify(foundPro));
               return;
             }
+
+            // Auto-provision user profile if authenticated via Supabase (e.g. Google OAuth or fresh verified signup)
+            const meta = authUser.user_metadata || {};
+            const assignedRole = (meta.role as 'customer' | 'professional') || 'customer';
+            const displayName = meta.display_name || meta.full_name || meta.name || email.split('@')[0];
+            const mobileNumber = meta.mobile || phone || '';
+            const avatarUrl = meta.avatar_url || meta.picture || undefined;
+
+            state.login(email, assignedRole, displayName, {
+              uid,
+              mobile: mobileNumber,
+              avatar: avatarUrl
+            });
           }
         } else {
           // If local user is admin, allow session persistence
