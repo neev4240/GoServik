@@ -605,20 +605,19 @@ export function CustomerDashboardView({ currentTab, setTab }: CustomerDashboardV
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-sm mb-3">
                 <Shield className="h-6 w-6 animate-pulse" />
               </div>
-              <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">Confirm Phone Security Code</h4>
-              <p className="text-[11px] text-slate-500 mt-1">We have sent a verification code to {otpSentTo} via SMS.</p>
+              <h4 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">Confirm Security Code</h4>
+              <p className="text-[11px] text-slate-500 mt-1">We have dispatched a verification code to {otpSentTo}.</p>
             </div>
-            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center space-y-1">
-              <p className="text-[9px] font-bold text-indigo-800 uppercase tracking-widest">Simulated SMS Delivery</p>
-              <p className="text-sm font-black text-slate-800">Your KaamNow Mobile OTP is: {generatedOtp}</p>
+            <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl text-center">
+              <p className="text-xs font-semibold text-slate-700">Please check your messages and enter the verification code below.</p>
             </div>
             <input 
               type="text"
               maxLength={6}
-              placeholder="••••••"
+              placeholder="Enter verification code"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-              className="w-full text-center font-mono tracking-[0.8em] text-lg border border-slate-200 rounded-xl py-2 bg-slate-50 focus:border-indigo-500 focus:outline-none placeholder:text-slate-300"
+              className="w-full text-center font-mono tracking-widest text-base border border-slate-200 rounded-xl py-2.5 bg-slate-50 focus:border-indigo-500 focus:outline-none placeholder:font-sans placeholder:tracking-normal placeholder:text-xs placeholder:text-slate-400"
             />
             {otpError && (
               <p className="text-center text-rose-600 text-[10px] font-bold">{otpError}</p>

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useStore } from '../store';
 import { useLanguage } from '../lib/i18n';
-import { matchProfessionals } from '../lib/matching';
+import { matchProfessionals, findUrgentProfessionals, ScoredProfessional } from '../lib/matching';
 import { KAAMNOW_CATEGORIES } from '../lib/categories';
 import { GoogleMapPicker } from '../components/GoogleMapPicker';
 import { 
@@ -14,16 +14,15 @@ import {
   Shield, 
   Star, 
   HeartHandshake, 
-  MessageSquare, 
   ArrowRight, 
   ArrowLeft, 
   User, 
   Phone, 
-  Home as HomeIcon, 
-  Briefcase,
-  Layers,
-  ChevronRight,
-  ExternalLink
+  Zap,
+  Sparkles,
+  RefreshCw,
+  Search,
+  Check
 } from 'lucide-react';
 import { format, addDays } from 'date-fns';
 import { ProfessionalProfile, BookingStatus, ServiceAddress } from '../types';
@@ -31,12 +30,16 @@ import { ProfessionalProfile, BookingStatus, ServiceAddress } from '../types';
 export function BookingFlow() {
   const [searchParams] = useSearchParams();
   const catParam = searchParams.get('category');
-  const proParam = searchParams.get('proId');
   const navigate = useNavigate();
-  const { professionals, categories, currentUser, bookService, bookings, updateBookingStatus } = useStore();
+  const { professionals, categories, currentUser, bookService } = useStore();
   const { t, lang } = useLanguage();
 
-  // Current multi-step flow: 1: Service Selection, 2: Address, 3: Schedule & Preferences, 4: Compare Pros, 5: Review & Confirm, 6: Success
+  // Multi-step flow: 
+  // 1: Service Selection
+  // 2: Address & Map Pin
+  // 3: Booking Type & Scheduling
+  // 4: Review & Confirm
+  // 5: Confirmation & Assigned Pro
   const [step, setStep] = useState<number>(1);
 
   // Step 1: Category & Subcategories
@@ -48,33 +51,42 @@ export function BookingFlow() {
   const [buildingStreet, setBuildingStreet] = useState('');
   const [areaLocality, setAreaLocality] = useState('');
   const [landmark, setLandmark] = useState('');
-  const [city, setCity] = useState(currentUser?.city || '');
+  const [city, setCity] = useState(currentUser?.city || 'New Delhi');
   const [stateName, setStateName] = useState(currentUser?.state || 'Delhi');
-  const [pincode, setPincode] = useState(currentUser?.pincode || '');
+  const [pincode, setPincode] = useState(currentUser?.pincode || '110001');
   const [contactPhone, setContactPhone] = useState(currentUser?.mobile || '');
   const [addressLabel, setAddressLabel] = useState<'Home' | 'Office' | 'Other'>('Home');
-  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | undefined>(
-    currentUser?.coordinates || { lat: 28.6139, lng: 77.2090 } // Default to New Delhi coordinates
-  );
+  const [coordinates, setCoordinates] = useState<{ lat: number; lng: number }>({
+    lat: 28.6139,
+    lng: 77.2090 // Default to Central Delhi
+  });
 
-  // Step 3: Date, Time, Urgency & Safety
+  // Step 3: Two-Type Booking System
+  // 'standard' = scheduled future visit
+  // 'urgent' = immediate service need (30-minute arrival window)
+  const [bookingType, setBookingType] = useState<'standard' | 'urgent'>('standard');
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedTime, setSelectedTime] = useState<string>('10:00 AM - 12:00 PM');
-  const [urgency, setUrgency] = useState<'normal' | 'urgent' | 'emergency'>('normal');
+  const [selectedRateType, setSelectedRateType] = useState<'diagnostic' | 'hourly' | 'four_hours' | 'full_day'>('diagnostic');
   const [notes, setNotes] = useState('');
   const [preferElderSafe, setPreferElderSafe] = useState(false);
   const [preferWomenSafe, setPreferWomenSafe] = useState(false);
 
-  // Step 4: Selected Professional & Package
-  const [selectedProId, setSelectedProId] = useState<string | null>(proParam || null);
-  const [selectedRateType, setSelectedRateType] = useState<'diagnostic' | 'hourly' | 'four_hours' | 'full_day'>('diagnostic');
+  // Urgent matching states
+  const [isSearchingUrgent, setIsSearchingUrgent] = useState(false);
+  const [urgentSearchStage, setUrgentSearchStage] = useState(1);
+  const [urgentNotFound, setUrgentNotFound] = useState(false);
 
-  // Step 5: Payment
+  // Auto-Assigned Professional
+  const [assignedProfessional, setAssignedProfessional] = useState<ProfessionalProfile | null>(null);
+  const [assignedETA, setAssignedETA] = useState<number>(20); // Estimated minutes
+
+  // Step 4: Payment & Submission
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'online'>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
 
-  // Pre-fill if customer has existing details
+  // Pre-fill user information if available
   useEffect(() => {
     if (currentUser && currentUser.role === 'customer') {
       if (currentUser.mobile && !contactPhone) setContactPhone(currentUser.mobile);
@@ -82,41 +94,85 @@ export function BookingFlow() {
       if (currentUser.addressLine && !buildingStreet) setBuildingStreet(currentUser.addressLine);
       if (currentUser.landmark && !landmark) setLandmark(currentUser.landmark);
       if (currentUser.pincode && !pincode) setPincode(currentUser.pincode);
-      if (currentUser.coordinates && !coordinates) setCoordinates(currentUser.coordinates);
+      if (currentUser.coordinates) setCoordinates(currentUser.coordinates);
     }
   }, [currentUser]);
 
-  // If proParam is passed, pre-select that professional
+  // If category changed via search param
   useEffect(() => {
-    if (proParam) {
-      const p = professionals.find(pro => pro.id === proParam);
-      if (p) {
-        setSelectedProId(p.id);
-        if (p.skills && p.skills.length > 0) {
-          setSelectedCategoryId(p.skills[0].categoryId);
-          if (p.skills[0].subcategories.length > 0) {
-            setSelectedSubcats([p.skills[0].subcategories[0]]);
-          }
+    if (catParam) {
+      setSelectedCategoryId(catParam);
+      setSelectedSubcats([]);
+    }
+  }, [catParam]);
+
+  const currentCategory = categories.find(c => c.id === selectedCategoryId) || KAAMNOW_CATEGORIES[0];
+
+  // Time slots definition
+  const allTimeSlots = [
+    { id: '08:00 AM - 10:00 AM', startHour: 8, startMin: 0 },
+    { id: '10:00 AM - 12:00 PM', startHour: 10, startMin: 0 },
+    { id: '12:00 PM - 02:00 PM', startHour: 12, startMin: 0 },
+    { id: '02:00 PM - 04:00 PM', startHour: 14, startMin: 0 },
+    { id: '04:00 PM - 06:00 PM', startHour: 16, startMin: 0 },
+    { id: '06:00 PM - 08:00 PM', startHour: 18, startMin: 0 }
+  ];
+
+  // Helper to check if a slot for today has passed or is too close (< 30 min)
+  const isSlotPassedToday = (startHour: number, startMin: number, targetDate: Date | null): boolean => {
+    if (!targetDate) return false;
+    const now = new Date();
+    const isToday = 
+      targetDate.getDate() === now.getDate() &&
+      targetDate.getMonth() === now.getMonth() &&
+      targetDate.getFullYear() === now.getFullYear();
+
+    if (!isToday) return false;
+
+    const slotTime = new Date(targetDate);
+    slotTime.setHours(startHour, startMin, 0, 0);
+
+    // If current time is within 30 minutes of slot or past slot, it is passed
+    return now.getTime() > (slotTime.getTime() - 30 * 60 * 1000);
+  };
+
+  // Next 7 days
+  const availableDates = Array.from({ length: 7 }).map((_, i) => addDays(new Date(), i));
+
+  // Automatically adjust selectedTime if current selected slot is passed for today
+  useEffect(() => {
+    if (selectedDate && bookingType === 'standard') {
+      const activeSlotObj = allTimeSlots.find(s => s.id === selectedTime);
+      if (activeSlotObj && isSlotPassedToday(activeSlotObj.startHour, activeSlotObj.startMin, selectedDate)) {
+        // Find first future slot
+        const firstAvailable = allTimeSlots.find(s => !isSlotPassedToday(s.startHour, s.startMin, selectedDate));
+        if (firstAvailable) {
+          setSelectedTime(firstAvailable.id);
+        } else {
+          // No slots left today, switch date to tomorrow
+          setSelectedDate(addDays(new Date(), 1));
+          setSelectedTime('10:00 AM - 12:00 PM');
         }
       }
     }
-  }, [proParam, professionals]);
+  }, [selectedDate, bookingType]);
 
-  // Auth gate
+  // Auth gate check
   if (!currentUser) {
     return (
       <div className="mx-auto max-w-md p-8 text-center mt-20 border border-slate-200 rounded-3xl shadow-xl bg-white">
         <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <AlertCircle className="w-6 h-6" />
+          <User className="w-6 h-6" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mb-2">{t('signInRequired')}</h2>
+        <h2 className="text-xl font-bold text-slate-900 mb-2">Customer Sign In Required</h2>
         <p className="text-slate-500 mb-6 text-xs leading-relaxed">
-          Please sign in to your KaamNow customer account to connect and compare verified local professionals.
+          Please log in or create a KaamNow customer account to request and book verified professionals.
         </p>
         <div className="flex gap-3 justify-center">
           <button 
+            type="button" 
             onClick={() => navigate(-1)} 
-            className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50"
           >
             Go Back
           </button>
@@ -152,46 +208,6 @@ export function BookingFlow() {
     );
   }
 
-  const currentCategory = KAAMNOW_CATEGORIES.find(c => c.id === selectedCategoryId) || KAAMNOW_CATEGORIES[0];
-  const subcategoriesList = currentCategory.subcategories;
-
-  // Matching engine scored professionals
-  const matchedPros = matchProfessionals(professionals, {
-    categoryId: selectedCategoryId,
-    subcategories: selectedSubcats,
-    customerLat: coordinates?.lat,
-    customerLng: coordinates?.lng,
-    preferElderSafe,
-    preferWomenSafe
-  });
-
-  const selectedProfessional = professionals.find(p => p.id === selectedProId) || (matchedPros[0]?.professional ?? professionals[0]);
-
-  // Calculate price based on selected rate package
-  const getCalculatedPrice = () => {
-    if (!selectedProfessional) return 99;
-    if (selectedRateType === 'diagnostic') return 99;
-    if (selectedRateType === 'hourly') return selectedProfessional.hourlyRate || 350;
-    if (selectedRateType === 'four_hours') return selectedProfessional.fourHourRate || 1200;
-    if (selectedRateType === 'full_day') return selectedProfessional.fullDayRate || 2200;
-    return 99;
-  };
-
-  const basePrice = getCalculatedPrice();
-  const platformFee = Math.round(basePrice * 0.05); // 5% platform fee
-  const totalPrice = basePrice + platformFee;
-
-  // Available dates (next 7 days)
-  const availableDates = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
-  const timeSlots = [
-    '08:00 AM - 10:00 AM',
-    '10:00 AM - 12:00 PM',
-    '12:00 PM - 02:00 PM',
-    '02:00 PM - 04:00 PM',
-    '04:00 PM - 06:00 PM',
-    '06:00 PM - 08:00 PM'
-  ];
-
   const handleToggleSubcat = (subcat: string) => {
     if (selectedSubcats.includes(subcat)) {
       setSelectedSubcats(selectedSubcats.filter(s => s !== subcat));
@@ -200,10 +216,10 @@ export function BookingFlow() {
     }
   };
 
-  // Step validation
+  // Validations
   const validateStep1 = () => {
     if (selectedSubcats.length === 0) {
-      alert("Please check at least one specific sub-service or task you need.");
+      alert("Please select at least one specific sub-service or task you need.");
       return false;
     }
     return true;
@@ -226,18 +242,96 @@ export function BookingFlow() {
   };
 
   const validateStep3 = () => {
-    if (!selectedDate) {
-      alert("Please select a date for the visit.");
-      return false;
-    }
-    if (!selectedTime) {
-      alert("Please select a time slot.");
-      return false;
+    if (bookingType === 'standard') {
+      if (!selectedDate) {
+        alert("Please select a date for the visit.");
+        return false;
+      }
+      if (!selectedTime) {
+        alert("Please select a time slot.");
+        return false;
+      }
     }
     return true;
   };
 
-  const handleConfirmBooking = async () => {
+  // Pricing calculation
+  const getPricing = (pro?: ProfessionalProfile | null) => {
+    let base = 99; // Standard Diagnostic Fee
+    if (selectedRateType === 'hourly') {
+      base = pro?.hourlyRate || 350;
+    } else if (selectedRateType === 'four_hours') {
+      base = pro?.fourHourRate || 1200;
+    } else if (selectedRateType === 'full_day') {
+      base = pro?.fullDayRate || 2200;
+    }
+    const platformFee = Math.round(base * 0.05);
+    return {
+      basePrice: base,
+      platformFee,
+      totalPrice: base + platformFee
+    };
+  };
+
+  const { basePrice, platformFee, totalPrice } = getPricing(assignedProfessional);
+
+  // Trigger matching and confirm booking
+  const handleProceedBooking = async () => {
+    // 1. If Urgent Booking: show search loader & execute 30-min arrival matching
+    if (bookingType === 'urgent') {
+      setIsSearchingUrgent(true);
+      setUrgentNotFound(false);
+      setUrgentSearchStage(1);
+
+      // Simulation steps for realistic matching UX
+      setTimeout(() => setUrgentSearchStage(2), 700);
+      setTimeout(() => setUrgentSearchStage(3), 1400);
+
+      setTimeout(async () => {
+        const urgentMatches = findUrgentProfessionals(professionals, {
+          categoryId: selectedCategoryId,
+          subcategories: selectedSubcats,
+          customerCoordinates: coordinates,
+          preferElderSafe,
+          preferWomenSafe
+        });
+
+        if (urgentMatches.length === 0) {
+          setIsSearchingUrgent(false);
+          setUrgentNotFound(true);
+        } else {
+          const matchedPro = urgentMatches[0].professional;
+          const arrivalEta = urgentMatches[0].estimatedArrivalMinutes || 22;
+          setAssignedProfessional(matchedPro);
+          setAssignedETA(arrivalEta);
+          setIsSearchingUrgent(false);
+
+          // Complete booking creation
+          await finalizeBooking(matchedPro, 'urgent', arrivalEta);
+        }
+      }, 2100);
+    } else {
+      // 2. Standard Booking: automatically match the most suitable professional
+      setIsSubmitting(true);
+      const matches = matchProfessionals(professionals, {
+        categoryId: selectedCategoryId,
+        subcategories: selectedSubcats,
+        customerCoordinates: coordinates,
+        preferElderSafe,
+        preferWomenSafe
+      });
+
+      // Default to top match or first available in category
+      const matchedPro = matches.length > 0 
+        ? matches[0].professional 
+        : (professionals.find(p => p.skills.some(s => s.categoryId === selectedCategoryId)) || professionals[0]);
+
+      setAssignedProfessional(matchedPro);
+      await finalizeBooking(matchedPro, 'normal', 0);
+    }
+  };
+
+  const finalizeBooking = async (pro: ProfessionalProfile, urgencyLevel: 'normal' | 'urgent', etaMins: number) => {
     try {
       setIsSubmitting(true);
 
@@ -254,99 +348,102 @@ export function BookingFlow() {
         coordinates: coordinates
       };
 
+      const scheduledDateStr = format(bookingType === 'urgent' ? new Date() : (selectedDate || new Date()), 'yyyy-MM-dd');
+      const scheduledTimeStr = bookingType === 'urgent' ? `Within 30 Minutes (~${etaMins}m ETA)` : selectedTime;
+
       const bookingId = await bookService({
         customerId: currentUser.id,
         customerName: currentUser.name,
         customerMobile: contactPhone.trim(),
         customerEmail: currentUser.email,
-        professionalId: selectedProfessional?.id,
-        professionalName: selectedProfessional?.name,
+        professionalId: pro.id,
+        professionalName: pro.name,
         categoryId: selectedCategoryId,
         categoryName: currentCategory.name,
         subcategories: selectedSubcats,
         selectedSubcategories: selectedSubcats,
-        date: format(selectedDate!, 'yyyy-MM-dd'),
-        time: selectedTime,
-        scheduledDate: format(selectedDate!, 'yyyy-MM-dd'),
-        timeSlot: selectedTime,
+        date: scheduledDateStr,
+        time: scheduledTimeStr,
+        scheduledDate: scheduledDateStr,
         serviceAddress: fullServiceAddress,
-        deliveryAddress: `${houseFlat}, ${buildingStreet}, ${areaLocality ? areaLocality + ', ' : ''}${city} ${pincode}`,
-        deliveryCoordinates: coordinates,
-        urgency: urgency,
-        notes: notes,
-        preferElderSafe: preferElderSafe,
-        preferWomenSafe: preferWomenSafe,
+        notes: notes.trim(),
+        urgency: urgencyLevel,
+        safetyPreferences: {
+          elderSafe: preferElderSafe,
+          womenSafe: preferWomenSafe
+        },
+        paymentMethod: paymentMethod === 'online' ? 'razorpay' : 'cash',
+        diagnosticFee: 99,
         basePrice: basePrice,
         platformFee: platformFee,
         totalPrice: totalPrice,
-        paymentMethod: paymentMethod,
-        rateType: selectedRateType,
-        workProtectionApplied: true
+        statusHistory: [
+          {
+            status: 'submitted',
+            timestamp: new Date().toISOString(),
+            note: bookingType === 'urgent' 
+              ? `Urgent 30-minute booking created. Automatically assigned ${pro.name}.`
+              : `Standard booking created. Automatically assigned ${pro.name}.`
+          }
+        ]
       });
 
       setCreatedBookingId(bookingId);
-      setStep(6); // Step 6: Confirmation & Live Tracker
+      setStep(5); // Move to final assigned pro & confirmation step
     } catch (err: any) {
-      alert("Booking creation failed: " + (err.message || err));
+      console.error("Booking error:", err);
+      alert("Booking failed: " + (err.message || 'Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-10 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-slate-50 py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-3xl mx-auto space-y-6">
 
-        {/* Top Progress Bar */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-            {[
-              { num: 1, label: 'Service & Tasks' },
-              { num: 2, label: 'Address & Map' },
-              { num: 3, label: 'Schedule & Safety' },
-              { num: 4, label: 'Compare & Select' },
-              { num: 5, label: 'Confirm' }
-            ].map((s) => (
-              <div key={s.num} className="flex items-center gap-2">
-                <div 
-                  className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs transition-all ${
-                    step === s.num
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200'
-                      : step > s.num
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-slate-100 text-slate-400'
-                  }`}
-                >
-                  {step > s.num ? '✓' : s.num}
-                </div>
-                <span className={`hidden sm:inline ${step === s.num ? 'text-indigo-600 font-extrabold' : ''}`}>
-                  {s.label}
-                </span>
-                {s.num < 5 && <div className="hidden md:block w-8 h-0.5 bg-slate-200 ml-2" />}
-              </div>
-            ))}
+        {/* Top Stepper Indicator */}
+        {step < 5 && (
+          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+              <span className={step === 1 ? 'text-indigo-600 font-extrabold' : step > 1 ? 'text-emerald-600' : ''}>
+                1. Service
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className={step === 2 ? 'text-indigo-600 font-extrabold' : step > 2 ? 'text-emerald-600' : ''}>
+                2. Location
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className={step === 3 ? 'text-indigo-600 font-extrabold' : step > 3 ? 'text-emerald-600' : ''}>
+                3. Schedule & Urgency
+              </span>
+              <span className="text-slate-300">→</span>
+              <span className={step === 4 ? 'text-indigo-600 font-extrabold' : ''}>
+                4. Review & Confirm
+              </span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* STEP 1: CATEGORY & CHECKLIST SUBCATEGORIES */}
+        {/* STEP 1: SERVICE & SUBCATEGORIES */}
         {step === 1 && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
             <div>
               <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
-                Step 1 of 5 • Service Requirement
+                Step 1 of 4 • Select Service & Requirements
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-1">
-                What kind of help do you need today?
+                What trade service do you need?
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Select your main category and check off the exact tasks needed.
+                Choose the category and specify your tasks. KaamNow will automatically match the best-suited verified professional for you.
               </p>
             </div>
 
-            {/* Category Picker Dropdown / Chips */}
+            {/* Category selection */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Main Trade Category
+                Service Category
               </label>
               <select
                 value={selectedCategoryId}
@@ -354,46 +451,40 @@ export function BookingFlow() {
                   setSelectedCategoryId(e.target.value);
                   setSelectedSubcats([]);
                 }}
-                className="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full p-3.5 rounded-2xl border border-slate-200 bg-slate-50 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-500"
               >
-                {KAAMNOW_CATEGORIES.map(cat => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name} ({cat.hindiName || ''})
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {lang === 'hi' && c.hindiName ? `(${c.hindiName})` : ''}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Checklist of Sub-Services */}
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Select Specific Tasks (Check all that apply) *
-                </label>
-                <span className="text-xs text-indigo-600 font-bold">
-                  {selectedSubcats.length} selected
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {subcategoriesList.map((subcat) => {
+            {/* Specific subcategories checklist */}
+            <div className="space-y-3">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Select Your Required Tasks / Issues *
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {currentCategory.subcategories.map((subcat) => {
                   const isChecked = selectedSubcats.includes(subcat);
                   return (
                     <button
                       key={subcat}
                       type="button"
                       onClick={() => handleToggleSubcat(subcat)}
-                      className={`p-3.5 rounded-xl border-2 text-left text-xs font-bold transition-all flex items-center justify-between ${
-                        isChecked
-                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-900 shadow-xs'
-                          : 'border-slate-200 hover:border-slate-300 text-slate-700 bg-white'
+                      className={`p-3 rounded-xl border text-left text-xs font-bold flex items-center justify-between transition-all ${
+                        isChecked 
+                          ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950' 
+                          : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300'
                       }`}
                     >
                       <span>{subcat}</span>
-                      <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
-                        isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300'
+                      <div className={`w-5 h-5 rounded-md flex items-center justify-center border ${
+                        isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 bg-white'
                       }`}>
-                        {isChecked && <CheckCircle2 className="w-3.5 h-3.5" />}
+                        {isChecked && <Check className="w-3.5 h-3.5" />}
                       </div>
                     </button>
                   );
@@ -401,7 +492,7 @@ export function BookingFlow() {
               </div>
             </div>
 
-            {/* Action */}
+            {/* Step 1 Actions */}
             <div className="pt-4 flex justify-end">
               <button
                 type="button"
@@ -410,57 +501,39 @@ export function BookingFlow() {
                 }}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
               >
-                <span>Continue to Service Address</span>
+                <span>Continue to Location</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 2: SERVICE ADDRESS & GOOGLE MAPS PIN */}
+        {/* STEP 2: ADDRESS & MAP PIN */}
         {step === 2 && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
             <div>
               <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
-                Step 2 of 5 • Service Address
+                Step 2 of 4 • Service Location
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-1">
                 Where should the professional arrive?
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Detailed address and Google Maps pin ensure precise travel calculation.
+                Your precise location ensures accurate distance calculation and seamless arrival.
               </p>
             </div>
 
-            {/* Address Label Chips */}
-            <div className="flex gap-3">
-              {(['Home', 'Office', 'Other'] as const).map((lbl) => (
-                <button
-                  key={lbl}
-                  type="button"
-                  onClick={() => setAddressLabel(lbl)}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    addressLabel === lbl
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {lbl}
-                </button>
-              ))}
-            </div>
-
-            {/* Form Fields */}
+            {/* Address fields */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  House / Flat / Unit Number *
+                  House / Flat / Floor *
                 </label>
                 <input
                   type="text"
                   value={houseFlat}
                   onChange={(e) => setHouseFlat(e.target.value)}
-                  placeholder="e.g. Flat 402, Block B"
+                  placeholder="e.g. Flat 402, Tower B"
                   required
                   className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
@@ -468,13 +541,13 @@ export function BookingFlow() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Building / Street / Road Name *
+                  Building / Society / Street *
                 </label>
                 <input
                   type="text"
                   value={buildingStreet}
                   onChange={(e) => setBuildingStreet(e.target.value)}
-                  placeholder="e.g. Green Meadows, Sector 15"
+                  placeholder="e.g. Palm Grove Heights, Main Road"
                   required
                   className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
@@ -488,20 +561,20 @@ export function BookingFlow() {
                   type="text"
                   value={areaLocality}
                   onChange={(e) => setAreaLocality(e.target.value)}
-                  placeholder="e.g. Rohini / Indira Nagar"
+                  placeholder="e.g. Saket / Sector 62 / Cyber City"
                   className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Landmark (Optional)
+                  Landmark
                 </label>
                 <input
                   type="text"
                   value={landmark}
                   onChange={(e) => setLandmark(e.target.value)}
-                  placeholder="e.g. Near Metro Pillar 120"
+                  placeholder="e.g. Near Metro Station Gate 2"
                   className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
                 />
               </div>
@@ -522,9 +595,7 @@ export function BookingFlow() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    State
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">State</label>
                   <input
                     type="text"
                     value={stateName}
@@ -534,9 +605,7 @@ export function BookingFlow() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    PIN Code
-                  </label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">PIN Code</label>
                   <input
                     type="text"
                     value={pincode}
@@ -571,25 +640,17 @@ export function BookingFlow() {
 
             {/* Google Maps Pin */}
             <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-indigo-600" />
-                  Pin Location On Map (For Accurate Distance Calculation)
-                </label>
-                {coordinates && (
-                  <span className="text-[11px] font-mono text-slate-500">
-                    {coordinates.lat.toFixed(4)}°N, {coordinates.lng.toFixed(4)}°E
-                  </span>
-                )}
-              </div>
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-indigo-600" />
+                Pin Service Location on Map
+              </label>
               <GoogleMapPicker
                 value={coordinates}
-                onChange={setCoordinates}
-                addressInput={`${houseFlat} ${buildingStreet} ${city} ${stateName}`}
+                onChange={(newCoords) => setCoordinates(newCoords)}
               />
             </div>
 
-            {/* Action */}
+            {/* Step 2 Actions */}
             <div className="pt-4 flex justify-between">
               <button
                 type="button"
@@ -605,115 +666,174 @@ export function BookingFlow() {
                 }}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
               >
-                <span>Continue to Schedule & Safety</span>
+                <span>Continue to Schedule</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* STEP 3: SCHEDULE, URGENCY & SAFETY PREFERENCES */}
+        {/* STEP 3: BOOKING TYPE & SCHEDULING */}
         {step === 3 && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
             <div>
               <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
-                Step 3 of 5 • Timing & Safety
+                Step 3 of 4 • Booking Type & Schedule
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-1">
-                Schedule your visit & set comfort preferences
+                Choose Booking Type
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                Customize arrival timing, urgency level, and elder/women safe comfort criteria.
+                Select between Standard Scheduled visits or Urgent Immediate Dispatch.
               </p>
             </div>
 
-            {/* Date Slider */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <CalendarIcon className="w-4 h-4 text-indigo-600" />
-                Select Preferred Date
-              </label>
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
-                {availableDates.map(date => {
-                  const isSelected = selectedDate?.toDateString() === date.toDateString();
-                  return (
-                    <button
-                      key={date.toISOString()}
-                      type="button"
-                      onClick={() => setSelectedDate(date)}
-                      className={`flex flex-col items-center justify-center p-3 rounded-2xl border min-w-[76px] transition-all shrink-0 ${
-                        isSelected
-                          ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                          : 'bg-slate-50 text-slate-700 hover:border-slate-300 border-slate-200'
-                      }`}
-                    >
-                      <span className="text-[10px] font-bold uppercase opacity-80">{format(date, 'MMM')}</span>
-                      <span className="text-lg font-black my-0.5">{format(date, 'd')}</span>
-                      <span className="text-[10px] font-bold opacity-80">{format(date, 'EEE')}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            {/* Two-Type Booking Toggle */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button
+                type="button"
+                onClick={() => setBookingType('standard')}
+                className={`p-5 rounded-2xl border-2 text-left transition-all relative ${
+                  bookingType === 'standard'
+                    ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className={`w-5 h-5 ${bookingType === 'standard' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="font-black text-sm text-slate-900">Standard Booking</span>
+                  </div>
+                  {bookingType === 'standard' && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Scheduled future visit. Pick your preferred date and available arrival time window.
+                </p>
+                <span className="inline-block mt-3 text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded">
+                  Future Slots Only
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setBookingType('urgent')}
+                className={`p-5 rounded-2xl border-2 text-left transition-all relative ${
+                  bookingType === 'urgent'
+                    ? 'border-amber-500 bg-amber-50/50 shadow-sm'
+                    : 'border-slate-200 bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Zap className={`w-5 h-5 ${bookingType === 'urgent' ? 'text-amber-600' : 'text-slate-400'}`} />
+                    <span className="font-black text-sm text-slate-900">Urgent Booking</span>
+                  </div>
+                  {bookingType === 'urgent' && (
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Immediate service need. KaamNow automatically matches a nearby professional who can arrive within 30 minutes.
+                </p>
+                <span className="inline-block mt-3 text-[10px] font-bold text-amber-800 bg-amber-200/70 px-2 py-0.5 rounded">
+                  ⚡ 30-Minute Arrival Window
+                </span>
+              </button>
             </div>
 
-            {/* Time Slots */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-indigo-600" />
-                Select Preferred Arrival Window
-              </label>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {timeSlots.map(slot => (
-                  <button
-                    key={slot}
-                    type="button"
-                    onClick={() => setSelectedTime(slot)}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                      selectedTime === slot
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
-                        : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
-                    }`}
-                  >
-                    {slot}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* Standard Booking Scheduling Fields */}
+            {bookingType === 'standard' ? (
+              <div className="space-y-6 pt-2 border-t border-slate-100 animate-in fade-in-50 duration-200">
+                {/* Date Picker */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <CalendarIcon className="w-4 h-4 text-indigo-600" />
+                    Select Service Date
+                  </label>
+                  <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+                    {availableDates.map((date) => {
+                      const isSelected = selectedDate && format(selectedDate, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+                      return (
+                        <button
+                          key={date.toISOString()}
+                          type="button"
+                          onClick={() => setSelectedDate(date)}
+                          className={`flex flex-col items-center justify-center p-3 rounded-2xl border min-w-[76px] transition-all shrink-0 ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                              : 'bg-slate-50 text-slate-700 hover:border-slate-300 border-slate-200'
+                          }`}
+                        >
+                          <span className="text-[10px] font-bold uppercase opacity-80">{format(date, 'MMM')}</span>
+                          <span className="text-lg font-black my-0.5">{format(date, 'd')}</span>
+                          <span className="text-[10px] font-bold opacity-80">{format(date, 'EEE')}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
-            {/* Urgency */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Urgency Level
-              </label>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { id: 'normal', label: 'Standard Visit', sub: 'Regular scheduled time' },
-                  { id: 'urgent', label: 'Urgent (Within 4 hrs)', sub: 'Priority dispatch' },
-                  { id: 'emergency', label: 'Emergency (Immediate)', sub: 'Active leak / outage' }
-                ].map(u => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    onClick={() => setUrgency(u.id as any)}
-                    className={`p-3 rounded-xl border-2 text-left text-xs transition-all ${
-                      urgency === u.id
-                        ? 'border-indigo-600 bg-indigo-50/60 font-bold text-indigo-900'
-                        : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    <span className="block font-bold">{u.label}</span>
-                    <span className="text-[10px] text-slate-500 block mt-0.5">{u.sub}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+                {/* Dynamic Time Slots (Disables/hides passed slots for today) */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-indigo-600" />
+                    Select Available Arrival Window
+                  </label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                    {allTimeSlots.map(slot => {
+                      const isPassed = isSlotPassedToday(slot.startHour, slot.startMin, selectedDate);
+                      const isSelected = selectedTime === slot.id && !isPassed;
 
-            {/* Safety & Comfort Preferences */}
+                      return (
+                        <button
+                          key={slot.id}
+                          type="button"
+                          disabled={isPassed}
+                          onClick={() => setSelectedTime(slot.id)}
+                          className={`py-3 px-3 rounded-xl border text-xs font-bold transition-all text-center relative ${
+                            isPassed
+                              ? 'bg-slate-100 text-slate-400 border-slate-200 opacity-60 cursor-not-allowed'
+                              : isSelected
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                              : 'bg-white text-slate-700 hover:border-slate-300 border-slate-200'
+                          }`}
+                        >
+                          <span>{slot.id}</span>
+                          {isPassed && (
+                            <span className="block text-[9px] font-medium text-slate-400 uppercase tracking-wider mt-0.5">
+                              Passed
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-2">
+                    * Showing strictly active future windows. Passed time slots for today are automatically disabled.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              /* Urgent Booking Banner */
+              <div className="p-5 bg-amber-50 border border-amber-200 rounded-2xl space-y-2 animate-in fade-in-50 duration-200">
+                <div className="flex items-center gap-2 text-amber-900 font-black text-sm">
+                  <Zap className="w-4 h-4 text-amber-600 fill-amber-600" />
+                  <span>30-Minute Priority Dispatch Window</span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Upon confirmation, KaamNow will immediately locate the highest-rated verified trade master who can reach your address within 30 minutes via Google Maps traffic routing.
+                </p>
+              </div>
+            )}
+
+            {/* Safety Preferences */}
             <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-3">
               <div className="flex items-center gap-2">
                 <HeartHandshake className="w-4 h-4 text-indigo-600" />
                 <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
-                  Safety & Comfort Matching Filters
+                  Safety & Comfort Preferences
                 </h4>
               </div>
 
@@ -730,7 +850,7 @@ export function BookingFlow() {
                       Elder-Safe Verified Professional
                     </span>
                     <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                      Professionals verified for respectful communication, patience, and senior home protocols.
+                      Verified for patient communication, senior assistance, and respectful conduct.
                     </span>
                   </div>
                 </label>
@@ -747,28 +867,28 @@ export function BookingFlow() {
                       Women-Safe Verified Professional
                     </span>
                     <span className="text-[11px] text-slate-500 leading-tight block mt-0.5">
-                      Professionals with verified ID background checks and 5-star conduct records in family residences.
+                      100% ID checked with spotless 5-star ratings in household visits.
                     </span>
                   </div>
                 </label>
               </div>
             </div>
 
-            {/* Notes */}
+            {/* Additional Notes */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Additional Instructions / Problem Notes (Optional)
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Job Notes / Specific Problem Description (Optional)
               </label>
               <textarea
+                rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                placeholder="Describe any specifics e.g. switchboard sparking in kitchen, bring 15A socket..."
+                placeholder="e.g. Please bring a 10A MCB, main switch tripping intermittently..."
                 className="w-full p-3 rounded-xl border border-slate-200 text-xs font-medium focus:outline-none focus:border-indigo-500"
               />
             </div>
 
-            {/* Action */}
+            {/* Step 3 Actions */}
             <div className="pt-4 flex justify-between">
               <button
                 type="button"
@@ -784,200 +904,6 @@ export function BookingFlow() {
                 }}
                 className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
               >
-                <span>Compare Matched Professionals</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: COMPARE & SELECT SUITABLE MATCHED PROFESSIONALS */}
-        {step === 4 && (
-          <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
-            <div>
-              <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
-                Step 4 of 5 • Compare & Select
-              </span>
-              <h2 className="text-2xl font-black text-slate-900 mt-1">
-                Matched Professionals Nearby
-              </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Scored by skill overlap, GPS distance, verified ratings, safety credentials, and transparent rates.
-              </p>
-            </div>
-
-            {/* Matched Pros List */}
-            <div className="space-y-4">
-              {matchedPros.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 text-xs border border-dashed rounded-2xl">
-                  No direct local match found with selected filters. Showing all verified professionals.
-                </div>
-              ) : (
-                matchedPros.map(({ professional: pro, score, distanceKm, skillOverlapCount }) => {
-                  const isSelected = (selectedProId === pro.id) || (!selectedProId && pro.id === matchedPros[0].professional.id);
-
-                  return (
-                    <div
-                      key={pro.id}
-                      onClick={() => setSelectedProId(pro.id)}
-                      className={`p-5 rounded-2xl border-2 transition-all cursor-pointer ${
-                        isSelected
-                          ? 'border-indigo-600 bg-indigo-50/40 shadow-md ring-1 ring-indigo-500'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        
-                        {/* Pro identity */}
-                        <div className="flex items-start gap-4">
-                          <img
-                            src={pro.avatar}
-                            alt={pro.name}
-                            className="w-16 h-16 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0"
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="text-base font-black text-slate-900">{pro.name}</h3>
-                              {pro.verified && (
-                                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1">
-                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified
-                                </span>
-                              )}
-                              <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-black">
-                                {score}% Match
-                              </span>
-                            </div>
-
-                            <p className="text-xs text-slate-500 mt-0.5 line-clamp-1">{pro.tagline}</p>
-
-                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-slate-600">
-                              <span className="flex items-center gap-1 font-bold text-amber-500">
-                                <Star className="w-3.5 h-3.5 fill-amber-400" />
-                                {pro.rating} ({pro.reviewCount})
-                              </span>
-                              <span>•</span>
-                              <span className="text-slate-500">
-                                {pro.jobsCompleted}+ jobs completed
-                              </span>
-                              <span>•</span>
-                              <span className="text-indigo-600 font-semibold flex items-center gap-1">
-                                <MapPin className="w-3 h-3" />
-                                {distanceKm ? `${distanceKm} km away` : pro.location}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Pricing & Selection */}
-                        <div className="w-full sm:w-auto text-right flex flex-col items-end gap-2 shrink-0">
-                          <div>
-                            <span className="text-xs text-slate-400 block font-medium">Standard Rate</span>
-                            <span className="text-lg font-black text-slate-900">₹{pro.hourlyRate}/hr</span>
-                          </div>
-
-                          <div className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                            isSelected
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          }`}>
-                            {isSelected ? 'Selected ✓' : 'Select Professional'}
-                          </div>
-                        </div>
-
-                      </div>
-
-                      {/* Package selector inside selected pro */}
-                      {isSelected && (
-                        <div className="mt-4 pt-4 border-t border-indigo-100 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRateType('diagnostic');
-                            }}
-                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                              selectedRateType === 'diagnostic'
-                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
-                                : 'border-slate-200 bg-slate-50 text-slate-600'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Inspection</span>
-                            <span className="text-sm font-black text-slate-900 block">₹99</span>
-                            <span className="text-[10px] text-slate-500">Visit & diagnosis</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRateType('hourly');
-                            }}
-                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                              selectedRateType === 'hourly'
-                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
-                                : 'border-slate-200 bg-slate-50 text-slate-600'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">1 Hour</span>
-                            <span className="text-sm font-black text-slate-900 block">₹{pro.hourlyRate}</span>
-                            <span className="text-[10px] text-slate-500">Standard task</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRateType('four_hours');
-                            }}
-                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                              selectedRateType === 'four_hours'
-                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
-                                : 'border-slate-200 bg-slate-50 text-slate-600'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Half Day (4h)</span>
-                            <span className="text-sm font-black text-slate-900 block">₹{pro.fourHourRate || 1200}</span>
-                            <span className="text-[10px] text-slate-500">Multiple repairs</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedRateType('full_day');
-                            }}
-                            className={`p-2.5 rounded-xl border text-left text-xs transition-all ${
-                              selectedRateType === 'full_day'
-                                ? 'border-indigo-600 bg-white shadow-xs font-bold text-indigo-900'
-                                : 'border-slate-200 bg-slate-50 text-slate-600'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase font-bold text-indigo-600 block">Full Day (8h)</span>
-                            <span className="text-sm font-black text-slate-900 block">₹{pro.fullDayRate || 2200}</span>
-                            <span className="text-[10px] text-slate-500">Comprehensive job</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Action */}
-            <div className="pt-4 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(3)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
-              <button
-                type="button"
-                onClick={() => setStep(5)}
-                className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2"
-              >
                 <span>Proceed to Review & Confirm</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
@@ -985,204 +911,323 @@ export function BookingFlow() {
           </div>
         )}
 
-        {/* STEP 5: REVIEW & CONFIRM BOOKING */}
-        {step === 5 && (
+        {/* STEP 4: REVIEW & CONFIRM (AUTOMATED ASSIGNMENT) */}
+        {step === 4 && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-sm space-y-6">
             <div>
               <span className="text-xs font-extrabold text-indigo-600 uppercase tracking-widest">
-                Step 5 of 5 • Review & Confirm
+                Step 4 of 4 • Review & Confirm
               </span>
               <h2 className="text-2xl font-black text-slate-900 mt-1">
-                Confirm your booking details
+                Review your booking details
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                KaamNow Work Protection is automatically applied to this booking.
+                KaamNow will automatically assign the best-suited verified professional upon confirmation.
               </p>
             </div>
 
-            {/* Summary details card */}
-            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Professional</span>
-                  <p className="text-sm font-black text-slate-900">{selectedProfessional?.name}</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</span>
-                  <p className="text-sm font-bold text-indigo-600">{currentCategory.name}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Selected Tasks</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">{selectedSubcats.join(', ')}</p>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Schedule Window</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">
-                    {selectedDate && format(selectedDate, 'EEEE, MMMM d, yyyy')} at {selectedTime}
-                  </p>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Arrival Address</span>
-                  <p className="font-semibold text-slate-800 mt-0.5">
-                    {houseFlat}, {buildingStreet}, {areaLocality ? areaLocality + ', ' : ''}{city} {pincode}
-                  </p>
-                </div>
-              </div>
-
-              {/* KaamNow Work Protection Badge */}
-              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Shield className="w-5 h-5 text-emerald-600" />
+            {/* Fallback View if Urgent Pro Not Found */}
+            {urgentNotFound && (
+              <div className="p-6 bg-rose-50 border-2 border-rose-200 rounded-3xl space-y-4 animate-in fade-in-50">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
                   <div>
-                    <h4 className="text-xs font-bold text-emerald-950">KaamNow Work Protection Applied</h4>
-                    <p className="text-[10px] text-emerald-700">Covers damage, unresolved delays, and verified dispute resolution up to ₹10,000.</p>
+                    <h4 className="font-extrabold text-rose-950 text-sm">
+                      No professional is currently available within 30 minutes.
+                    </h4>
+                    <p className="text-xs text-rose-700 mt-1 leading-relaxed">
+                      All nearby verified trade masters in your immediate zone are currently on active jobs or outside the 30-minute road arrival window.
+                    </p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded">Included</span>
-              </div>
-            </div>
 
-            {/* Payment Method Selector */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                Payment Option
-              </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('cash')}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                    paymentMethod === 'cash'
-                      ? 'border-indigo-600 bg-indigo-50/50'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <span className="font-bold text-xs text-slate-900 block">Cash / UPI on Visit</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Pay directly to the professional upon diagnostic arrival or completion.
-                  </span>
-                </button>
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrgentNotFound(false);
+                      setBookingType('standard');
+                      setStep(3); // Switch to standard slot selector
+                    }}
+                    className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <CalendarIcon className="w-4 h-4" />
+                    <span>Choose Standard Slot</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod('online')}
-                  className={`p-4 rounded-2xl border-2 text-left transition-all ${
-                    paymentMethod === 'online'
-                      ? 'border-indigo-600 bg-indigo-50/50'
-                      : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <span className="font-bold text-xs text-slate-900 block">Pay Online via UPI/Card</span>
-                  <span className="text-[11px] text-slate-500 block mt-0.5">
-                    Secure checkout with instant digital invoice.
-                  </span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrgentNotFound(false);
+                      handleProceedBooking(); // Retry urgent matching
+                    }}
+                    className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Try Again</span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Transparent Pricing Breakdown */}
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
-              <div className="flex justify-between text-slate-600">
-                <span>Base Service Rate ({selectedRateType === 'diagnostic' ? 'Diagnostic Visit' : selectedRateType})</span>
-                <span className="font-bold">₹{basePrice}</span>
+            {/* Urgent Matching Loading State */}
+            {isSearchingUrgent && (
+              <div className="p-8 bg-indigo-50/70 border border-indigo-200 rounded-3xl text-center space-y-4 animate-in fade-in-50">
+                <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
+                  <div className="absolute inset-0 rounded-full border-4 border-indigo-200 animate-ping opacity-50"></div>
+                  <div className="w-14 h-14 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg">
+                    <Search className="w-7 h-7 animate-spin" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">
+                    Finding a professional near you...
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Analyzing real-time trade availability, distance, and 30-minute travel window via Maps.
+                  </p>
+                </div>
+                <div className="max-w-xs mx-auto space-y-1.5 text-[11px] font-bold text-left pt-2">
+                  <div className={`flex items-center gap-2 ${urgentSearchStage >= 1 ? 'text-indigo-700' : 'text-slate-400'}`}>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Scanning verified specialists in your area...</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${urgentSearchStage >= 2 ? 'text-indigo-700' : 'text-slate-400'}`}>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Calculating 30-minute travel window via Maps...</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${urgentSearchStage >= 3 ? 'text-indigo-700' : 'text-slate-400'}`}>
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirming trade master availability...</span>
+                  </div>
+                </div>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Platform Fee (5%)</span>
-                <span className="font-bold">₹{platformFee}</span>
-              </div>
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black text-slate-900">
-                <span>Total Amount</span>
-                <span className="text-xl font-extrabold text-indigo-600">₹{totalPrice}</span>
-              </div>
-            </div>
+            )}
 
-            {/* Action */}
-            <div className="pt-4 flex justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(4)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> Back
-              </button>
-              <button
-                type="button"
-                disabled={isSubmitting}
-                onClick={handleConfirmBooking}
-                className="px-8 py-3.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-2"
-              >
-                {isSubmitting ? 'Confirming...' : 'Confirm & Book Now'}
-                <CheckCircle2 className="w-4 h-4" />
-              </button>
-            </div>
+            {/* Summary Details */}
+            {!isSearchingUrgent && !urgentNotFound && (
+              <>
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Category</span>
+                      <p className="text-sm font-black text-slate-900">{currentCategory.name}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Booking Type</span>
+                      <p className={`text-sm font-black ${bookingType === 'urgent' ? 'text-amber-600' : 'text-indigo-600'}`}>
+                        {bookingType === 'urgent' ? '⚡ Urgent (30 Mins Arrival)' : 'Standard Scheduled'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Selected Tasks</span>
+                      <p className="font-semibold text-slate-800 mt-0.5">{selectedSubcats.join(', ')}</p>
+                    </div>
+
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Scheduled Time</span>
+                      <p className="font-semibold text-slate-800 mt-0.5">
+                        {bookingType === 'urgent'
+                          ? 'Immediate Arrival (Within 30 Minutes)'
+                          : `${selectedDate && format(selectedDate, 'EEEE, MMM d, yyyy')} at ${selectedTime}`}
+                      </p>
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Service Address</span>
+                      <p className="font-semibold text-slate-800 mt-0.5">
+                        {houseFlat}, {buildingStreet}, {areaLocality ? areaLocality + ', ' : ''}{city} {pincode}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Smart Auto-Assignment Assurance Card */}
+                  <div className="p-3.5 bg-indigo-50/80 border border-indigo-200 rounded-xl flex items-center gap-3">
+                    <Sparkles className="w-5 h-5 text-indigo-600 shrink-0" />
+                    <div className="text-xs">
+                      <h4 className="font-bold text-indigo-950">Automated KaamNow Professional Assignment</h4>
+                      <p className="text-[11px] text-indigo-800 mt-0.5">
+                        KaamNow automatically selects and assigns the highest-rated verified professional in your area based on trade skills, proximity, and availability.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* KaamNow Work Protection */}
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <Shield className="w-5 h-5 text-emerald-600 shrink-0" />
+                      <div>
+                        <h4 className="text-xs font-bold text-emerald-950">KaamNow Work Protection Included</h4>
+                        <p className="text-[10px] text-emerald-700">Covers damage, unresolved delays, and disputes up to ₹10,000.</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold text-emerald-800 bg-emerald-200/60 px-2 py-0.5 rounded">
+                      ₹0 Included
+                    </span>
+                  </div>
+                </div>
+
+                {/* Pricing Summary */}
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-600">
+                    <span>Diagnostic Visit Fee</span>
+                    <span className="font-bold">₹{basePrice}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Platform Service Fee (5%)</span>
+                    <span className="font-bold">₹{platformFee}</span>
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 flex justify-between items-center text-sm font-black text-slate-900">
+                    <span>Total Amount</span>
+                    <span className="text-xl font-extrabold text-indigo-600">₹{totalPrice}</span>
+                  </div>
+                </div>
+
+                {/* Step 4 Actions */}
+                <div className="pt-4 flex justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-1.5"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" /> Back
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSubmitting || isSearchingUrgent}
+                    onClick={handleProceedBooking}
+                    className={`px-8 py-3.5 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center gap-2 ${
+                      bookingType === 'urgent'
+                        ? 'bg-amber-600 hover:bg-amber-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      'Processing...'
+                    ) : bookingType === 'urgent' ? (
+                      <>
+                        <Zap className="w-4 h-4 fill-white" />
+                        <span>Find & Dispatch Urgent Pro</span>
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Confirm & Book Service</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         )}
 
-        {/* STEP 6: CONFIRMATION & LIVE TRACKER */}
-        {step === 6 && (
+        {/* STEP 5: CONFIRMATION & ASSIGNED PROFESSIONAL SCREEN */}
+        {step === 5 && (
           <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200/80 shadow-xl space-y-6 animate-in zoom-in-95 duration-200">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto shadow-inner">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
-                Booking Confirmed!
+                Booking Successfully Confirmed!
               </h2>
               <p className="text-xs text-slate-500">
                 Booking ID: <span className="font-mono font-bold text-slate-800">{createdBookingId}</span>
               </p>
             </div>
 
-            {/* Real-time Status Tracker */}
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800">
-                  KaamNow Live Status Machine
-                </h4>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
-                  Pro Selected
-                </span>
-              </div>
+            {/* ASSIGNED PROFESSIONAL CARD */}
+            {assignedProfessional && (
+              <div className="p-5 bg-gradient-to-br from-indigo-50/70 to-slate-50 border-2 border-indigo-200 rounded-3xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-indigo-600 uppercase tracking-wider bg-indigo-100/70 px-2.5 py-1 rounded-full">
+                    ✨ Automatically Assigned Professional
+                  </span>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100/70 px-2.5 py-1 rounded-full flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Verified & Dispatched
+                  </span>
+                </div>
 
-              {/* Status Stepper */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2">
-                {[
-                  { status: 'submitted', label: '1. Submitted', active: true },
-                  { status: 'pro_selected', label: '2. Pro Selected', active: true },
-                  { status: 'confirmed', label: '3. En Route / Arrived', active: false },
-                  { status: 'completed', label: '4. Completed', active: false }
-                ].map((st, i) => (
-                  <div 
-                    key={i} 
-                    className={`p-2 rounded-xl text-center text-xs font-bold ${
-                      st.active 
-                        ? 'bg-indigo-600 text-white' 
-                        : 'bg-white border border-slate-200 text-slate-400'
-                    }`}
-                  >
-                    {st.label}
+                <div className="flex items-start gap-4">
+                  <img
+                    src={assignedProfessional.avatar || 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&q=80&w=300'}
+                    alt={assignedProfessional.name}
+                    className="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md shrink-0"
+                  />
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-black text-slate-900">
+                        {assignedProfessional.name}
+                      </h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-600 text-white">
+                        Trade Master
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-indigo-900">
+                      {assignedProfessional.tagline}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-slate-600 pt-0.5">
+                      <span className="flex items-center gap-1 font-black text-slate-900">
+                        <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        {assignedProfessional.rating}
+                      </span>
+                      <span>•</span>
+                      <span>{assignedProfessional.reviewCount || 45} reviews</span>
+                      <span>•</span>
+                      <span>{assignedProfessional.jobsCompleted || 120}+ jobs completed</span>
+                    </div>
                   </div>
-                ))}
+                </div>
+
+                {/* Arrival Window / Status */}
+                <div className="p-3.5 bg-white rounded-2xl border border-indigo-100 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                      {bookingType === 'urgent' ? 'Urgent Arrival Window' : 'Scheduled Arrival'}
+                    </span>
+                    <p className="text-xs font-black text-slate-900 mt-0.5">
+                      {bookingType === 'urgent' 
+                        ? `⚡ Arriving in approx. ${assignedETA || 20} minutes`
+                        : `${selectedDate && format(selectedDate, 'EEE, MMM d')} (${selectedTime})`}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Helpline / Contact</span>
+                    <p className="text-xs font-bold text-indigo-600 mt-0.5">
+                      +91 {assignedProfessional.mobile || '9876543210'}
+                    </p>
+                  </div>
+                </div>
               </div>
+            )}
+
+            {/* Work Protection guarantee info */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl flex items-center gap-2.5 text-xs text-slate-600">
+              <Shield className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                Protected by <strong>KaamNow Work Protection</strong>. Inspection fee ₹99 payable upon arrival.
+              </span>
             </div>
 
             {/* Quick Actions */}
             <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Link
-                to="/dashboard"
-                className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md text-center flex items-center justify-center gap-2"
+                to="/dashboard?tab=bookings"
+                className="flex-1 py-3.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md text-center flex items-center justify-center gap-2"
               >
                 <span>View in Customer Dashboard</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 to="/"
-                className="py-3 px-5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl text-center"
+                className="py-3.5 px-5 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl text-center"
               >
                 Return to Home
               </Link>

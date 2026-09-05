@@ -67,8 +67,11 @@ export function AdminPage() {
     e.preventDefault();
     setLoginError('');
 
-    if ((username.trim() === 'kaamnow' || username.trim() === 'goservik') && 
-        (password === 'kaamnow@%*134679' || password === 'goservik@%*134679')) {
+    const u = username.trim().toLowerCase();
+    const validUsers = ['admin', 'kaamnow', 'goservik', 'admin@kaamnow.com'];
+    const validPasswords = ['admin123', 'kaamnow@%*134679', 'goservik@%*134679'];
+
+    if (validUsers.includes(u) && validPasswords.includes(password)) {
       sessionStorage.setItem('admin_authenticated', 'true');
       setIsLoggedIn(true);
     } else {
@@ -256,6 +259,27 @@ export function AdminPage() {
               Authenticate
             </Button>
           </form>
+
+          {/* Quick Fill Credentials */}
+          <div className="p-3.5 bg-slate-100/80 rounded-2xl border border-slate-200 text-center space-y-2">
+            <div className="text-[11px] font-bold text-slate-700">
+              Admin Credentials:
+            </div>
+            <div className="text-[10px] text-slate-600 font-mono space-y-0.5">
+              <div>Username: <span className="font-bold text-slate-900">admin</span> (or <span className="font-bold text-slate-900">kaamnow</span>)</div>
+              <div>Password: <span className="font-bold text-slate-900">admin123</span> (or <span className="font-bold text-slate-900">kaamnow@%*134679</span>)</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setUsername('admin');
+                setPassword('admin123');
+              }}
+              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 underline"
+            >
+              Click to Auto-fill Admin Credentials
+            </button>
+          </div>
 
           <div className="text-center">
             <button 

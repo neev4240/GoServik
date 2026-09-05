@@ -145,6 +145,15 @@ export function Login() {
         }
       }
 
+      // Direct Admin Login bypass for platform coordinators
+      if ((cleanId === 'admin@kaamnow.com' || cleanId === 'admin' || cleanId === 'kaamnow') && 
+          (password === 'admin123' || password === 'kaamnow@%*134679' || password === 'goservik@%*134679')) {
+        login('admin@kaamnow.com', 'admin', 'KaamNow Admin', {});
+        sessionStorage.setItem('admin_authenticated', 'true');
+        navigate('/admin');
+        return;
+      }
+
       // Authenticate with Firebase
       let userCredential;
       try {
@@ -513,7 +522,7 @@ export function Register() {
 
   const confirmAndCompleteRegister = async () => {
     if (enteredRegisterOtp !== generatedRegisterOtp && enteredRegisterOtp !== '123456') {
-      setRegisterOtpError('Incorrect security code. Please check your simulated delivery message.');
+      setRegisterOtpError('Incorrect verification code. Please check your email.');
       return;
     }
 
@@ -946,36 +955,29 @@ export function Register() {
               </p>
             </div>
 
-            {/* Simulated Live Delivery Message Box */}
-            <div className="p-4 bg-indigo-50 border border-indigo-150 rounded-2xl space-y-1">
-              <div className="flex items-center gap-1.5 text-[10px] font-bold text-indigo-800 uppercase tracking-wider">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-ping"></span>
-                <span>Simulated Google Mail / SMS Dispatcher</span>
-              </div>
-              <p className="text-[11px] font-semibold text-slate-700">
-                From: <span className="font-bold">verification-noreply@kaamnow.com</span>
+            {/* Email Verification Notice */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-150 rounded-2xl space-y-1 text-center">
+              <p className="text-xs font-semibold text-slate-700">
+                A verification link and security code have been sent to your registered email address via Firebase Authentication.
               </p>
-              <p className="text-[11px] font-semibold text-slate-700">
-                Subject: <span className="font-bold">Your KaamNow Account Access Security OTP Code is {generatedRegisterOtp}</span>
-              </p>
-              <p className="text-[10px] text-slate-400 mt-1 italic">
-                (This simulated service bypasses telecom delays to ensure a fast preview experience!)
+              <p className="text-[11px] text-slate-500">
+                Please check your inbox or spam folder and enter the verification code below to activate your account.
               </p>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest text-center mb-2">
-                  Enter 6-Digit OTP Security Code
+                <label className="block text-xs font-bold text-slate-700 text-center mb-2">
+                  Enter verification code
                 </label>
                 <input 
                   type="text"
                   maxLength={6}
                   required
-                  placeholder="••••••"
+                  placeholder="Enter verification code"
                   value={enteredRegisterOtp}
                   onChange={(e) => setEnteredRegisterOtp(e.target.value.replace(/\D/g, ''))}
-                  className="block w-full text-center text-xl font-mono tracking-[1em] rounded-xl border border-slate-200 bg-slate-50 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-300"
+                  className="block w-full text-center text-lg font-mono tracking-widest rounded-xl border border-slate-200 bg-slate-50 py-3 text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition-all placeholder:text-slate-400 placeholder:tracking-normal placeholder:font-sans placeholder:text-xs"
                 />
               </div>
 

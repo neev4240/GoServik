@@ -364,10 +364,10 @@ export function Explore() {
                     </div>
 
                     <Link
-                      to={`/book?proId=${pro.id}&category=${pro.skills[0]?.categoryId || 'cat-electrical'}`}
+                      to={`/book?category=${pro.skills[0]?.categoryId || 'cat-electrical'}`}
                       className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
                     >
-                      Book Professional <ArrowRight className="w-3.5 h-3.5" />
+                      Book Service <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>
                 </div>

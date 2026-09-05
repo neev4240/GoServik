@@ -37,6 +37,8 @@ export interface ScoredProfessional {
   matchedSubcategories: string[];
   totalRequestedSubcategories: number;
   distanceKm: number | null;
+  estimatedArrivalMinutes: number;
+  canArriveWithin30Min: boolean;
   skillOverlapCount: number;
   withinServiceRadius: boolean;
   scoreBreakdown: {
@@ -146,6 +148,18 @@ export function matchProfessionals(
       skillsMatchPoints + distancePoints + ratingPoints + experiencePoints + safetyPoints
     );
 
+    // Google Maps & NCR road traffic estimation:
+    // Average urban speed ~22 km/h + 5 min dispatch/prep time
+    const estimatedArrivalMinutes = distanceKm != null
+      ? Math.max(10, Math.round((distanceKm / 22) * 60) + 5)
+      : 35; // Default to 35 min if location cannot be computed
+
+    const canArriveWithin30Min = 
+      pro.availabilityStatus === 'available' && 
+      distanceKm != null && 
+      estimatedArrivalMinutes <= 30 &&
+      withinRadius;
+
     scored.push({
       professional: pro,
       matchScore,
@@ -153,6 +167,8 @@ export function matchProfessionals(
       matchedSubcategories,
       totalRequestedSubcategories: req.subcategories.length,
       distanceKm,
+      estimatedArrivalMinutes,
+      canArriveWithin30Min,
       skillOverlapCount: matchedSubcategories.length,
       withinServiceRadius: withinRadius,
       scoreBreakdown: {
@@ -175,4 +191,15 @@ export function matchProfessionals(
     }
     return (b.professional.rating || 0) - (a.professional.rating || 0);
   });
+}
+
+/**
+ * Filter professionals strictly eligible for 30-minute urgent dispatch
+ */
+export function findUrgentProfessionals(
+  professionals: ProfessionalProfile[],
+  req: MatchingRequirement
+): ScoredProfessional[] {
+  const allScored = matchProfessionals(professionals, req);
+  return allScored.filter(sp => sp.canArriveWithin30Min);
 }

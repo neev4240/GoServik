@@ -458,16 +458,16 @@ export function Home() {
 
               <div className="lg:col-span-3 flex flex-col gap-3 justify-center">
                 <Link
-                  to={`/book?proId=${sampleTestingPro.id}&category=${sampleTestingPro.skills[0]?.categoryId || 'cat-electrical'}`}
+                  to={`/book?category=${sampleTestingPro.skills[0]?.categoryId || 'cat-electrical'}`}
                   className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-center text-xs rounded-xl shadow-lg transition-all"
                 >
-                  Direct Book This Professional →
+                  Book Verified Trade Professional →
                 </Link>
                 <Link
                   to="/explore"
                   className="w-full py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-center text-xs rounded-xl border border-white/15 transition-all"
                 >
-                  Compare With Other Pros
+                  Explore All Verified Trade Masters
                 </Link>
               </div>
             </div>

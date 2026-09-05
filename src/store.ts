@@ -19,6 +19,7 @@ import { KAAMNOW_CATEGORIES } from './lib/categories';
 import { 
   DEMO_SAMPLE_TESTING_PRO, 
   DEMO_SECONDARY_PROS, 
+  ALL_DEMO_80_PROFESSIONALS,
   DEMO_SAMPLE_TESTING_REVIEWS, 
   DEMO_SAMPLE_TESTING_BOOKINGS,
   INITIAL_INCENTIVE_RULES,
@@ -96,7 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
     }
   })(),
   categories: KAAMNOW_CATEGORIES,
-  professionals: [DEMO_SAMPLE_TESTING_PRO, ...DEMO_SECONDARY_PROS],
+  professionals: [DEMO_SAMPLE_TESTING_PRO, ...ALL_DEMO_80_PROFESSIONALS],
   bookings: DEMO_SAMPLE_TESTING_BOOKINGS,
   reviews: DEMO_SAMPLE_TESTING_REVIEWS,
   savedProfessionals: [],
@@ -353,14 +354,15 @@ export const useStore = create<AppState>((set, get) => ({
       const proSnap = await getDocs(collection(db, 'professionals'));
       let loadedProfessionals = proSnap.docs.map(doc => doc.data() as ProfessionalProfile);
       
-      // Ensure Sample Testing pro is seeded
-      const hasSampleTesting = loadedProfessionals.some(p => p.id === DEMO_SAMPLE_TESTING_PRO.id || p.name === 'Sample Testing');
-      if (!hasSampleTesting) {
-        await setDoc(doc(db, 'professionals', DEMO_SAMPLE_TESTING_PRO.id), DEMO_SAMPLE_TESTING_PRO);
-        for (const pro of DEMO_SECONDARY_PROS) {
-          await setDoc(doc(db, 'professionals', pro.id), pro);
+      // Ensure Sample Testing pro and all 80 demo pros are available
+      if (loadedProfessionals.length < 80) {
+        const allProsToSeed = [DEMO_SAMPLE_TESTING_PRO, ...ALL_DEMO_80_PROFESSIONALS];
+        for (const pro of allProsToSeed) {
+          if (!loadedProfessionals.some(p => p.id === pro.id)) {
+            setDoc(doc(db, 'professionals', pro.id), pro).catch(() => {});
+          }
         }
-        loadedProfessionals = [DEMO_SAMPLE_TESTING_PRO, ...DEMO_SECONDARY_PROS, ...loadedProfessionals];
+        loadedProfessionals = allProsToSeed;
       }
 
       // 3. Fetch Bookings

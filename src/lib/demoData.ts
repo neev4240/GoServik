@@ -1,4 +1,7 @@
 import { ProfessionalProfile, Booking, Review, IncentiveRule, PlatformConfig } from '../types';
+import { ALL_DEMO_80_PROFESSIONALS } from './demoProfessionals';
+
+export { ALL_DEMO_80_PROFESSIONALS };
 
 export const DEMO_SAMPLE_TESTING_PRO: ProfessionalProfile = {
   id: 'pro-sample-testing',
